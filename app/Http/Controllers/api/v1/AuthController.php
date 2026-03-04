@@ -265,11 +265,11 @@ class AuthController extends Controller
         $user->verification_code_expire = null;
         $user->email_verified_at = now();
         $user->save();
-        $token = $user->createToken('auth-token')->plainTextToken;
+        // $token = $user->createToken('auth-token')->plainTextToken;
         return response()->json([
-            'message' => 'Email verified successfully',
-            'user' => $user,
-            'token' => $token
+            'message' => 'Email verified successfully. Please log in to continue',
+            // 'user' => $user,
+            // 'token' => $token
         ]);
     }
     public function resendCode(Request $request)
