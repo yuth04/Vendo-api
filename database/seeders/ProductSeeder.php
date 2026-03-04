@@ -28,7 +28,6 @@ class ProductSeeder extends Seeder
                 'slug' => \Str::slug($name),
                 'description' => $faker->sentence(),
                 'price' => $faker->numberBetween(10, 200),
-                'stock' => $faker->numberBetween(5, 100),
                 'category_id' => $faker->randomElement($categories),
                 'brand_id' => $faker->randomElement($brands),
                 'created_at' => Carbon::now(),
