@@ -50,8 +50,8 @@ class GoogleAuthController extends Controller
                         'google_id' => $googleUser->id,
                         'is_verified' => true,
                         'email_verified_at' => now(),
-                         'image' => $user->image ?? ($googleUser->avatar ?? $googleUser->user['picture'] ?? null),
-                        ]);
+                        'image' => $user->image ?? ($googleUser->avatar ?? $googleUser->user['picture'] ?? null),
+                    ]);
                 }
             }
 

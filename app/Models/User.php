@@ -28,7 +28,8 @@ class User extends Authenticatable
         'is_verified',
         'verification_code',
         'verification_code_expire',
-        'email_verified_at'
+        'email_verified_at',
+        'image_file_id'
 
     ];
     protected $appends = ['firstName', 'lastName'];

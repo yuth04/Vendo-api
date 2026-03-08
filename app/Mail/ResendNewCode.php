@@ -16,7 +16,7 @@ class ResendNewCode extends Mailable
     public function build()
     {
         return $this->subject('Your Verification Code')
-            ->view('emails.verify_otp')
+            ->view('emails.send_code')
             ->with([
                 'code' => $this->code
             ]);

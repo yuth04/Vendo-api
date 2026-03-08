@@ -41,31 +41,6 @@ class ProfileController extends Controller
             'data' => $user,
         ], 200);
     }
-    // public function updateProfileImage(Request $request)
-    // {
-    //     $request->validate([
-    //         'image' => 'required|image|max:5120',
-    //     ]);
-    //     $user = $request->user();
-
-    //     // delete old image if exist 
-    //     if ($user->image) {
-    //             \Storage::disk('public')->delete($user->image);
-    //     }
-    //     // store new image
-    //     $path = $request->file('image')->store('images', 'public');
-
-    //     $user->image = $path;
-    //     $user->save();
-
-    //     return response()->json([
-    //         'message' => 'Avatar updated successfully',
-    //         'image' => $user->image,
-    //     ]);
-
-
-    // }
-
 
 
 }

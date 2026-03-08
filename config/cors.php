@@ -20,7 +20,8 @@ return [
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'http://localhost:3000',
-        'http://localhost:5173'
+        'http://localhost:5173',
+        'https://vendo-ecommerce-two.vercel.app'
     ],
     'allowed_origins_patterns' => [],
 

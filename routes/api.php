@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\api\v1\CarouselController;
 use App\Http\Controllers\api\v1\GoogleAuthController;
 use App\Http\Controllers\api\v1\ImageController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProfileController;
 use App\Http\Controllers\api\v1\UserController;
+use App\Models\Carousel;
 use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Auth
@@ -21,11 +23,14 @@ Route::prefix('v1')->group(function () {
     Route::post('/resend-verification', [AuthController::class, 'resendCode']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-    
+    // Carousel
+    Route::get('/carousels', [CarouselController::class, 'index']);
+    Route::post('/carousels', [CarouselController::class, 'store']);
+    Route::post('/carousels/{id}/image', [CarouselController::class, 'updateImage']);
+    Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
     // Google OAuth 
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
-    Route::post('/auth/google/one-tap', [GoogleAuthController::class, 'handleOneTap']);
     // Public routes
     Route::prefix('public')->group(function () {
         //  Products
