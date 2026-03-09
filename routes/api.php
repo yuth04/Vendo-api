@@ -12,6 +12,7 @@ use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProfileController;
 use App\Http\Controllers\api\v1\UserController;
+use App\Http\Controllers\api\v1\WishlistController;
 use App\Models\Carousel;
 use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
@@ -42,7 +43,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{id}', [CategoryController::class, 'showById']);
         Route::get('/categories/slug/{slug}', [CategoryController::class, 'showBySlug']);
+
         Route::get('/parent-categories', [ParentCategoryController::class, 'index']);
+        Route::get('/parent-categories/search', [ParentCategoryController::class, 'searchName']);
         Route::get('/parent-categories/{id}', [ParentCategoryController::class, 'search']);
 
         //  Brands
@@ -72,6 +75,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/my-order', [OrderController::class, 'myOrders']);
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
+        // Wishlist
+        Route::prefix('wishlist')->group(function(){
+            Route::get('/',[WishlistController::class, 'index']);
+            Route::post('/',[WishlistController::class, 'store']);
+            Route::delete('/{id}',[WishlistController::class, 'destroy']);
+        });
+        
         // Admin route
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
 

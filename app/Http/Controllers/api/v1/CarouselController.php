@@ -35,12 +35,9 @@ class CarouselController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'nullable|string|max:255',
-            'description' => 'nullable|string|max:255',
+
             'image' => 'required|image|max:5120',
-            'link' => 'nullable|string|max:255',
-            'position' => 'nullable|integer',
-            'status' => 'nullable|boolean',
+
         ]);
 
         $file = $request->file('image');
@@ -60,13 +57,8 @@ class CarouselController extends Controller
         }
 
         $carousel = Carousel::create([
-            'title' => $request->title,
-            'description' => $request->description,
             'image' => $upload->result->url,
             'image_file_id' => $upload->result->fileId,
-            'link' => $request->link,
-            'position' => $request->position ?? 1,
-            'status' => $request->status ?? true,
         ]);
 
         return response()->json([
@@ -75,70 +67,12 @@ class CarouselController extends Controller
         ]);
     }
     // update
-    // public function update(Request $request, $id)
-    // {
-    //     $carousel = Carousel::findOrFail($id);
-
-    //     $request->validate([
-    //         'title' => 'nullable|string|max:255',
-    //         'description' => 'nullable|string|max:255',
-    //         'image' => 'nullable|image|max:5120',
-    //         'link' => 'nullable|string|max:255',
-    //         'position' => 'nullable|integer',
-    //         'status' => 'nullable|boolean',
-    //     ]);
-
-    //     // Update text fields
-    //     $carousel->title = $request->title ?? $carousel->title;
-    //     $carousel->description = $request->description ?? $carousel->description;
-    //     $carousel->link = $request->link ?? $carousel->link;
-    //     $carousel->position = $request->position ?? $carousel->position;
-    //     $carousel->status = $request->status ?? $carousel->status;
-
-    //     // Handle image
-    //     if ($request->hasFile('image')) {
-    //         $file = $request->file('image');
-
-    //         // Delete old image if exists
-    //         if ($carousel->image_file_id) {
-    //             try {
-    //                 $this->imageKit->deleteFile($carousel->image_file_id);
-    //             } catch (\Exception $e) {
-    //                 \Log::error("ImageKit delete failed: " . $e->getMessage());
-    //             }
-    //         }
-
-    //         // Upload new image
-    //         $upload = $this->imageKit->upload([
-    //             'file' => fopen($file->getRealPath(), 'r'),
-    //             'fileName' => time() . '_' . $file->getClientOriginalName(),
-    //             'folder' => '/carousels',
-    //         ]);
-
-    //         if (!empty($upload->error)) {
-    //             return response()->json([
-    //                 'message' => 'Image upload failed',
-    //                 'error' => $upload->error
-    //             ], 400);
-    //         }
-
-    //         $carousel->image = $upload->result->url;
-    //         $carousel->image_file_id = $upload->result->fileId;
-    //     }
-
-    //     $carousel->save();
-
-    //     return response()->json([
-    //         'message' => 'Carousel updated successfully',
-    //         'carousel' => $carousel
-    //     ]);
-    // }
     public function updateImage(Request $request, $id)
     {
         $carousel = Carousel::findOrFail($id);
 
         $request->validate([
-            'image' => 'required|image|max:5120', 
+            'image' => 'required|image|max:5120',
         ]);
 
         $file = $request->file('image');
@@ -165,11 +99,6 @@ class CarouselController extends Controller
                 'error' => $upload->error
             ], 400);
         }
-        $carousel->title = $request->title ?? $carousel->title;
-        $carousel->description = $request->description ?? $carousel->description;
-        $carousel->link = $request->link ?? $carousel->link;
-        $carousel->position = $request->position ?? $carousel->position;
-        $carousel->status = $request->status ?? $carousel->status;
         // Update image 
         $carousel->image = $upload->result->url;
         $carousel->image_file_id = $upload->result->fileId;

@@ -52,6 +52,7 @@ class ParentCategoryController extends Controller
             'data' => $baseCategories
         ], 200);
     }
+    // search by id
     public function search($id)
     {
         $parentCategories = ParentCategory::with(['categories.products'])->findOrFail($id);
@@ -66,6 +67,28 @@ class ParentCategoryController extends Controller
             'data' => $parentCategories
         ]);
     }
+    // search by name
+    public function searchName(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string'
+        ]);
+        $name = $request->input('name');
+
+        $parentCategories = ParentCategory::with(['categories.products'])
+            ->where('name', 'ILIKE', "%{$name}%")
+            ->get();
+        if ($parentCategories->isEmpty()) {
+            return response()->json([
+                'message' => 'No parent category found for the given name'
+            ], 400);
+        }
+        return response()->json([
+            'message' => 'Search successfully',
+            'data' => $parentCategories
+        ]);
+    }
+
     public function store(Request $request)
     {
 
@@ -91,7 +114,7 @@ class ParentCategoryController extends Controller
         $validated = $request->validate([
             'name' => "required|string|max:255"
         ]);
-         if (ParentCategory::where('name', $validated['name'])->exists()) {
+        if (ParentCategory::where('name', $validated['name'])->exists()) {
             return response()->json([
                 'message' => 'Parent category with this name already exists'
             ], 400);

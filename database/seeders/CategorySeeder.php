@@ -11,17 +11,23 @@ class CategorySeeder extends Seeder
     /**
      * Run the database seeds.
      */
-     public function run()
+    public function run()
     {
         $categories = ['T-Shirts', 'Jeans', 'Dresses', 'Shoes', 'Jackets', 'Hoodies'];
-
-        foreach ($categories as $category) {
-            DB::table('categories')->insert([
-                'name' => $category,
-                'slug' => \Str::slug($category),
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
-            ]);
+        $parentCategory = [
+            1,
+            2
+        ];
+        foreach ($parentCategory as $parentId) {
+            foreach ($categories as $category) {
+                DB::table('categories')->insert([
+                    'name' => $category,
+                    'parent_category_id'=>$parentId,
+                    'slug' => \Str::slug($category),
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now(),
+                ]);
+            }
         }
     }
 }
