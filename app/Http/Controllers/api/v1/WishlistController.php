@@ -84,8 +84,8 @@ class WishlistController extends Controller
     {
         $user = $request->user();
 
-        $deleted = Wishlist::where('id', $id)
-            ->where('user_id', $user->id)
+        $deleted = Wishlist::where('user_id', $user->id)
+            ->where('product_id', $id)
             ->delete();
 
         if (!$deleted) {
