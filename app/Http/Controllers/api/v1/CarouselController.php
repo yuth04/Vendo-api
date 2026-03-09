@@ -35,8 +35,11 @@ class CarouselController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:255',
             'image' => 'required|image|max:5120',
+            'link' => 'nullable|string|max:255',
+            'position' => 'nullable|boolean'
 
         ]);
 
@@ -57,7 +60,12 @@ class CarouselController extends Controller
         }
 
         $carousel = Carousel::create([
+            'title' => $request->title,
+            'description' => $request->description,
             'image' => $upload->result->url,
+            'link' => $request->link,
+            'position' => $request->position,
+            'status' => $request->status ?? true,
             'image_file_id' => $upload->result->fileId,
         ]);
 
@@ -72,40 +80,56 @@ class CarouselController extends Controller
         $carousel = Carousel::findOrFail($id);
 
         $request->validate([
-            'image' => 'required|image|max:5120',
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|max:5120', // max 5MB
+            'link' => 'nullable|string|max:255',
+            'position' => 'nullable|integer',
+            'status' => 'nullable|boolean',
         ]);
 
-        $file = $request->file('image');
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
 
-        // Delete old image if exists
-        if ($carousel->image_file_id) {
-            try {
-                $this->imageKit->deleteFile($carousel->image_file_id);
-            } catch (\Exception $e) {
-                \Log::error("ImageKit delete failed: " . $e->getMessage());
+            // Delete old image from ImageKit
+            if ($carousel->image_file_id) {
+                try {
+                    $this->imageKit->deleteFile($carousel->image_file_id);
+                } catch (\Exception $e) {
+                    \Log::error("ImageKit delete failed: " . $e->getMessage());
+                }
             }
+
+            // Upload new image to ImageKit
+            $upload = $this->imageKit->upload([
+                'file' => fopen($file->getRealPath(), 'r'),
+                'fileName' => time() . '_' . $file->getClientOriginalName(),
+                'folder' => '/carousels',
+            ]);
+
+            if (!empty($upload->error)) {
+                return response()->json([
+                    'message' => 'Image upload failed',
+                    'error' => $upload->error
+                ], 400);
+            }
+
+            // Save new image URL and file ID
+            $carousel->image = $upload->result->url;
+            $carousel->image_file_id = $upload->result->fileId;
         }
 
-        // Upload new image
-        $upload = $this->imageKit->upload([
-            'file' => fopen($file->getRealPath(), 'r'),
-            'fileName' => time() . '_' . $file->getClientOriginalName(),
-            'folder' => '/carousels',
-        ]);
+        // Update other fields if provided
+        $carousel->title = $request->title ?? $carousel->title;
+        $carousel->description = $request->description ?? $carousel->description;
+        $carousel->link = $request->link ?? $carousel->link;
+        $carousel->position = $request->position ?? $carousel->position;
+        $carousel->status = $request->status ?? $carousel->status;
 
-        if (!empty($upload->error)) {
-            return response()->json([
-                'message' => 'Image upload failed',
-                'error' => $upload->error
-            ], 400);
-        }
-        // Update image 
-        $carousel->image = $upload->result->url;
-        $carousel->image_file_id = $upload->result->fileId;
         $carousel->save();
 
         return response()->json([
-            'message' => 'Carousel image updated successfully',
+            'message' => 'Carousel updated successfully',
             'carousel' => $carousel
         ]);
     }

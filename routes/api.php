@@ -33,6 +33,9 @@ Route::prefix('v1')->group(function () {
     Route::prefix('public')->group(function () {
         // Carousel
         Route::get('/carousels', [CarouselController::class, 'index']);
+        Route::post('/carousels', [CarouselController::class, 'store']);
+        Route::post('/carousels/{id}', [CarouselController::class, 'updateImage']);
+        Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
         //  Products
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
@@ -91,9 +94,7 @@ Route::prefix('v1')->group(function () {
         // Admin route
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
             //Carousel 
-            Route::post('/carousels', [CarouselController::class, 'store']);
-            Route::post('/carousels/{id}/image', [CarouselController::class, 'updateImage']);
-            Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
+
             // Products
             Route::post('/products', [ProductController::class, 'store']);
             Route::put('/products/{id}', [ProductController::class, 'update']);
