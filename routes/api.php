@@ -11,6 +11,7 @@ use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProfileController;
+use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\UserController;
 use App\Http\Controllers\api\v1\WishlistController;
 use App\Models\Carousel;
@@ -76,12 +77,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/my-order', [OrderController::class, 'myOrders']);
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
         // Wishlist
-        Route::prefix('wishlist')->group(function(){
-            Route::get('/',[WishlistController::class, 'index']);
-            Route::post('/',[WishlistController::class, 'store']);
-            Route::delete('/{id}',[WishlistController::class, 'destroy']);
+        Route::prefix('wishlists')->group(function () {
+            Route::get('/', [WishlistController::class, 'index']);
+            Route::post('/', [WishlistController::class, 'store']);
+            Route::delete('/{id}', [WishlistController::class, 'destroy']);
         });
-        
+        // Review
+        Route::prefix('reviews')->group(function () {
+            Route::get('/', [ReviewController::class, 'index']);
+            Route::post('/', [ReviewController::class, 'store']);
+            Route::put('/{id}', [ReviewController::class, 'update']);
+            Route::delete('/{id}', [ReviewController::class, 'destroy']);
+        });
+
         // Admin route
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
 

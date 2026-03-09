@@ -20,7 +20,7 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
-            $table->tinyInteger('rating')->unsigned(); // 1–5 stars
+            $table->tinyInteger('rating')->unsigned(); 
 
             $table->text('comment')->nullable();
 
