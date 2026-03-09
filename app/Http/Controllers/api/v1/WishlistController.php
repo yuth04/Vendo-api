@@ -84,18 +84,16 @@ class WishlistController extends Controller
     {
         $user = $request->user();
 
-        $wishlistItem = Wishlist::where('user_id', $user->id)
-            ->where('product_id', $id)
-            ->first();
+        $deleted = Wishlist::where('id', $id)
+            ->where('user_id', $user->id)
+            ->delete();
 
-        if (!$wishlistItem) {
+        if (!$deleted) {
             return response()->json([
                 'message' => 'Wishlist item not found'
             ], 404);
         }
 
-        $wishlistItem->delete();
-        DB::statement("SELECT setval(pg_get_serial_sequence('wishlists', 'id'), coalesce(max(id), 0) + 1, false) FROM wishlists;");
         return response()->json([
             'message' => 'Product removed from wishlist'
         ], 200);

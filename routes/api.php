@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\api\v1\CarouselController;
+use App\Http\Controllers\api\v1\DiscountController;
 use App\Http\Controllers\api\v1\GoogleAuthController;
 use App\Http\Controllers\api\v1\ImageController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\UserController;
 use App\Http\Controllers\api\v1\WishlistController;
 use App\Models\Carousel;
+use App\Models\Product;
 use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
     // Auth
@@ -52,6 +54,24 @@ Route::prefix('v1')->group(function () {
         Route::get('/brands', [BrandController::class, 'index']);
         Route::get('/brands/{id}', [BrandController::class, 'showById']);
         Route::get('/brands/slug/{slug}', [BrandController::class, 'showBySlug']);
+
+        // Discount
+        Route::prefix('discounts')->group(function () {
+            Route::get('/', [DiscountController::class, 'index']);
+            Route::get('/{id}', [DiscountController::class, 'show']);
+            Route::post('/', [DiscountController::class, 'store']);
+            Route::put('/{id}', [DiscountController::class, 'update']);
+            Route::delete('/{id}', [DiscountController::class, 'destroy']);
+        });
+        Route::get('/products/{product}/discounted-price', function (Product $product, DiscountController $controller) {
+            $price = $controller->discountedPrice($product);
+
+            return response()->json([
+                'product_id' => $product->id,
+                'original_price' => $product->price,
+                'discounted_price' => $price,
+            ]);
+        });
     });
 
 

@@ -29,4 +29,14 @@ class Product extends Model
     {
         return $this->hasMany(ProductVariant::class);
     }
+
+    public function discounts()
+    {
+        return $this->hasMany(Discount::class);
+
+    }
+    public function activeDiscount()
+    {
+        return $this->hasOne(Discount::class)->latest();
+    }
 }

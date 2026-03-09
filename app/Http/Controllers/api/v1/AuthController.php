@@ -34,7 +34,7 @@ class AuthController extends Controller
             ]);
 
             $verification_code = rand(100000, 999999);
-            $expire = Carbon::now()->addMinutes(10);
+            $expire = Carbon::now()->addMinutes(5);
 
             $user = [
                 'first_name' => $validated['first_name'],
