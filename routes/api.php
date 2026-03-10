@@ -11,6 +11,7 @@ use App\Http\Controllers\api\v1\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ProductController;
+use App\Http\Controllers\api\v1\ProductImageController;
 use App\Http\Controllers\api\v1\ProfileController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\UserController;
@@ -54,7 +55,14 @@ Route::prefix('v1')->group(function () {
         Route::get('/brands', [BrandController::class, 'index']);
         Route::get('/brands/{id}', [BrandController::class, 'showById']);
         Route::get('/brands/slug/{slug}', [BrandController::class, 'showBySlug']);
+        // product images 
+        Route::prefix('product-images')->group(function () {
+            Route::get('/{variant_id}', [ProductImageController::class, 'index']);
+            Route::post('/', [ProductImageController::class, 'store']);
+            Route::put('/{id}', [ProductImageController::class, 'update']);
+            Route::delete('/{id}', [ProductImageController::class, 'destroy']);
 
+        });
         // Discount
         Route::prefix('discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'index']);

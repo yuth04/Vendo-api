@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Discount;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DiscountController extends Controller
 {
@@ -87,7 +88,7 @@ class DiscountController extends Controller
     {
         $discount = Discount::findOrFail($id);
         $discount->delete();
-
+        DB::statement("SELECT setval(pg_get_serial_sequence('discounts', 'id'), coalesce(max(id), 0) + 1, false) FROM discounts;");
         return response()->json([
             'message' => 'Discount deleted successfully',
         ]);

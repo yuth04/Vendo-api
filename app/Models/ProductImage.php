@@ -9,10 +9,14 @@ class ProductImage extends Model
     protected $fillable = [
         'variant_id',
         'image',
-        'position'
+        'position',
+        'is_primary',
+        'alt_text',
+        'image_file_id'
     ];
 
-    public function vairant(){
+    public function vairant()
+    {
         return $this->belongsTo(ProductVariant::class, 'variant_id');
     }
 }
