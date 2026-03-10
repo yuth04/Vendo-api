@@ -18,6 +18,7 @@ return new class extends Migration {
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('google_id')->nullable();
+            $table->string('role')->default('customer');
             $table->boolean('is_verified')->default(false);
             $table->string('verification_code')->nullable();
             $table->timestamp('verification_code_expire')->nullable();
