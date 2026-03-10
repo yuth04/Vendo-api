@@ -72,19 +72,10 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [DiscountController::class, 'update']);
             Route::delete('/{id}', [DiscountController::class, 'destroy']);
         });
-        Route::get('/products/{product}/discounted-price', function (Product $product, DiscountController $controller) {
-            $price = $controller->discountedPrice($product);
-
-            return response()->json([
-                'product_id' => $product->id,
-                'original_price' => $product->price,
-                'discounted_price' => $price,
-            ]);
-        });
     });
 
 
-    //  protected routes
+    //  Protected Routes
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
