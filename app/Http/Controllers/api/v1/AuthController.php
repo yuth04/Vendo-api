@@ -68,13 +68,13 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         try {
-            // 1. Validate input
+            //  Validate input
             $validated = $request->validate([
                 'email' => 'required|email',
                 'password' => 'required|string'
             ]);
 
-            // 2. Check if user exists
+            //  Check if user exists
             $user = User::where('email', $validated['email'])->first();
             if (!$user) {
                 return response()->json([
@@ -84,7 +84,7 @@ class AuthController extends Controller
                 ], 404);
             }
 
-            // 3. Check if user email is verified
+            // Check if user email is verified
             if (!$user->is_verified) {
                 return response()->json([
                     'errors' => [
@@ -102,10 +102,10 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // 5. Delete old tokens
+            //  Delete old tokens
             $user->tokens()->delete();
 
-            // 6. Create new token
+            //  Create new token
             $token = $user->createToken('api-token')->plainTextToken;
 
             // 7. Return response
@@ -127,7 +127,6 @@ class AuthController extends Controller
             ], 500);
         }
     }
-
     public function logout(Request $request)
     {
         if ($request->user()) {
@@ -143,12 +142,10 @@ class AuthController extends Controller
             'message' => 'No authenticated user found'
         ], 401);
     }
-
     public function me(Request $request)
     {
         return response()->json($request->user());
     }
-
     // change password
     public function changePassword(Request $request)
     {
@@ -177,7 +174,6 @@ class AuthController extends Controller
         ]);
 
     }
-
     public function forgotPassword(Request $request)
     {
         $request->validate([
@@ -186,21 +182,20 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        $token = Password::createToken($user);
+        // Create reset token
+        $token = Password::broker('users')->createToken($user);
 
         $link = url('/reset-password?token=' . $token . '&email=' . urlencode($request->email));
 
-        // Send email with token
-        Mail::to($request->email)->send(new ForgotPasswordMail($token, $link));
+        // Send mail
+        Mail::to($user->email)->send(new ForgotPasswordMail($token, $link));
 
         \Log::info('Password reset link: ' . $link);
 
         return response()->json([
             'message' => 'Password reset link has been sent to your email.',
-            'link_in_log' => true,
         ], 200);
     }
-
     // Reset
     public function resetPassword(Request $request)
     {
@@ -210,10 +205,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $credentials = $request->only('email', 'password', 'password_confirmation', 'token');
-
         $status = Password::broker('users')->reset(
-            $credentials,
+            $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
                 $user->password = Hash::make($password);
                 $user->setRememberToken(Str::random(60));
@@ -224,54 +217,15 @@ class AuthController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            return response()->json(['message' => 'Password reset successfully'], 200);
+            return response()->json([
+                'message' => 'Password reset successfully'
+            ], 200);
         }
 
-        return response()->json(['message' => 'Invalid token or email'], 400);
+        return response()->json([
+            'message' => __($status)
+        ], 400);
     }
-    // public function verifyEmail(Request $request)
-    // {
-    //     $request->validate([
-    //         'email' => 'required|email',
-    //         'verification_code' => 'required'
-    //     ]);
-
-    //     $user = User::where('email', $request->email)->first();
-
-    //     if (!$user) {
-    //         return response()->json(['message' => 'User not found'], 404);
-    //     }
-
-    //     if ($user->is_verified) {
-    //         return response()->json(['message' => 'Email already verified'], 400);
-    //     }
-
-    //     if (!$user->verification_code || !$user->verification_code_expire) {
-    //         return response()->json(['message' => 'Verification code not found'], 400);
-    //     }
-
-    //     if ($user->verification_code != $request->verification_code) {
-    //         return response()->json(['message' => 'Invalid verification code'], 400);
-    //     }
-
-    //     if (now()->greaterThan($user->verification_code_expire)) {
-    //         return response()->json(['message' => 'Verification code expired'], 400);
-    //     }
-
-    //     $user->is_verified = true;
-    //     $user->verification_code = null;
-    //     $user->verification_code_expire = null;
-    //     $user->email_verified_at = now();
-    //     $user->save();
-    //     // $token = $user->createToken('auth-token')->plainTextToken;
-    //     return response()->json([
-    //         'message' => 'Email verified successfully. Please log in to continue',
-    //         // 'user' => $user,
-    //         // 'token' => $token
-    //     ]);
-    // }
-
-
     public function verifyEmail(Request $request)
     {
         $request->validate([
@@ -346,33 +300,4 @@ class AuthController extends Controller
             'message' => 'New verification code sent'
         ]);
     }
-
-    // public function resendCode(Request $request)
-    // {
-    //     $request->validate([
-    //         'email' => 'required|email'
-    //     ]);
-
-    //     $user = User::where('email', $request->email)->first();
-
-    //     if (!$user) {
-    //         return response()->json(['message' => 'User not found'], 404);
-    //     }
-
-    //     if ($user->is_verified) {
-    //         return response()->json(['message' => 'Email already verified'], 400);
-    //     }
-
-    //     $code = rand(100000, 999999);
-
-    //     $user->verification_code = $code;
-    //     $user->verification_code_expire = now()->addMinutes(10);
-    //     $user->save();
-
-
-    //     Mail::to($request->email)->send(new ResendNewCode($code));
-    //     return response()->json([
-    //         'message' => 'New verification code sent'
-    //     ]);
-    // }
 }
