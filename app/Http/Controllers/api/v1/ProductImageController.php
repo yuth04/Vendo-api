@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use Illuminate\Http\Request;
 use ImageKit\ImageKit;
 
@@ -19,14 +20,23 @@ class ProductImageController extends Controller
             config('imagekit.url_endpoint')
         );
     }
-    public function index($vairant_id)
+    public function getAll()
     {
-        $images = ProductImage::where('variant_id', $vairant_id)
+        $variants = ProductVariant::with('images')->get();
+
+        return response()->json([
+            'message' => "Images retrieved successfully",
+            'variants' => $variants
+        ]);
+    }
+    public function index($variant_id)
+    {
+        $images = ProductImage::where('variant_id', $variant_id)
             ->orderBy('position')
             ->get();
 
         return response()->json([
-            'message' => "Images retrieved successfully",
+            'message' => "Search Image successfully",
             "Images" => $images
         ]);
 
