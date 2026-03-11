@@ -14,6 +14,7 @@ class Category extends Model
         'image',
         'parent_category_id'
     ];
+      protected $hidden = ['create_at','update_at'];
     public function products(){
         return $this->hasMany(Product::class);
     }

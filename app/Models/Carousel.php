@@ -15,4 +15,5 @@ class Carousel extends Model
         'position',
         'status'
     ];
+      protected $hidden = ['create_at','update_at'];
 }

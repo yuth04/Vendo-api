@@ -56,11 +56,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/brands/{id}', [BrandController::class, 'showById']);
         Route::get('/brands/slug/{slug}', [BrandController::class, 'showBySlug']);
         // product images 
-        Route::prefix(prefix: 'product-images')->group(function () {
+        Route::prefix('product-images')->group(function () {
             Route::get('/', [ProductImageController::class, 'getAll']);
             Route::get('/{variant_id}', [ProductImageController::class, 'index']);
-            Route::post('/', action: [ProductImageController::class, 'store']);
-            Route::put('/{id}', [ProductImageController::class, 'update']);
+            Route::post('/', [ProductImageController::class, 'store']);
+            Route::post('/{id}', [ProductImageController::class, 'update']);
             Route::delete('/{id}', [ProductImageController::class, 'destroy']);
 
         });

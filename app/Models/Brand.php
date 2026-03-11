@@ -11,6 +11,7 @@ class Brand extends Model
         'name',
         'slug',
     ];
+    protected $hidden = ['create_at','update_at'];
     public function products(){
         return $this->hasMany(Product::class);
         

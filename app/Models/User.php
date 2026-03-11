@@ -59,9 +59,9 @@ class User extends Authenticatable
         'is_verified',
         'verification_code',
         'verification_code_expire',
-        'email_verified_at'
+        'email_verified_at',
+        'create_at', 'update_at'
     ];
-
     /**
      * Get the attributes that should be cast.
      *
