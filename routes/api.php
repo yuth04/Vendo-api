@@ -59,10 +59,6 @@ Route::prefix('v1')->group(function () {
         Route::prefix('product-images')->group(function () {
             Route::get('/', [ProductImageController::class, 'getAll']);
             Route::get('/{variant_id}', [ProductImageController::class, 'index']);
-            Route::post('/', [ProductImageController::class, 'store']);
-            Route::post('/{id}', [ProductImageController::class, 'update']);
-            Route::delete('/{id}', [ProductImageController::class, 'destroy']);
-
         });
         // Discount
         Route::prefix('discounts')->group(function () {
@@ -107,6 +103,10 @@ Route::prefix('v1')->group(function () {
 
         // Admin route
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
+            // Variant images 
+            Route::post('/product-images', [ProductImageController::class, 'store']);
+            Route::post('/product-images/{id}', [ProductImageController::class, 'update']);
+            Route::delete('/product-images/{id}', [ProductImageController::class, 'destroy']);
             // Discount   
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);

@@ -15,7 +15,9 @@ class ProductController extends Controller
     public function index(Request $request)
     {
 
-        $products = Product::with(['category', 'brand', 'variants'])->get();
+        $products = Product::with(['category', 'brand', 'variants.images'])
+            ->orderBy('id', 'asc')
+            ->get();
 
         return response()->json([
             'message' => 'Fetched products successfully',

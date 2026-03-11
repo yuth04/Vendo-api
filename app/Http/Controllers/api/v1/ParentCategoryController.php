@@ -11,6 +11,7 @@ class ParentCategoryController extends Controller
     public function index()
     {
         $baseCategories = ParentCategory::with(['categories.products'])
+            ->orderBy('id', 'asc')
             ->get()
             ->map(function ($base) {
                 return [
