@@ -56,7 +56,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/brands/{id}', [BrandController::class, 'showById']);
         Route::get('/brands/slug/{slug}', [BrandController::class, 'showBySlug']);
         // product images 
-        Route::prefix('product-images')->group(function () {
+        Route::prefix(prefix: 'product-images')->group(function () {
             Route::get('/', [ProductImageController::class, 'getAll']);
             Route::get('/{variant_id}', [ProductImageController::class, 'index']);
             Route::post('/', action: [ProductImageController::class, 'store']);
@@ -67,10 +67,6 @@ Route::prefix('v1')->group(function () {
         // Discount
         Route::prefix('discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'index']);
-            Route::get('/{id}', [DiscountController::class, 'show']);
-            Route::post('/', [DiscountController::class, 'store']);
-            Route::put('/{id}', [DiscountController::class, 'update']);
-            Route::delete('/{id}', [DiscountController::class, 'destroy']);
         });
     });
 
@@ -111,6 +107,11 @@ Route::prefix('v1')->group(function () {
 
         // Admin route
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
+            // Discount   
+            Route::get('/discounts/{id}', [DiscountController::class, 'show']);
+            Route::post('/discounts', [DiscountController::class, 'store']);
+            Route::put('/discounts/{id}', [DiscountController::class, 'update']);
+            Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
             //Carousel 
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'updateImage']);
