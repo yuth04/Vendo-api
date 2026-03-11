@@ -11,7 +11,7 @@ class CartItem extends Model
         'product_variant_id',
         'quantity',
     ];
-  protected $hidden = ['create_at','update_at'];
+  protected $hidden = ['created_at','updated_at'];
     public function cart()
     {
         return $this->belongsTo(Cart::class);

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ProductVariant extends Model
 {
     protected $fillable = ['product_id', 'size', 'color', 'price', 'stock'];
-    protected $hidden = ['create_at', 'update_at'];
+    protected $hidden = ['created_at', 'updated_at'];
     public function product()
     {
         return $this->belongsTo(Product::class);

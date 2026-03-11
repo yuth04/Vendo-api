@@ -16,7 +16,7 @@ class OrderItem extends Model
         'color',
 
     ];
-    protected $hidden = ['create_at', 'update_at'];
+    protected $hidden = ['created_at', 'updated_at'];
     public function order()
     {
         return $this->belongsTo(Order::class);

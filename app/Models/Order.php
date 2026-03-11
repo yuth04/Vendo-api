@@ -12,7 +12,7 @@ class Order extends Model
         'total_price',
         'status',
     ];
-    protected $hidden = ['create_at', 'update_at'];
+    protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';
     const STATUS_COMPLETED = 'paid';
     const STATUS_DELIVERED = 'delivered';
