@@ -29,9 +29,11 @@ class DiscountController extends Controller
             'data' => $discounts,
         ]);
     }
+
+
     public function show($id)
     {
-        $discount = Discount::with('product')->findOrFail($id);
+        $discount = Discount::with('product.discount')->findOrFail($id);
         if (!$discount) {
             return response()->json([
                 'message' => "Discount not found"
@@ -50,6 +52,8 @@ class DiscountController extends Controller
             'description' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
             'type' => 'nullable|in:percent,fixed',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
         $discount = Discount::create([
@@ -58,6 +62,8 @@ class DiscountController extends Controller
             'description' => $validated['description'] ?? null,
             'amount' => $validated['amount'],
             'type' => $validated['type'] ?? 'percent',
+            'start_date' => $validated['start_date'] ?? null,
+            'end_date' => $validated['end_date'] ?? null,
         ]);
 
         return response()->json([

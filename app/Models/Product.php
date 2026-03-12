@@ -15,17 +15,21 @@ class Product extends Model
         'brand_id',
         'image',
     ];
-    protected $hidden = ['created_at', 'updated_at'];
+
+    protected $hidden = ['created_at', 'updated_at','activeDiscount'];
+
+    protected $appends = ['discount_price'];
+
     public function category()
     {
         return $this->belongsTo(Category::class);
-
     }
+
     public function brand()
     {
         return $this->belongsTo(Brand::class);
-
     }
+
     public function variants()
     {
         return $this->hasMany(ProductVariant::class);
@@ -34,10 +38,25 @@ class Product extends Model
     public function discounts()
     {
         return $this->hasMany(Discount::class);
-
     }
+
     public function activeDiscount()
     {
         return $this->hasOne(Discount::class)->latest();
+    }
+
+    public function getDiscountPriceAttribute()
+    {
+        $discount = $this->activeDiscount;
+
+        if (!$discount) {
+            return $this->price;
+        }
+
+        if ($discount->type === 'percent') {
+            return round($this->price - ($this->price * $discount->amount / 100), 2);
+        }
+
+        return round($this->price - $discount->amount, 2);
     }
 }

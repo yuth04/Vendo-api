@@ -15,7 +15,7 @@ class ProductController extends Controller
     public function index(Request $request)
     {
 
-        $products = Product::with(['category', 'brand', 'variants.images'])
+        $products = Product::with(['category', 'brand', 'variants'])
             ->orderBy('id', 'asc')
             ->get();
 
