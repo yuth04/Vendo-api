@@ -15,25 +15,28 @@ class CartController extends Controller
     public function index()
     {
         $cart = Cart::with('items.variant.product')
-            ->where([
-                'user_id' => Auth::id()
-            ])
+            ->where('user_id', Auth::id())
             ->first();
+
         if (!$cart) {
             return response()->json([
-                'message' => "Cart is empty",
-                'cart' => null
+                'message' => "Cart is empty"
             ]);
         }
+
+        $discountController = new DiscountController();
+
         return response()->json([
             'message' => "Get cart successfully",
             'cart' => [
                 'id' => $cart->id,
                 'total_quantity' => $cart->items->sum('quantity'),
-                'total_price' => $cart->items->sum(function ($item) {
-                    return $item->quantity * $item->variant->product->price;
+                'total_price' => $cart->items->sum(function ($item) use ($discountController) {
+                    return $item->quantity * $discountController->discountedPrice($item->variant->product);
                 }),
-                'items' => $cart->items->map(function ($item) {
+                'items' => $cart->items->map(function ($item) use ($discountController) {
+                    $discountedPrice = $discountController->discountedPrice($item->variant->product);
+
                     return [
                         'id' => $item->id,
                         'quantity' => $item->quantity,
@@ -41,14 +44,15 @@ class CartController extends Controller
                             'id' => $item->variant->id,
                             'size' => $item->variant->size,
                             'color' => $item->variant->color,
-                            'price' => (float) $item->variant->product->price,
+                            'price' => (float) $item->variant->product->price, // original price
+                            'discounted_price' => $discountedPrice, // new field
                             'stock' => $item->variant->stock,
                             'product' => [
                                 'id' => $item->variant->product->id,
                                 'name' => $item->variant->product->productName,
                             ],
                         ],
-                        'subtotal' => $item->quantity * (float) $item->variant->product->price,
+                        'subtotal' => $item->quantity * $discountedPrice,
                     ];
                 }),
             ]
