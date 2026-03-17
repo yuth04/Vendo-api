@@ -177,54 +177,98 @@ class AuthController extends Controller
     public function forgotPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email|exists:users,email'
+        ]);
+        $user = User::where('email', $request->email)->first();
+
+        $otp = rand(100000, 999999);
+        $expired = 5;
+
+        $user->verification_code = $otp;
+        $user->verification_code_expire = now()->addMinutes($expired);
+        $user->save();
+
+        Mail::to($user->email)->send(new ForgotPasswordMail($otp, $expired));
+        return response()->json([
+            'message' => 'Verification code sent to your email'
+        ]);
+
+    }
+    // Verify otp
+    public function verifycode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required'
+        ]);
+        $user = User::where('email', $request->email)
+            ->where('verification_code', $request->code)
+            ->first();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Invalid verification code'
+            ], 400);
+        }
+        if (now()->gt($user->verification_code_expire)) {
+            return response()->json([
+                'message' => 'Verification code expired'
+            ], 400);
+
+        }
+        return response()->json([
+            'message' => 'Code verified successfully'
+        ]);
+    }
+
+    // Reset
+    // public function resetPassword(Request $request)
+    // {
+    //     $request->validate([
+    //         'email' => 'required|email|exists:users,email',
+    //         'token' => 'required|string',
+    //         'password' => 'required|string|min:8|confirmed',
+    //     ]);
+
+    //     $status = Password::broker('users')->reset(
+    //         $request->only('email', 'password', 'password_confirmation', 'token'),
+    //         function ($user, $password) {
+    //             $user->password = Hash::make($password);
+    //             $user->setRememberToken(Str::random(60));
+    //             $user->save();
+
+    //             Mail::to($user->email)->send(new PasswordResetSuccess($user));
+    //         }
+    //     );
+
+    //     if ($status === Password::PASSWORD_RESET) {
+    //         return response()->json([
+    //             'message' => 'Password reset successfully'
+    //         ], 200);
+    //     }
+
+    //     return response()->json([
+    //         'message' => __($status)
+    //     ], 400);
+    // }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed'
         ]);
 
         $user = User::where('email', $request->email)->first();
 
-        // Create reset token
-        $token = Password::broker('users')->createToken($user);
+        $user->password = Hash::make($request->password);
+        $user->verification_code = null;
+        $user->verification_code_expire = null;
+        $user->save();
 
-        $link = url('/reset-password?token=' . $token . '&email=' . urlencode($request->email));
-
-        // Send mail
-        Mail::to($user->email)->send(new ForgotPasswordMail($token, $link));
-
-        \Log::info('Password reset link: ' . $link);
-
+        Mail::to($user->email)->send(new PasswordResetSuccess($user));
         return response()->json([
-            'message' => 'Password reset link has been sent to your email.',
-        ], 200);
-    }
-    // Reset
-    public function resetPassword(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email|exists:users,email',
-            'token' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'message' => 'Password reset successfully'
         ]);
-
-        $status = Password::broker('users')->reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->password = Hash::make($password);
-                $user->setRememberToken(Str::random(60));
-                $user->save();
-
-                Mail::to($user->email)->send(new PasswordResetSuccess($user));
-            }
-        );
-
-        if ($status === Password::PASSWORD_RESET) {
-            return response()->json([
-                'message' => 'Password reset successfully'
-            ], 200);
-        }
-
-        return response()->json([
-            'message' => __($status)
-        ], 400);
     }
     public function verifyEmail(Request $request)
     {
@@ -292,7 +336,7 @@ class AuthController extends Controller
         $data['verification_code'] = $newCode;
 
         // reset cache with new code
-        Cache::put('register_' . $request->email, $data, now()->addMinutes(10));
+        Cache::put('register_' . $request->email, $data, now()->addMinutes(5));
 
         Mail::to($request->email)->send(new ResendNewCode($newCode));
 

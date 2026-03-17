@@ -20,7 +20,7 @@ class ProductController extends Controller
             ->get();
 
         return response()->json([
-            'message' => 'Fetched products successfully',
+            'message' => 'Retrieved products successfully',
             'product' => $products
         ]);
 
@@ -246,12 +246,12 @@ class ProductController extends Controller
 
             // Save new image URL
             $product->image = $upload->result->url;
-            $product->save(); // save to database
+            $product->save(); 
         }
 
         return response()->json([
             'message' => 'Upload image successfully',
-            'product' => $product->fresh(), // now includes uploaded image
+            'product' => $product->fresh(),
         ]);
     }
 }

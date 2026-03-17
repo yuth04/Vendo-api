@@ -45,6 +45,7 @@ class User extends Authenticatable
     {
         return $this->attributes['last_name'];
     }
+
     /**
      * The attributes that should be hidden for serialization.
      *
@@ -60,7 +61,8 @@ class User extends Authenticatable
         'verification_code',
         'verification_code_expire',
         'email_verified_at',
-        'create_at', 'update_at'
+        'create_at',
+        'update_at'
     ];
     /**
      * Get the attributes that should be cast.
@@ -81,5 +83,9 @@ class User extends Authenticatable
     public function orders()
     {
         return $this->hasMany(Order::class);
+    }
+    public function addresses()
+    {
+        return $this->hasMany(Address::class);
     }
 }

@@ -16,8 +16,6 @@ return new class extends Migration {
             $table->string('order_number')->unique();
             $table->decimal('total_price', 10, 2);
             $table->enum('status', ['pending', 'paid', 'delivered', 'cancelled'])->default('pending');
-            $table->string('shipping_address');
-            $table->string('phone');
             $table->timestamps();
         });
     }

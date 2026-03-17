@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\api\v1\AddressController;
 use App\Http\Controllers\api\v1\CarouselController;
 use App\Http\Controllers\api\v1\DiscountController;
 use App\Http\Controllers\api\v1\GoogleAuthController;
@@ -20,21 +21,22 @@ use App\Models\Carousel;
 use App\Models\Product;
 use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(function () {
-    // Auth
+    // Auths
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');
-    // Email Verification
+    // Email Verifications
     Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
-    Route::post('/resend-verification', [AuthController::class, 'resendCode']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/verify-code', [AuthController::class, 'verifyCode']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-
-    // Google OAuth 
+    // Provinces
+    Route::get('/provinces', [AddressController::class, 'provinces']);
+    // Google OAuths
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
     // Public routes
     Route::prefix('public')->group(function () {
-        // Carousel
+        // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
 
         //  Products
@@ -60,7 +62,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [ProductImageController::class, 'getAll']);
             Route::get('/{variant_id}', [ProductImageController::class, 'index']);
         });
-        // Discount
+        // Discounts
         Route::prefix('discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'index']);
         });
@@ -75,30 +77,37 @@ Route::prefix('v1')->group(function () {
         Route::post('/profile/upload-image', [ImageController::class, 'uploadProfileImage']);
         Route::get('/profile/images', [ProfileController::class, 'getProfileImage']);
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
-        // Carts 
+        // Carts s
         Route::get('/cart', [CartController::class, 'index']);
         Route::post('/cart/add', [CartController::class, 'store']);
-        // Update Cart Item
+        // Update Cart Items
         Route::put('/cart/item/{id}', [CartController::class, 'updateItem']);
         Route::delete('/cart/item/{id}', [CartController::class, 'destroy']);
         Route::delete('/cart', [CartController::class, 'clearCart']);
 
-        // Checkout
+        // Checkouts
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/my-order', [OrderController::class, 'myOrders']);
-        Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel']);
-        // Wishlist
+        Route::delete('/orders/{order}/cancel', [OrderController::class, 'cancel']);
+        // Wishlists
         Route::prefix('wishlists')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);
             Route::post('/', [WishlistController::class, 'store']);
             Route::delete('/{id}', [WishlistController::class, 'destroy']);
         });
-        // Review
+        // Reviews
         Route::prefix('reviews')->group(function () {
             Route::get('/', [ReviewController::class, 'index']);
             Route::post('/', [ReviewController::class, 'store']);
             Route::put('/{id}', [ReviewController::class, 'update']);
             Route::delete('/{id}', [ReviewController::class, 'destroy']);
+        });
+        // Addresses
+        Route::prefix('addresses')->group(function () {
+            Route::get('/my-address', [AddressController::class, 'index']);
+            Route::post('/my-address', [AddressController::class, 'store']);
+            Route::put('/my-address/{id}', [AddressController::class, 'update']);
+            Route::delete('/my-address/{id}', [AddressController::class, 'destroy']);
         });
 
         // Admin route
@@ -107,12 +116,12 @@ Route::prefix('v1')->group(function () {
             Route::post('/product-images', [ProductImageController::class, 'store']);
             Route::post('/product-images/{id}', [ProductImageController::class, 'update']);
             Route::delete('/product-images/{id}', [ProductImageController::class, 'destroy']);
-            // Discount   
+            // Discounts   
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
             Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
-            //Carousel 
+            //Carousels
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'updateImage']);
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
