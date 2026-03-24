@@ -71,9 +71,6 @@ class AddressController extends Controller
     // update
     public function update(Request $request, $id)
     {
-
-
-
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',

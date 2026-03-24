@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Http\Controllers\api\v1;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\Cart;
 use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\User;
+use App\Services\DiscountService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,104 +17,95 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
-    // Check out cart and create order
+    protected $discountService;
+
+    public function __construct(DiscountService $discountService)
+    {
+        $this->discountService = $discountService;
+    }
+
+    /**
+     * ✅ Checkout - only for logged-in users
+     */
     public function checkout(Request $request)
     {
-        // Validate the input
-        $data = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'nullable|string|max:255',
-            'address_line' => 'required|string|max:500',
-            'city' => 'required|string|max:255',
-            'province' => 'nullable|string|max:255',
-            'postal_code' => 'nullable|string|max:20',
-            'phone' => 'required|string|max:20',
-            'is_default' => 'nullable|boolean',
+        // Guests cannot checkout
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Login required to place an order'], 401);
+        }
+
+        $request->validate([
+            'address_id' => 'required|exists:addresses,id'
         ]);
 
         $user = Auth::user();
 
-        $cart = Cart::with('items.variant')->where('user_id', $user->id)->first();
+        // Use DB cart for logged-in users
+        $cart = Cart::with('items.variant.product')
+            ->where('user_id', $user->id)
+            ->first();
 
         if (!$cart || $cart->items->isEmpty()) {
-            return response()->json([
-                'message' => 'Cart is empty!'
-            ], 400);
+            return response()->json(['message' => 'Cart is empty'], 400);
         }
 
         try {
-            $order = DB::transaction(function () use ($user, $cart, $data) {
+            $order = DB::transaction(function () use ($user, $cart, $request) {
 
-                // If user wants this as default address, unset other default addresses
-                if (!empty($data['is_default']) && $data['is_default']) {
-                    Address::where('user_id', $user->id)->update(['is_default' => false]);
-                }
+                $address = Address::where('id', $request->address_id)
+                    ->where('user_id', $user->id)
+                    ->firstOrFail();
 
-                // Create the address
-                $address = Address::create([
-                    'user_id' => $user->id,
-                    'first_name' => $data['first_name'],
-                    'last_name' => $data['last_name'] ?? null,
-                    'address_line' => $data['address_line'],
-                    'city' => $data['city'],
-                    'province' => $data['province'] ?? null,
-                    'postal_code' => $data['postal_code'] ?? null,
-                    'phone' => $data['phone'],
-                    'is_default' => $data['is_default'] ?? false,
-                ]);
-
-                // Calculate total price
-                $totalPrice = 0;
-                foreach ($cart->items as $cartItem) {
-                    $variant = $cartItem->variant;
-                    if (!$variant)
-                        throw new Exception("Variant not found for CartItem ID {$cartItem->id}");
-                    if ($variant->stock < $cartItem->quantity)
-                        throw new Exception("Not enough stock for {$variant->product->productName}");
-
-                    $price = $variant->price > 0 ? $variant->price : $variant->product->price;
-                    $totalPrice += $cartItem->quantity * $price;
-
-                    // Decrement stock
-                    $variant->decrement('stock', $cartItem->quantity);
-                }
-
-                // Create order linked to the address
                 $order = Order::create([
                     'user_id' => $user->id,
                     'address_id' => $address->id,
-                    'total_price' => $totalPrice,
+                    'total_price' => 0,
                     'status' => 'pending',
                     'order_number' => 'ODR-' . strtoupper(Str::random(10)),
                 ]);
 
-                // Transfer cart items to order
-                foreach ($cart->items as $cartItem) {
-                    $variant = $cartItem->variant;
-                    $price = $variant->price > 0 ? $variant->price : $variant->product->price;
+                $total = 0;
+
+                foreach ($cart->items as $item) {
+
+                    $variant = ProductVariant::where('id', $item->product_variant_id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($variant->stock < $item->quantity) {
+                        throw new Exception("Stock not enough for {$variant->product->productName}");
+                    }
+
+                    $price = $this->discountService->discountedPrice($variant->product);
+                    $subtotal = $price * $item->quantity;
+                    $total += $subtotal;
+
+                    // Reduce stock
+                    $variant->decrement('stock', $item->quantity);
 
                     $order->items()->create([
                         'product_variant_id' => $variant->id,
                         'product_name' => $variant->product->productName,
                         'price' => $price,
-                        'quantity' => $cartItem->quantity,
+                        'quantity' => $item->quantity,
                         'size' => $variant->size,
-                        'color' => $variant->color
+                        'color' => $variant->color,
                     ]);
                 }
 
-                // Clear cart
+                // Update total price
+                $order->update(['total_price' => $total]);
+
+                // Clear cart and cart items
                 $cart->items()->delete();
+                $cart->delete();
 
                 return $order;
             });
 
             return response()->json([
                 'message' => 'Order placed successfully',
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'total_price' => number_format($order->total_price, 2),
-                'status' => $order->status
+                'order' => $this->formatOrder($order)
             ], 201);
 
         } catch (Exception $e) {
@@ -122,168 +115,114 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    // view order
+
+    /**
+     * ✅ Get current user's orders
+     */
     public function myOrders()
     {
-        $orders = Auth::user()
-            ->orders()
-            ->with('items.variant.product')
-            ->latest()
-            ->get();
-        if ($orders->isEmpty()) {
-            return response()->json([
-                'message' => 'No orders found'
-            ], 404);
-        }
-        // tranform order
-        $orders->transform(function ($order) {
-            $order->items->transform(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'quantity' => $item->quantity,
-                    'price' => (float) $item->price,
-                    'subtotal' => (float) ($item->price * $item->quantity),
-                    'variant' => [
-                        'id' => $item->variant->id,
-                        'size' => $item->variant->size,
-                        'color' => $item->variant->color,
-                        'product' => [
-                            'id' => $item->variant->product->id,
-                            'name' => $item->variant->product->productName,
-                            'slug' => $item->variant->product->slug,
-                            'price' => (float) $item->variant->product->price,
-                        ]
-                    ]
-                ];
-            });
-            return [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'status' => $order->status,
-                'total_price' => (float) $order->total_price,
-                'items' => $order->items
-            ];
-        });
+        $user = Auth::user();
+        $orders = $user->orders()->with('items.variant.product')->latest()->get();
 
         return response()->json([
-            'message' => 'Orders retrieved successfully',
-            'orders' => $orders
+            'message' => $orders->isEmpty() ? 'No orders found' : 'Orders retrieved successfully',
+            'orders' => $orders->map(fn($order) => $this->formatOrder($order))
         ]);
     }
-    //  cancel order
+
+    /**
+     * ✅ Cancel order
+     */
     public function cancel($orderId)
     {
         $user = Auth::user();
-        // find user order
         $order = $user->orders()->with('items.variant')->find($orderId);
 
-        if ($user->role === "admin") {
-            return response()->json([
-                'message' => 'Admin cannot cancel orders'
-            ], 403);
-        }
+        if (!$order) return response()->json(['message' => 'Order not found'], 404);
+        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot cancel orders'], 403);
+        if ($order->status !== 'pending') return response()->json(['message' => 'Only pending orders can be canceled'], 400);
 
-        if (!$order) {
-            return response()->json([
-                'message' => 'Order not found'
-            ], 404);
-        }
-
-        // only allow cancel if pending
-        if ($order->status !== "pending") {
-            return response()->json([
-                'message' => 'Only pending orders can be canceled'
-            ], 400);
-        }
         DB::transaction(function () use ($order) {
             foreach ($order->items as $item) {
-                $variant = $item->variant;
-
-                if ($variant) {
-                    // Restore stock
-                    $variant->increment('stock', $item->quantity);
-                }
+                $item->variant?->increment('stock', $item->quantity);
             }
-
-            // Update order status
-            $order->update([
-                'status' => 'cancelled'
-            ]);
+            $order->update(['status' => 'cancelled']);
         });
 
-        return response()->json([
-            'message' => 'Order cancelled successfully',
-            'order_id' => $order->id,
-            'status' => 'cancelled'
-        ]);
-
+        return response()->json(['message' => 'Order cancelled successfully', 'order' => $this->formatOrder($order->fresh())]);
     }
-    // show order history of user (for admin)
+
+    /**
+     * ✅ Delete order
+     */
+    public function destroy($orderId)
+    {
+        $user = Auth::user();
+        $order = $user->orders()->with('items.variant')->find($orderId);
+
+        if (!$order) return response()->json(['message' => 'Order not found'], 404);
+        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot delete orders'], 403);
+        if ($order->status !== 'pending') return response()->json(['message' => 'Only pending orders can be deleted'], 400);
+
+        DB::transaction(function () use ($order) {
+            foreach ($order->items as $item) {
+                $item->variant?->increment('stock', $item->quantity);
+            }
+            $order->items()->delete();
+            $order->delete();
+        });
+
+        return response()->json(['message' => 'Order deleted successfully', 'order_id' => $orderId]);
+    }
+
+    /**
+     * ✅ Admin: view specific user's orders
+     */
     public function userOrderHistory(User $user)
     {
-        $orders = $user->orders()
-            ->with(['items.variant.product'])
-            ->latest()
-            ->get();
-        if ($user->role === "admin") {
-            return response()->json([
-                'message' => 'Admin cannot view order history',
-                'orders' => []
-            ]);
-        }
-        if ($orders->isEmpty()) {
-            return response()->json([
-                'status' => 'success',
-                'user' => [
-                    'id' => $user->id,
-                    'firstName' => $user->first_name,
-                    'lastName' => $user->last_name,
-                    'email' => $user->email
-                ],
-                'orders' => []
-            ]);
-        }
+        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot view order history', 'orders' => []]);
 
-        // Transform orders for clean admin view
-        $orders->transform(function ($order) {
-            $order->items->transform(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'quantity' => $item->quantity,
-                    'price' => (float) $item->price,
-                    'subtotal' => (float) ($item->price * $item->quantity),
-                    'variant' => [
-                        'id' => $item->variant->id,
-                        'size' => $item->variant->size,
-                        'color' => $item->variant->color,
-                        'product' => [
-                            'id' => $item->variant->product->id,
-                            'name' => $item->variant->product->productName,
-                            'slug' => $item->variant->product->slug,
-                            'price' => (float) $item->variant->product->price,
-                        ]
-                    ]
-                ];
-            });
-
-            return [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'status' => $order->status,
-                'total_price' => (float) $order->total_price,
-                'items' => $order->items
-            ];
-        });
+        $orders = $user->orders()->with('items.variant.product')->latest()->get();
 
         return response()->json([
             'status' => 'success',
             'user' => [
                 'id' => $user->id,
-                'firstName' => $user->firstName,
-                'lastName' => $user->lastName,
+                'firstName' => $user->first_name,
+                'lastName' => $user->last_name,
                 'email' => $user->email
             ],
-            'orders' => $orders
+            'orders' => $orders->map(fn($order) => $this->formatOrder($order))
         ]);
+    }
+
+    /**
+     * ✅ Helper: Format order response
+     */
+    private function formatOrder($order)
+    {
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'status' => $order->status,
+            'total_price' => (float) $order->total_price,
+            'items' => $order->items->map(fn($item) => [
+                'id' => $item->id,
+                'quantity' => $item->quantity,
+                'price' => (float) $item->price,
+                'subtotal' => (float) ($item->price * $item->quantity),
+                'variant' => [
+                    'id' => $item->variant->id,
+                    'size' => $item->variant->size,
+                    'color' => $item->variant->color,
+                    'product' => [
+                        'id' => $item->variant->product->id,
+                        'name' => $item->variant->product->productName,
+                        'slug' => $item->variant->product->slug,
+                        'price' => (float) $item->variant->product->price
+                    ]
+                ]
+            ])
+        ];
     }
 }

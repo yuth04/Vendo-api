@@ -35,9 +35,9 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class);
     }
 
-    public function discounts()
+    public function discount()
     {
-        return $this->hasMany(Discount::class);
+        return $this->hasOne(Discount::class);
     }
 
     public function activeDiscount()

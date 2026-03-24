@@ -1,65 +1,101 @@
 <?php
 
-namespace App\Http\Controllers\api\v1;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\ProductVariant;
+use App\Services\DiscountService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CartController extends Controller
 {
-    // Get current user's cart
-    public function index()
-    {
-        $cart = Cart::with('items.variant.product')
-            ->where('user_id', Auth::id())
-            ->first();
+    protected $discountService;
 
-        if (!$cart) {
-            return response()->json([
-                'message' => "Cart is empty"
-            ]);
+    public function __construct(DiscountService $discountService)
+    {
+        $this->discountService = $discountService;
+    }
+
+    /**
+     * ✅ Helper: Get or Create Cart and return along with current guest token
+     */
+    private function getCart(Request $request)
+    {
+        if (Auth::check()) {
+            return Cart::firstOrCreate(['user_id' => Auth::id()]);
         }
 
-        $discountController = new DiscountController();
+        $guestToken = $request->header('guest_token') ?: (string) Str::uuid();
+        return Cart::firstOrCreate(['guest_token' => $guestToken]);
+    }
+
+    /**
+     * ✅ Helper: Standardize Cart Response (Used by index and store)
+     */
+    private function formatCartResponse(Cart $cart, string $message)
+    {
+        $cart->load('items.variant.product.discount');
+
+        $originalTotal = 0;
+        $discountTotal = 0;
+        $totalQuantity = 0;
+
+        $items = $cart->items->map(function ($item) use (&$originalTotal, &$discountTotal, &$totalQuantity) {
+            $product = $item->variant->product;
+            $price = (float) ($product->price ?? 0);
+            $discountedPrice = $this->discountService->discountedPrice($product);
+
+            $originalTotal += $price * $item->quantity;
+            $discountTotal += $discountedPrice * $item->quantity;
+            $totalQuantity += $item->quantity;
+
+            return [
+                'id' => $item->id,
+                'quantity' => $item->quantity,
+                'subtotal' => $discountedPrice * $item->quantity,
+                'variant' => [
+                    'id' => $item->variant->id,
+                    'price' => $price,
+                    'discounted_price' => $discountedPrice,
+                    'product_name' => $product->productName,
+                ],
+            ];
+        });
 
         return response()->json([
-            'message' => "Get cart successfully",
+            'message' => $message,
+            'guest_token' => $cart->guest_token, // Return this so frontend can save it
             'cart' => [
                 'id' => $cart->id,
-                'total_quantity' => $cart->items->sum('quantity'),
-                'total_price' => $cart->items->sum(function ($item) use ($discountController) {
-                    return $item->quantity * $discountController->discountedPrice($item->variant->product);
-                }),
-                'items' => $cart->items->map(function ($item) use ($discountController) {
-                    $discountedPrice = $discountController->discountedPrice($item->variant->product);
-
-                    return [
-                        'id' => $item->id,
-                        'quantity' => $item->quantity,
-                        'variant' => [
-                            'id' => $item->variant->id,
-                            'size' => $item->variant->size,
-                            'color' => $item->variant->color,
-                            'price' => (float) $item->variant->product->price, // original price
-                            'discounted_price' => $discountedPrice, // new field
-                            'stock' => $item->variant->stock,
-                            'product' => [
-                                'id' => $item->variant->product->id,
-                                'name' => $item->variant->product->productName,
-                            ],
-                        ],
-                        'subtotal' => $item->quantity * $discountedPrice,
-                    ];
-                }),
+                'total_price_original' => round($originalTotal, 2),
+                'total_price_discounted' => round($discountTotal, 2),
+                'items' => $items
             ]
         ]);
     }
 
-    // Add  item in cart
+    /**
+     * ✅ View cart
+     */
+    public function index(Request $request)
+    {
+        $cart = $this->getCart($request);
+        if($cart->items->isEmpty()){
+            return response()->json([
+                'message'=>'Cart is empty'
+            ]);
+        }
+        return $this->formatCartResponse($cart, 'Cart retrieved');
+    }
+
+    /**
+     * ✅ Add item to cart
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -68,108 +104,109 @@ class CartController extends Controller
             'quantity' => 'required|integer|min:1'
         ]);
 
-        // Ensure variant belongs to product
         $variant = ProductVariant::where('id', $request->product_variant_id)
             ->where('product_id', $request->product_id)
             ->firstOrFail();
 
-        $cart = Cart::firstOrCreate([
-            'user_id' => Auth::id()
+        $cart = $this->getCart($request);
+
+        // Find existing item or create new instance
+        $cartItem = $cart->items()->firstOrNew([
+            'product_variant_id' => $variant->id
         ]);
 
-        // Get existing iitem (f any)
-        $cartItem = $cart->items()
-            ->where('product_variant_id', $variant->id)
-            ->first();
+        $newQty = $cartItem->quantity + $request->quantity;
 
-        $currentQuantity = $cartItem?->quantity ?? 0;
-        $newQuantity = $currentQuantity + $request->quantity;
-
-        // Stock validation
-        if ($newQuantity > $variant->stock) {
-            return response()->json([
-                'message' => 'Not enough available stock',
-                'available_stock' => $variant->stock,
-                'current_in_cart' => $currentQuantity
-            ], 400);
+        if ($newQty > $variant->stock) {
+            return response()->json(['message' => "Only {$variant->stock} items left in stock"], 400);
         }
 
-        // Save item
-        $cartItem = $cart->items()->updateOrCreate(
-            ['product_variant_id' => $variant->id],
-            ['quantity' => $newQuantity]
-        );
+        $cartItem->quantity = $newQty;
+        $cartItem->save();
 
         return response()->json([
-            'message' => 'Added item to cart successfully',
-            'item' => $cartItem
-        ], 201);
+            'message'=>'Added to cart succcesfully'
+        ]);
     }
 
-    // Remove entire cart
-    public function destroy()
-    {
-        $cart = Cart::where('user_id', Auth::id())->first();
-
-        if (!$cart) {
-            return response()->json([
-                'message' => 'Cart not found'
-            ], 404);
-        }
-
-        $cart->delete();
-
-        return response()->json([
-            'message' => 'Cart removed successfully'
-        ], 200);
-    }
-
-    // Optional: Remove single item from cart
-    public function clearCart($itemId)
-    {
-        $cart = Cart::where('user_id', Auth::id())->first();
-
-        if (!$cart) {
-            return response()->json(['message' => 'Cart not found'], 404);
-        }
-
-        $item = $cart->items()->where('id', $itemId)->first();
-
-        if (!$item) {
-            return response()->json(['message' => 'Item not found in cart'], 404);
-        }
-
-        $item->delete();
-
-        return response()->json([
-            'message' => 'Item removed from cart successfully'
-        ], 200);
-    }
-
-    // Optional: Update quantity of a cart item
+    /**
+     * ✅ Update quantity of specific item
+     */
     public function updateItem(Request $request, $itemId)
     {
-        $request->validate([
-            'quantity' => 'required|integer|min:1'
-        ]);
+        $request->validate(['quantity' => 'required|integer|min:1']);
 
-        $cart = Cart::where('user_id', Auth::id())->firstOrFail();
+        $cart = $this->getCart($request);
+        $item = $cart->items()->with('variant')->where('id', $itemId)->firstOrFail();
 
-        $item = $cart->items()->where('id', $itemId)->firstOrFail();
-        $variant = $item->variant;
-
-        if ($request->quantity > $variant->stock) {
-            return response()->json([
-                'message' => 'Not enough stock',
-                'available_stock' => $variant->stock
-            ], 400);
+        if ($request->quantity > $item->variant->stock) {
+            return response()->json(['message' => 'Insufficient stock'], 400);
         }
 
         $item->update(['quantity' => $request->quantity]);
 
-        return response()->json([
-            'message' => 'Item quantity updated successfully',
-            'item' => $item
+        return $this->formatCartResponse($cart, 'Quantity updated');
+    }
+
+    /**
+     * ✅ Remove single item
+     */
+    public function removeItem(Request $request, $itemId)
+    {
+        $cart = $this->getCart($request);
+        $cart->items()->where('id', $itemId)->delete();
+
+        return $this->formatCartResponse($cart, 'Item removed from cart');
+    }
+
+    /**
+     * ✅ Clear entire cart
+     */
+    public function clearCart(Request $request)
+    {
+        $cart = $this->getCart($request);
+        $cart->items()->delete();
+
+        return response()->json(['message' => 'Cart cleared']);
+    }
+
+    /**
+     * ✅ Sync guest cart to user cart (Post-Login)
+     */
+    public function sync(Request $request)
+    {
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $request->validate([
+            'items' => 'required|array',
+            'items.*.product_variant_id' => 'required|exists:product_variants,id',
+            'items.*.quantity' => 'required|integer|min:1'
         ]);
+
+        $cart = Cart::firstOrCreate(['user_id' => Auth::id()]);
+
+        DB::transaction(function () use ($request, $cart) {
+            foreach ($request->items as $itemData) {
+                $variant = ProductVariant::findOrFail($itemData['product_variant_id']);
+                
+                $cartItem = $cart->items()->firstOrNew([
+                    'product_variant_id' => $variant->id
+                ]);
+
+                // Merge quantities
+                $cartItem->quantity += $itemData['quantity'];
+                
+                // Cap at stock limit
+                if ($cartItem->quantity > $variant->stock) {
+                    $cartItem->quantity = $variant->stock;
+                }
+
+                $cartItem->save();
+            }
+        });
+
+        return $this->formatCartResponse($cart, 'Cart synced successfully');
     }
 }

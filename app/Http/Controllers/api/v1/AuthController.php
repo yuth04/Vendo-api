@@ -5,8 +5,10 @@ use App\Mail\ForgotPasswordMail;
 use App\Mail\PasswordResetSuccess;
 use App\Mail\ResendNewCode;
 use App\Mail\SendCode;
+use App\Models\Cart;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -16,7 +18,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Mail;
-
+use Illuminate\Support\Facades\Auth;
 class AuthController extends Controller
 {
 
@@ -64,58 +66,52 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
     // login
     public function login(Request $request)
     {
         try {
-            //  Validate input
             $validated = $request->validate([
                 'email' => 'required|email',
                 'password' => 'required|string'
             ]);
 
-            //  Check if user exists
             $user = User::where('email', $validated['email'])->first();
             if (!$user) {
                 return response()->json([
-                    'errors' => [
-                        'email' => 'No account found with this email.'
-                    ]
+                    'errors' => ['email' => 'No account found with this email.']
                 ], 404);
             }
 
-            // Check if user email is verified
             if (!$user->is_verified) {
                 return response()->json([
-                    'errors' => [
-                        'email' => 'Please verify your email before logging in.'
-                    ]
+                    'errors' => ['email' => 'Please verify your email before logging in.']
                 ], 403);
             }
 
-            // 4. Verify password
             if (!Hash::check($validated['password'], $user->password)) {
                 return response()->json([
-                    'errors' => [
-                        'password' => 'Incorrect password.'
-                    ]
+                    'errors' => ['password' => 'Incorrect password.']
                 ], 401);
             }
 
-            //  Delete old tokens
-            $user->tokens()->delete();
+            // --- CART MERGE START ---
+            // 2. Handle Cart Syncing
+            $guestToken = $request->header('X-Guest-Token');
+            $cartData = $this->mergeCart($user, $guestToken);
+            // --- CART MERGE END ---
 
-            //  Create new token
+            $user->tokens()->delete();
             $token = $user->createToken('api-token')->plainTextToken;
 
-            // 7. Return response
             return response()->json([
                 'message' => 'Login successful',
-                'user' => $user,
-                'token' => $token
+                'user' => $user->only(['id', 'name', 'email', 'is_verified']),
+                'token' => $token,
+                'cart' => $cartData
             ], 200);
 
-        } catch (ValidationException $e) {
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
@@ -126,6 +122,38 @@ class AuthController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+    private function mergeCart($user, $guestToken){
+        return DB::transaction(function () use ($user, $guestToken) {
+            // Find or create the user's permanent cart
+            $userCart = Cart::firstOrCreate(['user_id' => $user->id]);
+
+            if ($guestToken) {
+                $guestCart = Cart::where('guest_token', $guestToken)->first();
+
+                if ($guestCart) {
+                    foreach ($guestCart->items as $guestItem) {
+                        // Check if the user already has this item
+                        $existingItem = $userCart->items()
+                            ->where('product_variant_id', $guestItem->product_variant_id)
+                            ->first();
+
+                        if ($existingItem) {
+                            // Combine quantities and remove the guest duplicate
+                            $existingItem->increment('quantity', $guestItem->quantity);
+                            $guestItem->delete();
+                        } else {
+                            // Move the guest item to the user's cart
+                            $guestItem->update(['cart_id' => $userCart->id]);
+                        }
+                    }
+                    // Delete the now-empty guest cart
+                    $guestCart->delete();
+                }
+            }
+
+            return $userCart->load('items.variant.product.discount');
+        });
     }
     public function logout(Request $request)
     {
