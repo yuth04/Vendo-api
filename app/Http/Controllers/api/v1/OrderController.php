@@ -35,7 +35,14 @@ class OrderController extends Controller
         }
 
         $request->validate([
-            'address_id' => 'required|exists:addresses,id'
+            'address_id' => 'required|exists:addresses,id',
+            'first_name' => 'required_without:address_id|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+            'address_line' => 'required_without:address_id|string|max:500',
+            'city' => 'required_without:address_id|string|max:255',
+            'province' => 'required_without:address_id|string|max:255',
+            'phone' => 'required_without:address_id|string|max:20',
+            'postal_code' => 'nullable|string|max:20',
         ]);
 
         $user = Auth::user();
@@ -51,10 +58,24 @@ class OrderController extends Controller
 
         try {
             $order = DB::transaction(function () use ($user, $cart, $request) {
+                if ($request->filled('address_id')) {
+                    $address = Address::where('id', $request->address_id)
+                        ->where('user_id', $user->id)
+                        ->firstOrFail();
+                } else {
+                    $address = Address::create([
+                        'user_id' => $user->id,
+                        'first_name' => $request->first_name,
+                        'last_name' => $request->last_name,
+                        'address_line' => $request->address_line,
+                        'city' => $request->city,
+                        'province' => $request->province,
+                        'postal_code' => $request->postal_code,
+                        'phone' => $request->phone,
+                        'is_default' => false
+                    ]);
+                }
 
-                $address = Address::where('id', $request->address_id)
-                    ->where('user_id', $user->id)
-                    ->firstOrFail();
 
                 $order = Order::create([
                     'user_id' => $user->id,
@@ -138,9 +159,12 @@ class OrderController extends Controller
         $user = Auth::user();
         $order = $user->orders()->with('items.variant')->find($orderId);
 
-        if (!$order) return response()->json(['message' => 'Order not found'], 404);
-        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot cancel orders'], 403);
-        if ($order->status !== 'pending') return response()->json(['message' => 'Only pending orders can be canceled'], 400);
+        if (!$order)
+            return response()->json(['message' => 'Order not found'], 404);
+        if ($user->role === 'admin')
+            return response()->json(['message' => 'Admin cannot cancel orders'], 403);
+        if ($order->status !== 'pending')
+            return response()->json(['message' => 'Only pending orders can be canceled'], 400);
 
         DB::transaction(function () use ($order) {
             foreach ($order->items as $item) {
@@ -160,9 +184,12 @@ class OrderController extends Controller
         $user = Auth::user();
         $order = $user->orders()->with('items.variant')->find($orderId);
 
-        if (!$order) return response()->json(['message' => 'Order not found'], 404);
-        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot delete orders'], 403);
-        if ($order->status !== 'pending') return response()->json(['message' => 'Only pending orders can be deleted'], 400);
+        if (!$order)
+            return response()->json(['message' => 'Order not found'], 404);
+        if ($user->role === 'admin')
+            return response()->json(['message' => 'Admin cannot delete orders'], 403);
+        if ($order->status !== 'pending')
+            return response()->json(['message' => 'Only pending orders can be deleted'], 400);
 
         DB::transaction(function () use ($order) {
             foreach ($order->items as $item) {
@@ -180,7 +207,8 @@ class OrderController extends Controller
      */
     public function userOrderHistory(User $user)
     {
-        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot view order history', 'orders' => []]);
+        if ($user->role === 'admin')
+            return response()->json(['message' => 'Admin cannot view order history', 'orders' => []]);
 
         $orders = $user->orders()->with('items.variant.product')->latest()->get();
 
