@@ -105,7 +105,7 @@ class OrderController extends Controller
 
             return response()->json([
                 'message' => 'Order placed successfully',
-                'order' => $this->formatOrder($order)
+                'order' => $order
             ], 201);
 
         } catch (Exception $e) {

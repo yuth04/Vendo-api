@@ -6,6 +6,7 @@ use App\Mail\PasswordResetSuccess;
 use App\Mail\ResendNewCode;
 use App\Mail\SendCode;
 use App\Models\Cart;
+use App\Models\ProductVariant;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -73,7 +74,10 @@ class AuthController extends Controller
         try {
             $validated = $request->validate([
                 'email' => 'required|email',
-                'password' => 'required|string'
+                'password' => 'required|string',
+                'local_cart' => 'nullable|array',
+                'local_cart.*.product_variant_id' => 'nullable|exists:product_variants,id',
+                'local_cart.*.quantity' => 'nullable|integer|min:1'
             ]);
 
             $user = User::where('email', $validated['email'])->first();
@@ -96,9 +100,8 @@ class AuthController extends Controller
             }
 
             // --- CART MERGE START ---
-            // 2. Handle Cart Syncing
-            $guestToken = $request->header('X-Guest-Token');
-            $cartData = $this->mergeCart($user, $guestToken);
+
+            $cartData = $this->mergeCart($user, $request->input('local_cart', []));
             // --- CART MERGE END ---
 
             $user->tokens()->delete();
@@ -123,35 +126,34 @@ class AuthController extends Controller
             ], 500);
         }
     }
-    private function mergeCart($user, $guestToken){
-        return DB::transaction(function () use ($user, $guestToken) {
-            // Find or create the user's permanent cart
+    private function mergeCart($user, $localCartItems)
+    {
+        return DB::transaction(function () use ($user, $localCartItems) {
             $userCart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-            if ($guestToken) {
-                $guestCart = Cart::where('guest_token', $guestToken)->first();
-
-                if ($guestCart) {
-                    foreach ($guestCart->items as $guestItem) {
-                        // Check if the user already has this item
-                        $existingItem = $userCart->items()
-                            ->where('product_variant_id', $guestItem->product_variant_id)
-                            ->first();
-
-                        if ($existingItem) {
-                            // Combine quantities and remove the guest duplicate
-                            $existingItem->increment('quantity', $guestItem->quantity);
-                            $guestItem->delete();
-                        } else {
-                            // Move the guest item to the user's cart
-                            $guestItem->update(['cart_id' => $userCart->id]);
-                        }
+            if (!empty($localCartItems)) {
+                foreach ($localCartItems as $item) {
+                    if (empty($item['product_variant_id']) || empty($item['quantity'])) {
+                        continue; // skip invalid or null items
                     }
-                    // Delete the now-empty guest cart
-                    $guestCart->delete();
+                    $cartItem = $userCart->items()->firstOrNew([
+                        'product_variant_id' => $item['product_variant_id']
+                    ]);
+
+                    // Sum the quantities
+                    $cartItem->quantity += $item['quantity'];
+
+                    // Optional: Stock check
+                    $variant = ProductVariant::find($item['product_variant_id']);
+                    if ($variant && $cartItem->quantity > $variant->stock) {
+                        $cartItem->quantity = $variant->stock;
+                    }
+
+                    $cartItem->save();
                 }
             }
 
+            // Load relations and format (using your standardized response logic)
             return $userCart->load('items.variant.product.discount');
         });
     }

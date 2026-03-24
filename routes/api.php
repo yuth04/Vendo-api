@@ -30,13 +30,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/verify-code', [AuthController::class, 'verifyCode']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     // Cart APIs (only logged-in users can use)
-    Route::prefix('cart')->group(function () {
-        Route::get('/', [CartController::class, 'index']);
-        Route::post('/', [CartController::class, 'store']);
-        Route::put('/item/{id}', [CartController::class, 'updateItem']);
-        Route::delete('/item/{id}', [CartController::class, 'destroy']);
-        Route::delete('/clear', [CartController::class, 'clearCart']);
-    });
+
 
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
@@ -91,7 +85,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile/images', [ProfileController::class, 'getProfileImage']);
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
 
-
+        Route::prefix('cart')->group(function () {
+            Route::get('/', [CartController::class, 'index']);
+            Route::post('/', [CartController::class, 'store']);
+            Route::put('/item/{id}', [CartController::class, 'updateItem']);
+            Route::delete('/item/{id}', [CartController::class, 'destroy']);
+            Route::delete('/clear', [CartController::class, 'clearCart']);
+        });
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
