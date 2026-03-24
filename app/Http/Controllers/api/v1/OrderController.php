@@ -35,7 +35,7 @@ class OrderController extends Controller
         }
 
         $request->validate([
-            'address_id' => 'required|exists:addresses,id',
+            'address_id' => 'nullable|exists:addresses,id',
             'first_name' => 'required_without:address_id|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'address_line' => 'required_without:address_id|string|max:500',
@@ -63,6 +63,7 @@ class OrderController extends Controller
                         ->where('user_id', $user->id)
                         ->firstOrFail();
                 } else {
+                    // Create new address on the fly
                     $address = Address::create([
                         'user_id' => $user->id,
                         'first_name' => $request->first_name,
@@ -107,7 +108,7 @@ class OrderController extends Controller
                     $order->items()->create([
                         'product_variant_id' => $variant->id,
                         'product_name' => $variant->product->productName,
-                        'price' => $price,
+                        'price' => round($price, 2),
                         'quantity' => $item->quantity,
                         'size' => $variant->size,
                         'color' => $variant->color,
@@ -115,7 +116,7 @@ class OrderController extends Controller
                 }
 
                 // Update total price
-                $order->update(['total_price' => $total]);
+                $order->update(['total_price' => round($total, 2)]);
 
                 // Clear cart and cart items
                 $cart->items()->delete();
