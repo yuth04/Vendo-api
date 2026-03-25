@@ -2,63 +2,62 @@
 
 namespace App\Services;
 
+use App\Models\Order;
+use Illuminate\Support\Facades\Http;
+use Exception;
+use KhqrGateway\Khqr; // common
+use KHQR\BakongKHQR;
+use KHQR\Models\MerchantInfo;
+
 class BakongService
 {
-    public function generateKHQR($order)
+    protected $apiUrl;
+    protected $token;
+
+    public function __construct()
     {
-        $bakongId = "nheung_phearakyuth@aba";
-        $merchantName = "Vendo Store";
-        $city = "Phnom Penh";
+        $this->apiUrl = config('services.bakong.api_url');
+        $this->token = config('services.bakong.token');
+    }
 
-        // ✅ Convert USD to KHR (Bakong 116 requires Riel)
-        // Adjust the rate (4100) based on your business preference
-        $amount = (int) round($order->total_price * 4100);
+    /**
+     * Generate Real KHQR using the Package
+     */
+    public function generateKhqr(Order $order)
+    {
 
-        $data = [
-            '00' => '01',
-            '01' => '12', 
-            '29' => [
-                '00' => 'bakong.kh',
-                '01' => $bakongId,
-            ],
-            '52' => '5912',
-            '53' => '116', // KHR
-            '54' => (string)$amount,
-            '58' => 'KH',
-            '59' => $merchantName,
-            '60' => $city,
-            '62' => [
-                '01' => $order->order_number,
-                '05' => $order->order_number, 
-            ]
+        $merchantInfo = new MerchantInfo(
+            bakongAccountID: 'jonhsmith@nbcq',
+            merchantName: 'Jonh Smith',
+            merchantCity: 'Siem Reap',
+            merchantID: '123456',
+            acquiringBank: 'Dev Bank',
+            mobileNumber: '85512345678',
+        );
+
+        var_dump(BakongKHQR::generateMerchant($merchantInfo));
+
+        return [
+            'qr_string' => $merchantInfo,
+            'qr_image_url' => "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" . urlencode($merchantInfo),
+            'order_number' => $order->order_number
         ];
-
-        $payload = $this->serialize($data);
-        $payload .= "6304";
-        $payload .= $this->crc16($payload);
-
-        return $payload;
     }
 
-    private function serialize($data)
+    /**
+     * Verify Transaction via NBC API
+     */
+    public function checkStatus(Order $order)
     {
-        $result = '';
-        foreach ($data as $tag => $value) {
-            $val = is_array($value) ? $this->serialize($value) : (string)$value;
-            $result .= str_pad($tag, 2, '0', STR_PAD_LEFT) . str_pad(strlen($val), 2, '0', STR_PAD_LEFT) . $val;
-        }
-        return $result;
-    }
+        // Note: Added a slash check for the API URL
+        $baseUrl = rtrim($this->apiUrl, '/') . '/';
 
-    private function crc16($data)
-    {
-        $crc = 0xFFFF;
-        for ($i = 0; $i < strlen($data); $i++) {
-            $x = (($crc >> 8) ^ ord($data[$i])) & 0xFF;
-            $x ^= $x >> 4;
-            $crc = (($crc << 8) ^ ($x << 12) ^ ($x << 5) ^ $x) & 0xFFFF;
-        }
-        return strtoupper(str_pad(dechex($crc), 4, '0', STR_PAD_LEFT));
-    }
+        $response = Http::withToken($this->token)
+            ->post($baseUrl . 'v1/check_transaction', [
+                'merchantId' => config('services.bakong.merchant_id'),
+                'billNumber' => $order->order_number,
+            ]);
 
+        return $response->json();
+    }
 }

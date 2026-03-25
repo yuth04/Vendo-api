@@ -39,6 +39,11 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT'),
     ],
-    
+    'bakong' => [
+        'account_id' => env('BAKONG_ACCOUNT_ID'),
+        'merchant_id' => env('BAKONG_MERCHANT_ID'),
+        'api_url' => env('BAKONG_API_URL'),
+        'token' => env('BAKONG_TOKEN'),
+    ],
 
 ];

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Address;
@@ -25,123 +25,7 @@ class OrderController extends Controller
     {
         $this->discountService = $discountService;
     }
-
-    // Checkout
-    // public function checkout(Request $request)
-    // {
-    //     if (!Auth::check()) {
-    //         return response()->json(['message' => 'Login required'], 401);
-    //     }
-
-    //     $request->validate([
-    //         'address_id' => 'nullable|exists:addresses,id',
-    //         'first_name' => 'required_without:address_id|string|max:255',
-    //         'last_name' => 'nullable|string|max:255',
-    //         'address_line' => 'required_without:address_id|string|max:500',
-    //         'city' => 'required_without:address_id|string|max:255',
-    //         'province' => 'required_without:address_id|string|max:255',
-    //         'phone' => 'required_without:address_id|string|max:20',
-    //         'payment_method' => 'required|string',
-    //     ]);
-
-    //     $user = Auth::user();
-    //     $cart = Cart::with('items.variant.product')->where('user_id', $user->id)->first();
-
-    //     if (!$cart || $cart->items->isEmpty()) {
-    //         return response()->json(['message' => 'Cart is empty'], 400);
-    //     }
-
-    //     try {
-    //         $result = DB::transaction(function () use ($user, $cart, $request) {
-    //             // 1. Address Logic
-    //             if ($request->filled('address_id')) {
-    //                 $address = Address::where('id', $request->address_id)
-    //                     ->where('user_id', $user->id)
-    //                     ->firstOrFail();
-    //             } else {
-    //                 $address = Address::create(array_merge(
-    //                     $request->only(['first_name', 'last_name', 'address_line', 'city', 'province', 'postal_code', 'phone']),
-    //                     ['user_id' => $user->id, 'is_default' => false]
-    //                 ));
-    //             }
-
-    //             // 2. Create Order
-    //             $order = Order::create([
-    //                 'user_id' => $user->id,
-    //                 'address_id' => $address->id,
-    //                 'order_number' => 'ODR-' . strtoupper(Str::random(10)),
-    //                 'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
-    //                 'payment_method' => $request->payment_method,
-    //                 'status' => 'pending',
-    //                 'total_price' => 0,
-    //             ]);
-
-    //             $total = 0;
-
-    //             foreach ($cart->items as $item) {
-    //                 $variant = ProductVariant::where('id', $item->product_variant_id)
-    //                     ->lockForUpdate()
-    //                     ->firstOrFail();
-
-    //                 if ($variant->stock < $item->quantity) {
-    //                     throw new Exception("Stock not enough for {$variant->product->productName}");
-    //                 }
-
-    //                 $price = $this->discountService->discountedPrice($variant->product);
-    //                 $subtotal = $price * $item->quantity;
-    //                 $total += $subtotal;
-
-    //                 $variant->decrement('stock', $item->quantity);
-
-    //                 $order->items()->create([
-    //                     'product_variant_id' => $variant->id,
-    //                     'product_name' => $variant->product->productName,
-    //                     'price' => round($price, 2),
-    //                     'quantity' => $item->quantity,
-    //                     'size' => $variant->size,
-    //                     'color' => $variant->color,
-    //                 ]);
-    //             }
-
-    //             // Add $1.00 fee and update total
-    //             $order->update(['total_price' => round($total + 1.00, 2)]);
-
-    //             // 3. Clear Cart (Important: Clear for both methods to prevent double ordering)
-    //             $cart->items()->delete();
-
-    //             if ($request->payment_method === "Cash on Delivery") {
-    //                 return ['type' => 'cod', 'order' => $order];
-    //             }
-
-    //             // For Online: Hand off to the QR Generator
-    //             $bakongService = new BakongService();
-    //             $khqrString = $bakongService->generateKHQR($order);
-
-    //             // Using External API to avoid local Imagick/GD issues
-    //             $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($khqrString);
-
-    //             return [
-    //                 'type' => 'online',
-    //                 'data' => [
-    //                     'message' => "KHQR generated",
-    //                     'qr_code_url' => $qrCodeUrl,
-    //                     'khqr_string' => $khqrString,
-    //                     'order_number' => $order->order_number,
-    //                     'order_id' => $order->id
-    //                 ]
-    //             ];
-    //         });
-
-    //         return response()->json([
-    //             'message' => $result['type'] === 'cod' ? 'Order placed successfully' : 'QR Generated',
-    //             'data' => $result['type'] === 'cod' ? $result['order'] : $result['data']
-    //         ], 201);
-
-    //     } catch (Exception $e) {
-    //         return response()->json(['message' => 'Checkout failed', 'error' => $e->getMessage()], 500);
-    //     }
-    // }
-
+    //Checkout
     public function checkout(Request $request)
     {
         if (!Auth::check()) {
@@ -155,7 +39,8 @@ class OrderController extends Controller
             'city' => 'required_without:address_id|string|max:255',
             'province' => 'required_without:address_id|string|max:255',
             'phone' => 'required_without:address_id|string|max:20',
-            'payment_method' => 'required|in:Cash on Delivery,ABA,Credit Card',
+            // 'payment_method' => 'required|in:Cash on Delivery,ABA,Credit Card',
+            'payment_method' => 'required|string',
         ]);
         $user = Auth::user();
         $cart = Cart::with('items.variant.product.discount')->where('user_id', $user->id)->first();
@@ -261,7 +146,7 @@ class OrderController extends Controller
         }
 
         $bakongService = new BakongService();
-        $khqrString = $bakongService->generateKHQR($order);
+        $khqrString = $bakongService->generateKhqr($order);
         $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($khqrString);
 
         return [
@@ -383,7 +268,7 @@ class OrderController extends Controller
                         'id' => $item->variant->product->id,
                         'name' => $item->variant->product->productName,
                         'slug' => $item->variant->product->slug,
-                        
+
                     ]
                 ]
             ])
