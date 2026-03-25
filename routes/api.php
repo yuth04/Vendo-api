@@ -22,9 +22,13 @@ use App\Http\Controllers\api\v1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    // Google OAuth
+    Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+
     // Bakong Payment
-  Route::get('/payment/qr/{orderId}', [PaymentController::class, 'generateBakongQr']);
-Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
+    Route::get('/payment/qr/{orderId}', [PaymentController::class, 'generateBakongQr']);
+    Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
     // ------------------- AUTH -------------------
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');
@@ -33,12 +37,13 @@ Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('/verify-code', [AuthController::class, 'verifyCode']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
-    // Cart APIs (only logged-in users can use)
-
+    // Reviews
+    Route::get('/reviews', [ReviewController::class, 'index']);
 
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
 
+        Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
 
@@ -74,9 +79,6 @@ Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
 
-        // Google OAuth
-        Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
-        Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
 
     });
 
@@ -108,16 +110,17 @@ Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
             Route::get('/', [WishlistController::class, 'index']);
             Route::post('/', [WishlistController::class, 'store']);
             Route::delete('/{id}', [WishlistController::class, 'destroy']);
+
         });
 
         // Reviews
         Route::prefix('reviews')->group(function () {
-            Route::get('/', [ReviewController::class, 'index']);
             Route::post('/', [ReviewController::class, 'store']);
             Route::put('/{id}', [ReviewController::class, 'update']);
             Route::delete('/{id}', [ReviewController::class, 'destroy']);
         });
-
+        // Admin
+        Route::patch('/reviews/{id}/approve', [ReviewController::class, 'approve']);
         // Addresses
         Route::prefix('addresses')->group(function () {
             Route::get('/', [AddressController::class, 'index']);

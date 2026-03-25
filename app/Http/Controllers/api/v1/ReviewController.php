@@ -5,12 +5,11 @@ namespace App\Http\Controllers\api\v1;
 use App\Http\Controllers\Controller;
 use App\Models\Review;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Get all reviews (optional filter by product)
      */
     public function index(Request $request)
     {
@@ -18,25 +17,18 @@ class ReviewController extends Controller
 
         if ($request->has('product_id')) {
             $query->where('product_id', $request->product_id);
-
         }
 
-        $reviews = $query->get();
+        $reviews = $query->latest()->get();
 
-        if ($reviews->isEmpty()) {
-            return response()->json([
-                'message' => 'Review is empty'
-            ]);
-        }
         return response()->json([
             'message' => 'Reviews retrieved successfully',
             'data' => $reviews
         ]);
-
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store review (any logged-in user)
      */
     public function store(Request $request)
     {
@@ -45,20 +37,28 @@ class ReviewController extends Controller
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'nullable|string',
         ]);
+
         $user = $request->user();
-        $reviewCheck = Review::where('user_id', $user->id)->where('product_id', $request->product_id);
-        if ($reviewCheck->exists()) {
+
+        // Prevent duplicate review per product
+        $exists = Review::where('user_id', $user->id)
+            ->where('product_id', $request->product_id)
+            ->exists();
+
+        if ($exists) {
             return response()->json([
-                'message' => 'You have already reviewed this product'
+                'message' => 'You already reviewed this product'
             ], 400);
         }
+
         $review = Review::create([
             'user_id' => $user->id,
             'product_id' => $request->product_id,
             'rating' => $request->rating,
             'comment' => $request->comment,
-            'is_approved' => false
+            'is_approved' => true
         ]);
+
         return response()->json([
             'message' => 'Review submitted successfully',
             'data' => $review
@@ -66,39 +66,25 @@ class ReviewController extends Controller
     }
 
     /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
+     * Update review (only owner)
      */
     public function update(Request $request, $id)
     {
         $review = Review::findOrFail($id);
 
+        // Only owner can update
+        if ($request->user()->id !== $review->user_id) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
         $request->validate([
             'rating' => 'nullable|integer|min:1|max:5',
             'comment' => 'nullable|string',
-            'is_approved' => 'nullable|boolean',
         ]);
 
-        if ($request->has('rating')) {
-            $review->rating = $request->rating;
-        }
-
-        if ($request->has('comment')) {
-            $review->comment = $request->comment;
-        }
-
-        if ($request->has('is_approved')) {
-            $review->is_approved = $request->is_approved;
-        }
-
-        $review->save();
+        $review->update($request->only(['rating', 'comment']));
 
         return response()->json([
             'message' => 'Review updated successfully',
@@ -106,18 +92,37 @@ class ReviewController extends Controller
         ]);
     }
 
-
     /**
-     * Remove the specified resource from storage.
+     * Delete review (only owner)
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $review = Review::findOrFail($id);
 
+        // Only owner can delete
+        if ($request->user()->id !== $review->user_id) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
         $review->delete();
-        DB::statement("SELECT setval(pg_get_serial_sequence('reviews', 'id'), coalesce(max(id), 0) + 1, false) FROM reviews;");
+
         return response()->json([
             'message' => 'Review deleted successfully'
+        ]);
+    }
+
+    /**
+     * Product rating summary
+     */
+    public function productSummary($productId)
+    {
+        $reviews = Review::where('product_id', $productId);
+
+        return response()->json([
+            'average_rating' => round($reviews->avg('rating'), 1),
+            'total_reviews' => $reviews->count()
         ]);
     }
 }
