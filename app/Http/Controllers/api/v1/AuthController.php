@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\v1;
+namespace App\Http\Controllers\api\v1;
 use App\Mail\ForgotPasswordMail;
 use App\Mail\PasswordResetSuccess;
 use App\Mail\ResendNewCode;
@@ -109,13 +109,13 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Login successful',
                 // 'user' => $user->only(['id', 'first_name', 'last_name', 'email', 'role', 'image', 'is_verified']),
-                'id'=>$user->id,
-                'first_name'=>$user->first_name,
-                'last_name'=>$user->last_name,
-                'email'=>$user->email,
-                'role'=>$user->role,
-                'image'=>$user->image,
-                'is_verified'=>$user->is_verified,
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'image' => $user->image,
+                'is_verified' => $user->is_verified,
                 'token' => $token,
                 'cart' => $cartData
             ], 200);

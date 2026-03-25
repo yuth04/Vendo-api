@@ -1,24 +1,24 @@
 <?php
 
 
-use App\Http\Controllers\Api\v1\AddressController;
-use App\Http\Controllers\Api\v1\AuthController;
-use App\Http\Controllers\Api\v1\BrandController;
-use App\Http\Controllers\Api\v1\CarouselController;
-use App\Http\Controllers\Api\V1\CartController;
-use App\Http\Controllers\Api\v1\CategoryController;
-use App\Http\Controllers\Api\v1\DiscountController;
-use App\Http\Controllers\Api\V1\GoogleAuthController;
-use App\Http\Controllers\Api\v1\ImageController;
-use App\Http\Controllers\Api\V1\OrderController;
-use App\Http\Controllers\Api\v1\ParentCategoryController;
-use App\Http\Controllers\Api\v1\PaymentController;
-use App\Http\Controllers\Api\v1\ProductController;
-use App\Http\Controllers\Api\v1\ProductImageController;
-use App\Http\Controllers\Api\v1\ProfileController;
-use App\Http\Controllers\Api\v1\ReviewController;
-use App\Http\Controllers\Api\v1\UserController;
-use App\Http\Controllers\Api\v1\WishlistController;
+use App\Http\Controllers\api\v1\AddressController;
+use App\Http\Controllers\api\v1\AuthController;
+use App\Http\Controllers\api\v1\BrandController;
+use App\Http\Controllers\api\v1\CarouselController;
+use App\Http\Controllers\api\V1\CartController;
+use App\Http\Controllers\api\v1\CategoryController;
+use App\Http\Controllers\api\v1\DiscountController;
+use App\Http\Controllers\api\V1\GoogleAuthController;
+use App\Http\Controllers\api\v1\ImageController;
+use App\Http\Controllers\api\V1\OrderController;
+use App\Http\Controllers\api\v1\ParentCategoryController;
+use App\Http\Controllers\api\v1\PaymentController;
+use App\Http\Controllers\api\v1\ProductController;
+use App\Http\Controllers\api\v1\ProductImageController;
+use App\Http\Controllers\api\v1\ProfileController;
+use App\Http\Controllers\api\v1\ReviewController;
+use App\Http\Controllers\api\v1\UserController;
+use App\Http\Controllers\api\v1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
