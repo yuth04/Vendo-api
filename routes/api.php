@@ -11,6 +11,7 @@ use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\OrderController;
+use App\Http\Controllers\api\v1\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductImageController;
 use App\Http\Controllers\api\v1\ProfileController;
@@ -20,7 +21,9 @@ use App\Http\Controllers\api\v1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-
+    // Bakong Payment
+    Route::get('/payment/qr/{orderId}', [PaymentController::class, 'generateBakongQr']);
+    Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
     // ------------------- AUTH -------------------
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');
@@ -73,6 +76,7 @@ Route::prefix('v1')->group(function () {
         // Google OAuth
         Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
         Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+
     });
 
     // ------------------- PROTECTED (Logged-in users only) -------------------

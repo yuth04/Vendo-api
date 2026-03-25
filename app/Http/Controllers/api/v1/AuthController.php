@@ -109,7 +109,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'message' => 'Login successful',
-                'user' => $user->only(['id', 'name', 'email', 'is_verified']),
+                'user' => $user->only(['id', 'first_name', 'last_name', 'email', 'role', 'image', 'is_verified']),
                 'token' => $token,
                 'cart' => $cartData
             ], 200);
@@ -134,7 +134,7 @@ class AuthController extends Controller
             if (!empty($localCartItems)) {
                 foreach ($localCartItems as $item) {
                     if (empty($item['product_variant_id']) || empty($item['quantity'])) {
-                        continue; // skip invalid or null items
+                        continue;
                     }
                     $cartItem = $userCart->items()->firstOrNew([
                         'product_variant_id' => $item['product_variant_id']
@@ -144,17 +144,27 @@ class AuthController extends Controller
                     $cartItem->quantity += $item['quantity'];
 
                     // Optional: Stock check
-                    $variant = ProductVariant::find($item['product_variant_id']);
-                    if ($variant && $cartItem->quantity > $variant->stock) {
-                        $cartItem->quantity = $variant->stock;
-                    }
+                    // $variant = ProductVariant::find($item['product_variant_id']);
+                    // if ($variant && $cartItem->quantity > $variant->stock) {
+                    //     $cartItem->quantity = $variant->stock;
+                    // }
 
                     $cartItem->save();
                 }
             }
 
             // Load relations and format (using your standardized response logic)
-            return $userCart->load('items.variant.product.discount');
+            $userCart->load('items');
+
+            return [
+                'id' => $userCart->id,
+                'items' => $userCart->items->map(function ($item) {
+                    return [
+                        'product_variant_id' => $item->product_variant_id,
+                        'quantity' => $item->quantity,
+                    ];
+                }),
+            ];
         });
     }
     public function logout(Request $request)

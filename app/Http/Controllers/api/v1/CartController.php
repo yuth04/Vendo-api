@@ -21,9 +21,9 @@ class CartController extends Controller
         $this->discountService = $discountService;
     }
 
-    /**
-     * ✅ Helper: Get or Create Cart and return along with current guest token
-     */
+
+    //    Helper: Get or Create Cart and return along with current guest token
+
     private function getCart(Request $request)
     {
         if (Auth::check()) {
@@ -34,60 +34,69 @@ class CartController extends Controller
         return Cart::firstOrCreate(['guest_token' => $guestToken]);
     }
 
-    /**
-     * ✅ Helper: Standardize Cart Response (Used by index and store)
-     */
-    private function formatCartResponse(Cart $cart, string $message)
-    {
+
+    // Helper: Standardize Cart Response (Used by index and store)
+
+    private function formatCartResponse(Cart $cart, string $message){
         $cart->load('items.variant.product.discount');
 
-        $originalTotal = 0;
-        $discountTotal = 0;
-        $totalQuantity = 0;
+        $totalOriginal = 0;
+        $totalFinal = 0;
 
-        $items = $cart->items->map(function ($item) use (&$originalTotal, &$discountTotal, &$totalQuantity) {
-            $product = $item->variant->product;
-            $price = (float) ($product->price ?? 0);
+        $items = $cart->items->map(function ($item) use (&$totalOriginal, &$totalFinal) {
+            $variant = $item->variant;
+            $product = $variant->product;
+
+            $basePrice = (float) ($product->price ?? 0);
             $discountedPrice = $this->discountService->discountedPrice($product);
 
-            $originalTotal += $price * $item->quantity;
-            $discountTotal += $discountedPrice * $item->quantity;
-            $totalQuantity += $item->quantity;
+            // Logic: Use discounted price if it exists, otherwise use base price
+            $effectivePrice = $discountedPrice ?? $basePrice;
+
+            // Calculate specific totals for THIS line item
+            $lineSubtotal = $effectivePrice * $item->quantity;
+            $lineOriginal = $basePrice * $item->quantity;
+
+            // Add to running cart totals
+            $totalOriginal += $lineOriginal;
+            $totalFinal += $lineSubtotal;
 
             return [
                 'id' => $item->id,
                 'quantity' => $item->quantity,
-                'subtotal' => $discountedPrice * $item->quantity,
+                'subtotal' => round($lineSubtotal, 2), 
                 'variant' => [
-                    'id' => $item->variant->id,
-                    'price' => $price,
-                    'discounted_price' => $discountedPrice,
-                    'product_name' => $product->productName,
+                    'id' => $variant->id,
+                    'size' => $variant->size,
+                    'color' => $variant->color,
+                    'base_price' => round($basePrice,2),
+                    'discounted_price' => round($discountedPrice, 2), 
+                    'product' => [
+                        'product_id' => $product->id,
+                        'product_name' => $product->productName,
+                    ]
                 ],
             ];
         });
 
         return response()->json([
             'message' => $message,
-            'guest_token' => $cart->guest_token, // Return this so frontend can save it
+            'guest_token' => $cart->guest_token,
             'cart' => [
                 'id' => $cart->id,
-                'total_price_original' => round($originalTotal, 2),
-                'total_price_discounted' => round($discountTotal, 2),
+                'total_price' => round($totalFinal, 2),
+                'total_discount' => round($totalOriginal - $totalFinal, 2),
                 'items' => $items
             ]
         ]);
     }
-
-    /**
-     * ✅ View cart
-     */
+    //   View cart
     public function index(Request $request)
     {
         $cart = $this->getCart($request);
-        if($cart->items->isEmpty()){
+        if ($cart->items->isEmpty()) {
             return response()->json([
-                'message'=>'Cart is empty'
+                'message' => 'Cart is empty'
             ]);
         }
         return $this->formatCartResponse($cart, 'Cart retrieved');
@@ -125,7 +134,7 @@ class CartController extends Controller
         $cartItem->save();
 
         return response()->json([
-            'message'=>'Added to cart succcesfully'
+            'message' => 'Added to cart succcesfully'
         ]);
     }
 
@@ -190,14 +199,14 @@ class CartController extends Controller
         DB::transaction(function () use ($request, $cart) {
             foreach ($request->items as $itemData) {
                 $variant = ProductVariant::findOrFail($itemData['product_variant_id']);
-                
+
                 $cartItem = $cart->items()->firstOrNew([
                     'product_variant_id' => $variant->id
                 ]);
 
                 // Merge quantities
                 $cartItem->quantity += $itemData['quantity'];
-                
+
                 // Cap at stock limit
                 if ($cartItem->quantity > $variant->stock) {
                     $cartItem->quantity = $variant->stock;

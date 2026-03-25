@@ -12,6 +12,11 @@ class Order extends Model
         'order_number',
         'total_price',
         'status',
+        'payment_method',
+        'contact',
+        'note',
+        'payment_status',
+        'payment_reference'
     ];
     protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';

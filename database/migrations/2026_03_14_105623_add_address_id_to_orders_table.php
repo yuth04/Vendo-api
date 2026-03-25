@@ -23,7 +23,7 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table) {
             $table->dropForeign('address_id');
-            $table->dropColumn('address_id');
+            
         });
     }
 };
