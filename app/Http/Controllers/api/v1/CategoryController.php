@@ -26,7 +26,7 @@ class CategoryController extends Controller
     public function showById($id)
     {
         try {
-            $category = Category::with('products')->findOrFail($id);
+            $category = Category::with(['children.products', 'products'])->findOrFail($id);
             return response()->json([
                 'message' => 'Category found successfully',
                 'category' => $category
@@ -40,7 +40,7 @@ class CategoryController extends Controller
 
     public function showBySlug($slug)
     {
-        $category = Category::with('products')
+        $category = Category::with(['children.products', 'products'])
             ->whereRaw('slug ILIKE ?', [$slug])
             ->get();
 
@@ -60,18 +60,16 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         try {
-            $category = Category::all();
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'parent_category_id' => 'nullable|exists:categories,id',
+                'parent_category_id' => 'nullable|exists:parent_categories,id', // Point to parent_categories table
                 'is_active' => 'nullable|boolean',
                 'image' => 'nullable|image|max:5120'
             ]);
 
             $parentId = $validated['parent_category_id'] ?? null;
-
-            // Generate slug unique per parent
             $slug = $this->generateUniqueSlug($validated['name'], $parentId);
+            $imageUrl = null;
 
             if ($request->hasFile('image')) {
                 $imageKit = new ImageKit(
@@ -80,7 +78,6 @@ class CategoryController extends Controller
                     config('imagekit.url_endpoint')
                 );
 
-                // Upload image to ImageKit
                 $upload = $imageKit->upload([
                     'file' => fopen($request->file('image')->getRealPath(), "r"),
                     'fileName' => $request->file('image')->getClientOriginalName(),
@@ -88,30 +85,17 @@ class CategoryController extends Controller
                 ]);
 
                 if (isset($upload->error)) {
-                    return response()->json([
-                        'message' => 'Upload failed',
-                        'error' => $upload->error->message,
-                    ], 400);
+                    return response()->json(['message' => 'Upload failed', 'error' => $upload->error->message], 400);
                 }
-
-                // Delete old ImageKit image if exists
-                if ($category->image) {
-                    try {
-                        $imageKit->deleteFile($category->image);
-                    } catch (\Exception $e) {
-                        // ignore errors
-                    }
-                }
-
-                // Set new image URL
-                $category->image = $upload->result->url;
+                $imageUrl = $upload->result->url;
             }
+
             $category = Category::create([
                 'name' => $validated['name'],
                 'slug' => $slug,
                 'parent_category_id' => $parentId,
                 'is_active' => $validated['is_active'] ?? true,
-                'image' => $validated['image'] ?? null,
+                'image' => $imageUrl, // Save the URL here
             ]);
 
             return response()->json([
@@ -119,10 +103,7 @@ class CategoryController extends Controller
                 'category' => $category
             ]);
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Failed to create category',
-                'error' => $e->getMessage()
-            ], 500);
+            return response()->json(['message' => 'Failed to create category', 'error' => $e->getMessage()], 500);
         }
     }
 

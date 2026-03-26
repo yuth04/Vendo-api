@@ -12,5 +12,8 @@ class ParentCategory extends Model
     {
         return $this->hasMany(Category::class);
     }
-
+    public function products()
+    {
+        return $this->hasManyThrough(Product::class, Category::class);
+    }
 }

@@ -14,14 +14,21 @@ class Category extends Model
         'image',
         'parent_category_id'
     ];
-      protected $hidden = ['created_at','updated_at'];
-    public function products(){
-        return $this->hasMany(Product::class);
+    protected $hidden = ['created_at', 'updated_at'];
+    public function parentCategory()
+    {
+        return $this->belongsTo(Category::class, 'parent_category_id');
+    }
+    public function children()
+    {
+        return $this->hasMany(Category::class, 'parent_category_id');
+    }
+    public function products()
+    {
+        return $this->hasMany(Product::class, 'category_id');
     }
     // public function brand(){
     //     return $this->belongsTo(Brand::class);
     // }
-    public function parentCategory(){
-        return $this->belongsTo(ParentCategory::class);
-    }
+
 }
