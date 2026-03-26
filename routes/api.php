@@ -1,16 +1,17 @@
 <?php
 
 
+
 use App\Http\Controllers\api\v1\AddressController;
 use App\Http\Controllers\api\v1\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CarouselController;
-use App\Http\Controllers\api\V1\CartController;
+use App\Http\Controllers\api\v1\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\DiscountController;
-use App\Http\Controllers\api\V1\GoogleAuthController;
+use App\Http\Controllers\api\v1\GoogleAuthController;
 use App\Http\Controllers\api\v1\ImageController;
-use App\Http\Controllers\api\V1\OrderController;
+use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
@@ -119,8 +120,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [ReviewController::class, 'update']);
             Route::delete('/{id}', [ReviewController::class, 'destroy']);
         });
-        // Admin
-        Route::patch('/reviews/{id}/approve', [ReviewController::class, 'approve']);
+
         // Addresses
         Route::prefix('addresses')->group(function () {
             Route::get('/', [AddressController::class, 'index']);
@@ -131,7 +131,8 @@ Route::prefix('v1')->group(function () {
 
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
-
+            // Admin
+            Route::patch('/reviews/{id}/approve', [ReviewController::class, 'approve']);
             // Product Images
             Route::post('/product-images', [ProductImageController::class, 'store']);
             Route::post('/product-images/{id}', [ProductImageController::class, 'update']);

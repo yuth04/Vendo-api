@@ -22,7 +22,7 @@ class User extends Authenticatable
         'last_name',
         'email',
         'password',
-        'role ',
+        'role',
         'image',
         'google_id',
         'is_verified',
@@ -61,8 +61,8 @@ class User extends Authenticatable
         'verification_code',
         'verification_code_expire',
         'email_verified_at',
-        'create_at',
-        'update_at'
+        'created_at',
+        'updated_at'
     ];
     /**
      * Get the attributes that should be cast.
