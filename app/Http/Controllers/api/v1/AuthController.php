@@ -79,12 +79,12 @@ class AuthController extends Controller
                 'local_cart.*.quantity' => 'nullable|integer|min:1'
             ]);
 
-            $user = User::where('email', $validated['email'])->first();
-            if (!$user) {
+            if (!Auth::attempt($request->only('email', 'password'))) {
                 return response()->json([
-                    'errors' => ['email' => 'No account found with this email.']
-                ], 404);
+                    'errors' => ['email' => 'Invalid email or password']
+                ], 401);
             }
+            $user = Auth::user();
 
             if (!$user->is_verified) {
                 return response()->json([
@@ -92,11 +92,6 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            if (!Hash::check($validated['password'], $user->password)) {
-                return response()->json([
-                    'errors' => ['password' => 'Incorrect password.']
-                ], 401);
-            }
 
             // --- CART MERGE START ---
 

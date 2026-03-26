@@ -79,12 +79,18 @@ class OrderController extends Controller
             return Address::where('id', $request->address_id)
                 ->where('user_id', $user->id)
                 ->firstOrFail();
+        } else {
+            return Address::create([
+                'user_id' => $user->id,
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'address_line' => $request->address_line,
+                'city' => $request->city,
+                'province' => $request->province,
+                'phone' => $request->phone,
+            ]);
         }
 
-        return Address::create(array_merge(
-            $request->only(['first_name', 'last_name', 'address_line', 'city', 'province', 'postal_code', 'phone']),
-            ['user_id' => $user->id, 'is_default' => false]
-        ));
     }
     // Initialize new Order record
     private function initializeOrder($user, $address, Request $request)
