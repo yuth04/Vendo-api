@@ -30,14 +30,18 @@ class CartController extends Controller
             return Cart::firstOrCreate(['user_id' => Auth::id()]);
         }
 
-        $guestToken = $request->header('guest_token') ?: (string) Str::uuid();
+        $guestToken = $request->header('guest_token');
+        if (!$guestToken) {
+            $guestToken = (string) Str::uuid();
+        }
         return Cart::firstOrCreate(['guest_token' => $guestToken]);
     }
 
 
     // Helper: Standardize Cart Response (Used by index and store)
 
-    private function formatCartResponse(Cart $cart, string $message){
+    private function formatCartResponse(Cart $cart, string $message)
+    {
         $cart->load('items.variant.product.discount');
 
         $totalOriginal = 0;
@@ -64,13 +68,13 @@ class CartController extends Controller
             return [
                 'id' => $item->id,
                 'quantity' => $item->quantity,
-                'subtotal' => round($lineSubtotal, 2), 
+                'subtotal' => round($lineSubtotal, 2),
                 'variant' => [
                     'id' => $variant->id,
                     'size' => $variant->size,
                     'color' => $variant->color,
-                    'base_price' => round($basePrice,2),
-                    'discounted_price' => round($discountedPrice, 2), 
+                    'base_price' => round($basePrice, 2),
+                    'discounted_price' => $discountedPrice ? round($discountedPrice, 2) : null,
                     'product' => [
                         'product_id' => $product->id,
                         'product_name' => $product->productName,
@@ -96,7 +100,13 @@ class CartController extends Controller
         $cart = $this->getCart($request);
         if ($cart->items->isEmpty()) {
             return response()->json([
-                'message' => 'Cart is empty'
+                'message' => 'Cart is empty',
+                'cart' => [
+                    'id' => $cart->id,
+                    'total_price' => 0,
+                    'total_discount' => 0,
+                    'items' => []
+                ]
             ]);
         }
         return $this->formatCartResponse($cart, 'Cart retrieved');
@@ -124,7 +134,7 @@ class CartController extends Controller
             'product_variant_id' => $variant->id
         ]);
 
-        $newQty = $cartItem->quantity + $request->quantity;
+        $newQty = ($cartItem->exists ? $cartItem->quantity : 0) + $request->quantity;
 
         if ($newQty > $variant->stock) {
             return response()->json(['message' => "Only {$variant->stock} items left in stock"], 400);

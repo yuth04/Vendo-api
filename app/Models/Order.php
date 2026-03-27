@@ -12,11 +12,9 @@ class Order extends Model
         'order_number',
         'total_price',
         'status',
-        'payment_method',
         'contact',
         'note',
-        'payment_status',
-        'payment_reference'
+
     ];
     protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';
@@ -31,5 +29,9 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+    public function payment()
+    {
+        return $this->hasOne(Payment::class);
     }
 }

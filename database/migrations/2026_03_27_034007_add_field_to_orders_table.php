@@ -11,9 +11,6 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->string('payment_method')->nullable()->after('status'); // e.g., 'bakong'
-            $table->string('payment_status')->default('pending')->after('payment_method'); // 'pending', 'paid', 'failed'
-            $table->string('payment_reference')->nullable()->unique()->after('payment_status'); // for Bakong transaction reference
             $table->string('contact')->nullable();
             $table->text('note')->nullable();
         });
@@ -25,7 +22,7 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn(['address_id', 'payment_method', 'payment_status', 'payment_reference,', 'contact', 'note']);
+            $table->dropColumn(['contact','note']);
         });
     }
 };

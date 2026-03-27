@@ -72,10 +72,10 @@ class ReviewController extends Controller
     {
         $review = Review::findOrFail($id);
 
-        // Only owner can update
-        if ($request->user()->id !== $review->user_id) {
+        // Only owner can delete
+        if ($request->user()->id !== $review->user_id && $request->user()->role !== 'admin') {
             return response()->json([
-                'message' => 'Unauthorized'
+                'message' => 'You cannot delete someone else\'s review.'
             ], 403);
         }
 

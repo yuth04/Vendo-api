@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Address;
 use App\Models\Cart;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\BakongService;
 use App\Services\DiscountService;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -41,6 +43,7 @@ class OrderController extends Controller
             'phone' => 'required_without:address_id|string|max:20',
             // 'payment_method' => 'required|in:Cash on Delivery,ABA,Credit Card',
             'payment_method' => 'required|string',
+            'note' => 'nullable|string'
         ]);
         $user = Auth::user();
         $cart = Cart::with('items.variant.product.discount')->where('user_id', $user->id)->first();
@@ -50,11 +53,19 @@ class OrderController extends Controller
         try {
             $result = DB::transaction(function () use ($user, $cart, $request) {
                 $address = $this->resolveOrderAddress($user, $request);
-                $order = $this->initializeOrder($user, $address, $request);
+                $order = $this->initializeOrder($user, $address);
                 $total = $this->processOrderItems($order, $cart);
                 $order->update(['total_price' => round($total + 1.00, 2)]);
+                $payment = Payment::create([
+                    'order_id' => $order->id,
+                    'payment_method' => $request->payment_method,
+                    'amount' => $order->total_price,
+                    'status' => 'pending',
+                    'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
+                    'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+                ]);
                 $cart->items()->delete();
-                return $this->prepareCheckoutResponse($order, $request->payment_method);
+                return $this->prepareCheckoutResponse($order, $payment);
 
             });
             return response()->json([
@@ -93,16 +104,15 @@ class OrderController extends Controller
 
     }
     // Initialize new Order record
-    private function initializeOrder($user, $address, Request $request)
+    private function initializeOrder($user, $address)
     {
         return Order::create([
             'user_id' => $user->id,
             'address_id' => $address->id,
             'order_number' => 'ODR-' . strtoupper(Str::random(10)),
-            'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
-            'payment_method' => $request->payment_method,
             'status' => 'pending',
             'total_price' => 0,
+
         ]);
     }
     // Process stock, calculation, order item create
@@ -138,30 +148,38 @@ class OrderController extends Controller
         return $total;
     }
     // Return data based on payment method
-    private function prepareCheckoutResponse(Order $order, $paymentMethod)
+    private function prepareCheckoutResponse(Order $order, Payment $payment)
     {
-        if ($paymentMethod === "Cash on Delivery") {
+        if ($payment->payment_method === "Cash on Delivery") {
             $order->update([
                 'status' => 'delivered',
-                'payment_status' => 'Unpaid'
             ]);
             return [
                 'message' => 'Order placed successfully',
-                'data' => $order
+                'data' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number
+                ]
             ];
         }
 
+        // ✅ BAKONG / ONLINE PAYMENT
         $bakongService = new BakongService();
-        $khqrString = $bakongService->generateKhqr($order);
-        $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' . urlencode($khqrString);
+
+        $qrData = $bakongService->generateKhqr($order, $payment);
+        $khqrString = $qrData['khqr_string'];
+
+        $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='
+            . urlencode($khqrString);
 
         return [
             'message' => 'QR Generated',
             'data' => [
                 'qr_code_url' => $qrCodeUrl,
                 'khqr_string' => $khqrString,
+                'order_id' => $order->id,
                 'order_number' => $order->order_number,
-                'order_id' => $order->id
+                'payment_reference' => $payment->payment_reference
             ]
         ];
     }
@@ -260,10 +278,17 @@ class OrderController extends Controller
             'order_number' => $order->order_number,
             'status' => $order->status,
             'total_price' => (float) $order->total_price,
+            'payment' => [
+                'method' => $order->payment->payment_method ?? null,
+                'status' => $order->payment->status ?? null,
+                'reference' => $order->payment->payment_reference ?? null,
+                'paid_at' => $order->payment->paid_at
+
+            ],
             'items' => $order->items->map(fn($item) => [
                 'id' => $item->id,
                 'quantity' => $item->quantity,
-                'price' => (float) $item->price,
+                // 'price' => (float) $item->price,
                 'subtotal' => (float) ($item->price * $item->quantity),
                 'variant' => [
                     'id' => $item->variant->id,
@@ -280,4 +305,5 @@ class OrderController extends Controller
             ])
         ];
     }
+
 }
