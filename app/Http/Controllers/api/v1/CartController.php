@@ -27,14 +27,10 @@ class CartController extends Controller
     private function getCart(Request $request)
     {
         if (Auth::check()) {
-            return Cart::firstOrCreate(['user_id' => Auth::id()]);
+            return Cart::where('user_id', Auth::id())->first();
         }
 
-        $guestToken = $request->header('guest_token');
-        if (!$guestToken) {
-            $guestToken = (string) Str::uuid();
-        }
-        return Cart::firstOrCreate(['guest_token' => $guestToken]);
+        return null;
     }
 
 
@@ -98,23 +94,20 @@ class CartController extends Controller
     public function index(Request $request)
     {
         $cart = $this->getCart($request);
-        if ($cart->items->isEmpty()) {
+
+        if (!$cart || $cart->items->isEmpty()) {
             return response()->json([
                 'message' => 'Cart is empty',
-                'cart' => [
-                    'id' => $cart->id,
-                    'total_price' => 0,
-                    'total_discount' => 0,
-                    'items' => []
-                ]
+                'cart' => null
             ]);
         }
+
         return $this->formatCartResponse($cart, 'Cart retrieved');
     }
 
-    /**
-     * ✅ Add item to cart
-     */
+ 
+    //  Add item to cart
+ 
     public function store(Request $request)
     {
         $request->validate([
@@ -127,9 +120,11 @@ class CartController extends Controller
             ->where('product_id', $request->product_id)
             ->firstOrFail();
 
-        $cart = $this->getCart($request);
+        // create ONLY when user adds item
+        $cart = Cart::firstOrCreate([
+            'user_id' => Auth::id()
+        ]);
 
-        // Find existing item or create new instance
         $cartItem = $cart->items()->firstOrNew([
             'product_variant_id' => $variant->id
         ]);
@@ -144,7 +139,7 @@ class CartController extends Controller
         $cartItem->save();
 
         return response()->json([
-            'message' => 'Added to cart succcesfully'
+            'message' => 'Added to cart successfully'
         ]);
     }
 
@@ -188,80 +183,5 @@ class CartController extends Controller
 
         return response()->json(['message' => 'Cart cleared']);
     }
-    /**
-     * Merges the guest cart from frontend into the authenticated user's cart.
-     */
-    public function mergeCart($user, array $localCart)
-    {
-        // 1. Get or Create the User's Cart
-        $cart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-        DB::transaction(function () use ($cart, $localCart) {
-            foreach ($localCart as $item) {
-                // Basic validation for the incoming array structure
-                if (!isset($item['product_variant_id']) || !isset($item['quantity'])) {
-                    continue;
-                }
-
-                $variant = ProductVariant::find($item['product_variant_id']);
-                if (!$variant)
-                    continue;
-
-                // 2. Find existing item in the DB cart or start a new one
-                $cartItem = $cart->items()->firstOrNew([
-                    'product_variant_id' => $variant->id
-                ]);
-
-                // 3. Combine quantities (Existing DB Qty + Guest Qty)
-                $newQuantity = ($cartItem->exists ? $cartItem->quantity : 0) + $item['quantity'];
-
-                // 4. Safety Check: Don't exceed available stock
-                $cartItem->quantity = min($newQuantity, $variant->stock);
-
-                $cartItem->save();
-            }
-        });
-
-        // Return the final formatted cart to send back to the frontend
-        return $this->formatCartResponse($cart, 'Cart merged successfully');
-    }
-    /**
-     * ✅ Sync guest cart to user cart (Post-Login)
-     */
-    // public function sync(Request $request)
-    // {
-    //     if (!Auth::check()) {
-    //         return response()->json(['message' => 'Unauthorized'], 401);
-    //     }
-
-    //     $request->validate([
-    //         'items' => 'required|array',
-    //         'items.*.product_variant_id' => 'required|exists:product_variants,id',
-    //         'items.*.quantity' => 'required|integer|min:1'
-    //     ]);
-
-    //     $cart = Cart::firstOrCreate(['user_id' => Auth::id()]);
-
-    //     DB::transaction(function () use ($request, $cart) {
-    //         foreach ($request->items as $itemData) {
-    //             $variant = ProductVariant::findOrFail($itemData['product_variant_id']);
-
-    //             $cartItem = $cart->items()->firstOrNew([
-    //                 'product_variant_id' => $variant->id
-    //             ]);
-
-    //             // Merge quantities
-    //             $cartItem->quantity += $itemData['quantity'];
-
-    //             // Cap at stock limit
-    //             if ($cartItem->quantity > $variant->stock) {
-    //                 $cartItem->quantity = $variant->stock;
-    //             }
-
-    //             $cartItem->save();
-    //         }
-    //     });
-
-    //     return $this->formatCartResponse($cart, 'Cart synced successfully');
-    // }
 }

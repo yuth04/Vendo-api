@@ -5,30 +5,24 @@ use App\Mail\ForgotPasswordMail;
 use App\Mail\PasswordResetSuccess;
 use App\Mail\ResendNewCode;
 use App\Mail\SendCode;
-use App\Models\Cart;
-use App\Models\ProductVariant;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\api\v1\CartController;
+use App\Services\CartService;
 class AuthController extends Controller
 {
-    protected $cartController;
+    protected $cartService;
 
     // Inject CartController directly
-    public function __construct(CartController $cartController)
+    public function __construct(CartService $cartService)
     {
-        $this->cartController = $cartController;
+        $this->cartService = $cartService;
     }
     public function register(Request $request)
     {
@@ -82,52 +76,53 @@ class AuthController extends Controller
                 'email' => 'required|email',
                 'password' => 'required|string',
                 'local_cart' => 'nullable|array',
-                'local_cart.*.product_variant_id' => 'nullable|exists:product_variants,id',
-                'local_cart.*.quantity' => 'nullable|integer|min:1'
+                'local_cart.*.product_variant_id' => 'required|exists:product_variants,id',
+                'local_cart.*.quantity' => 'required|integer|min:1'
             ]);
 
+            // 1. Attempt login
             if (!Auth::attempt($request->only('email', 'password'))) {
                 return response()->json([
                     'errors' => ['email' => 'Invalid email or password']
                 ], 401);
             }
+
             $user = Auth::user();
 
+            // 2. Check verification
             if (!$user->is_verified) {
                 return response()->json([
                     'errors' => ['email' => 'Please verify your email before logging in.']
                 ], 403);
             }
 
-
-            // Perform the merge if local_cart is provided
+            // 3. Merge guest cart
             $localCart = $request->input('local_cart', []);
-            $cart = Cart::firstOrCreate(['user_id' => $user->id]);
-            // $cartResponse = $this->cartController->mergeCart($user, $localCart);
-            if (!empty($localCart)) {
-                $this->cartController->mergeCart($user, $localCart);
-                // Refresh the cart model to get the newly merged items
-                $cart->load('items.productVariant.product');
-            } else {
-                // Just load existing items if no merge is needed
-                $cart->load('items.productVariant.product');
+            $cart = $this->cartService->mergeCart($user, $localCart);
+            if ($cart) {
+                $cart->load('items.variant.product');
             }
-            $cartData = $cart;
+            if (!$cart || $cart->items->isEmpty()) {
+                $cart = null;
+            }
+            // 4. Create token (Sanctum)
             $user->tokens()->delete();
             $token = $user->createToken('api-token')->plainTextToken;
 
+            // 5. Return response
             return response()->json([
                 'message' => 'Login successful',
-                // 'user' => $user->only(['id', 'first_name', 'last_name', 'email', 'role', 'image', 'is_verified']),
-                'id' => $user->id,
-                'first_name' => $user->first_name,
-                'last_name' => $user->last_name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'image' => $user->image,
-                'is_verified' => $user->is_verified,
+                'user' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'image' => $user->image,
+                    'is_verified' => $user->is_verified,
+                ],
                 'token' => $token,
-                'cart' => $cartData
+                'cart' => $cart,
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -135,6 +130,7 @@ class AuthController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
             ], 422);
+
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Login failed',
