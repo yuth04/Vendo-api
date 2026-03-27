@@ -20,9 +20,16 @@ use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\api\v1\CartController;
 class AuthController extends Controller
 {
+    protected $cartController;
 
+    // Inject CartController directly
+    public function __construct(CartController $cartController)
+    {
+        $this->cartController = $cartController;
+    }
     public function register(Request $request)
     {
         try {
@@ -71,7 +78,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         try {
-            $validated = $request->validate([
+            $request->validate([
                 'email' => 'required|email',
                 'password' => 'required|string',
                 'local_cart' => 'nullable|array',
@@ -93,11 +100,19 @@ class AuthController extends Controller
             }
 
 
-            // --- CART MERGE START ---
-
-            $cartData = $this->mergeCart($user, $request->input('local_cart', []));
-            // --- CART MERGE END ---
-
+            // Perform the merge if local_cart is provided
+            $localCart = $request->input('local_cart', []);
+            $cart = Cart::firstOrCreate(['user_id' => $user->id]);
+            // $cartResponse = $this->cartController->mergeCart($user, $localCart);
+            if (!empty($localCart)) {
+                $this->cartController->mergeCart($user, $localCart);
+                // Refresh the cart model to get the newly merged items
+                $cart->load('items.productVariant.product');
+            } else {
+                // Just load existing items if no merge is needed
+                $cart->load('items.productVariant.product');
+            }
+            $cartData = $cart;
             $user->tokens()->delete();
             $token = $user->createToken('api-token')->plainTextToken;
 
@@ -127,47 +142,7 @@ class AuthController extends Controller
             ], 500);
         }
     }
-    private function mergeCart($user, $localCartItems)
-    {
-        return DB::transaction(function () use ($user, $localCartItems) {
-            $userCart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-            if (!empty($localCartItems)) {
-                foreach ($localCartItems as $item) {
-                    if (empty($item['product_variant_id']) || empty($item['quantity'])) {
-                        continue;
-                    }
-                    $cartItem = $userCart->items()->firstOrNew([
-                        'product_variant_id' => $item['product_variant_id']
-                    ]);
-
-                    // Sum the quantities
-                    $cartItem->quantity += $item['quantity'];
-
-                    // Optional: Stock check
-                    // $variant = ProductVariant::find($item['product_variant_id']);
-                    // if ($variant && $cartItem->quantity > $variant->stock) {
-                    //     $cartItem->quantity = $variant->stock;
-                    // }
-
-                    $cartItem->save();
-                }
-            }
-
-            // Load relations and format (using your standardized response logic)
-            $userCart->load('items');
-
-            return [
-                'id' => $userCart->id,
-                'items' => $userCart->items->map(function ($item) {
-                    return [
-                        'product_variant_id' => $item->product_variant_id,
-                        'quantity' => $item->quantity,
-                    ];
-                }),
-            ];
-        });
-    }
     public function logout(Request $request)
     {
         if ($request->user()) {

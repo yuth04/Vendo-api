@@ -188,44 +188,80 @@ class CartController extends Controller
 
         return response()->json(['message' => 'Cart cleared']);
     }
-
     /**
-     * ✅ Sync guest cart to user cart (Post-Login)
+     * Merges the guest cart from frontend into the authenticated user's cart.
      */
-    public function sync(Request $request)
+    public function mergeCart($user, array $localCart)
     {
-        if (!Auth::check()) {
-            return response()->json(['message' => 'Unauthorized'], 401);
-        }
+        // 1. Get or Create the User's Cart
+        $cart = Cart::firstOrCreate(['user_id' => $user->id]);
 
-        $request->validate([
-            'items' => 'required|array',
-            'items.*.product_variant_id' => 'required|exists:product_variants,id',
-            'items.*.quantity' => 'required|integer|min:1'
-        ]);
+        DB::transaction(function () use ($cart, $localCart) {
+            foreach ($localCart as $item) {
+                // Basic validation for the incoming array structure
+                if (!isset($item['product_variant_id']) || !isset($item['quantity'])) {
+                    continue;
+                }
 
-        $cart = Cart::firstOrCreate(['user_id' => Auth::id()]);
+                $variant = ProductVariant::find($item['product_variant_id']);
+                if (!$variant)
+                    continue;
 
-        DB::transaction(function () use ($request, $cart) {
-            foreach ($request->items as $itemData) {
-                $variant = ProductVariant::findOrFail($itemData['product_variant_id']);
-
+                // 2. Find existing item in the DB cart or start a new one
                 $cartItem = $cart->items()->firstOrNew([
                     'product_variant_id' => $variant->id
                 ]);
 
-                // Merge quantities
-                $cartItem->quantity += $itemData['quantity'];
+                // 3. Combine quantities (Existing DB Qty + Guest Qty)
+                $newQuantity = ($cartItem->exists ? $cartItem->quantity : 0) + $item['quantity'];
 
-                // Cap at stock limit
-                if ($cartItem->quantity > $variant->stock) {
-                    $cartItem->quantity = $variant->stock;
-                }
+                // 4. Safety Check: Don't exceed available stock
+                $cartItem->quantity = min($newQuantity, $variant->stock);
 
                 $cartItem->save();
             }
         });
 
-        return $this->formatCartResponse($cart, 'Cart synced successfully');
+        // Return the final formatted cart to send back to the frontend
+        return $this->formatCartResponse($cart, 'Cart merged successfully');
     }
+    /**
+     * ✅ Sync guest cart to user cart (Post-Login)
+     */
+    // public function sync(Request $request)
+    // {
+    //     if (!Auth::check()) {
+    //         return response()->json(['message' => 'Unauthorized'], 401);
+    //     }
+
+    //     $request->validate([
+    //         'items' => 'required|array',
+    //         'items.*.product_variant_id' => 'required|exists:product_variants,id',
+    //         'items.*.quantity' => 'required|integer|min:1'
+    //     ]);
+
+    //     $cart = Cart::firstOrCreate(['user_id' => Auth::id()]);
+
+    //     DB::transaction(function () use ($request, $cart) {
+    //         foreach ($request->items as $itemData) {
+    //             $variant = ProductVariant::findOrFail($itemData['product_variant_id']);
+
+    //             $cartItem = $cart->items()->firstOrNew([
+    //                 'product_variant_id' => $variant->id
+    //             ]);
+
+    //             // Merge quantities
+    //             $cartItem->quantity += $itemData['quantity'];
+
+    //             // Cap at stock limit
+    //             if ($cartItem->quantity > $variant->stock) {
+    //                 $cartItem->quantity = $variant->stock;
+    //             }
+
+    //             $cartItem->save();
+    //         }
+    //     });
+
+    //     return $this->formatCartResponse($cart, 'Cart synced successfully');
+    // }
 }
