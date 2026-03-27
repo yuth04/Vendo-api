@@ -32,19 +32,19 @@ class User extends Authenticatable
         'image_file_id'
 
     ];
-    protected $appends = ['firstName', 'lastName'];
+    // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
         'verification_code_expire' => 'datetime',
     ];
-    public function getFirstNameAttribute()
-    {
-        return $this->attributes['first_name'];
-    }
+    // public function getFirstNameAttribute()
+    // {
+    //     return $this->attributes['first_name'];
+    // }
 
-    public function getLastNameAttribute()
-    {
-        return $this->attributes['last_name'];
-    }
+    // public function getLastNameAttribute()
+    // {
+    //     return $this->attributes['last_name'];
+    // }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -54,8 +54,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'first_name',
-        'last_name',
         'google_id',
         'is_verified',
         'verification_code',
