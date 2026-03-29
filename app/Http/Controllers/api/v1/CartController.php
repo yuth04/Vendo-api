@@ -105,9 +105,9 @@ class CartController extends Controller
         return $this->formatCartResponse($cart, 'Cart retrieved');
     }
 
- 
+
     //  Add item to cart
- 
+
     public function store(Request $request)
     {
         $request->validate([
@@ -183,5 +183,63 @@ class CartController extends Controller
 
         return response()->json(['message' => 'Cart cleared']);
     }
+    // public function sync(Request $request)
+    // {
+    //     $request->validate([
+    //         'items' => 'required|array|min:1',
+    //         'items.*.product_variant_id' => 'required|exists:product_variants,id',
+    //         'items.*.quantity' => 'required|integer|min:1'
+    //     ]);
+    //     $user = $request->user();
+    //     if (!$user) {
+    //         return response()->json([
+    //             'message' => 'Unauthorized'
+    //         ], 401);
+    //     }
+    //     DB::beginTransaction();
+    //     try {
+    //         // ✅ Get or create cart
+    //         $cart = Cart::firstOrCreate([
+    //             'user_id' => $user->id
+    //         ]);
 
+    //         foreach ($request->items as $item) {
+
+    //             $variant = ProductVariant::find($item['product_variant_id']);
+
+    //             if (!$variant) {
+    //                 continue;
+    //             }
+
+    //             // ✅ Find existing item
+    //             $cartItem = $cart->items()->firstOrNew([
+    //                 'product_variant_id' => $variant->id
+    //             ]);
+
+    //             // ✅ Merge quantity
+    //             $newQty = ($cartItem->exists ? $cartItem->quantity : 0) + $item['quantity'];
+
+    //             // ✅ Stock check
+    //             if ($newQty > $variant->stock) {
+    //                 $newQty = $variant->stock;
+    //             }
+
+    //             $cartItem->quantity = $newQty;
+    //             $cartItem->save();
+    //         }
+
+    //         DB::commit();
+
+    //         // ✅ Return full cart (your existing formatter)
+    //         return $this->formatCartResponse($cart, 'Cart synced successfully');
+
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         return response()->json([
+    //             'message' => 'Sync failed',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 }

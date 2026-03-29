@@ -40,7 +40,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     // Reviews
     Route::get('/reviews', [ReviewController::class, 'index']);
-
+    Route::get('/', [CartController::class, 'index']);
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
 
@@ -94,7 +94,7 @@ Route::prefix('v1')->group(function () {
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
 
         Route::prefix('cart')->group(function () {
-            Route::get('/', [CartController::class, 'index']);
+
             Route::post('/', [CartController::class, 'store']);
             Route::put('/item/{id}', [CartController::class, 'updateItem']);
             Route::delete('/item/{id}', [CartController::class, 'destroy']);

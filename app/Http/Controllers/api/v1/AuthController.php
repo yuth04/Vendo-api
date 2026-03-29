@@ -74,10 +74,7 @@ class AuthController extends Controller
         try {
             $request->validate([
                 'email' => 'required|email',
-                'password' => 'required|string',
-                'local_cart' => 'nullable|array',
-                'local_cart.*.product_variant_id' => 'required|exists:product_variants,id',
-                'local_cart.*.quantity' => 'required|integer|min:1'
+                'password' => 'required|string'
             ]);
 
             // 1. Attempt login
@@ -96,20 +93,12 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // 3. Merge guest cart
-            $localCart = $request->input('local_cart', []);
-            $cart = $this->cartService->mergeCart($user, $localCart);
-            if ($cart) {
-                $cart->load('items.variant.product');
-            }
-            if (!$cart || $cart->items->isEmpty()) {
-                $cart = null;
-            }
-            // 4. Create token (Sanctum)
+
+            // Create token (Sanctum)
             $user->tokens()->delete();
             $token = $user->createToken('api-token')->plainTextToken;
 
-            // 5. Return response
+            // Return response
             return response()->json([
                 'message' => 'Login successful',
                 'user' => [
@@ -120,9 +109,9 @@ class AuthController extends Controller
                     'role' => $user->role,
                     'image' => $user->image,
                     'is_verified' => $user->is_verified,
-                ],
-                'token' => $token,
-                'cart' => $cart,
+                    'token' => $token,
+                ]
+
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -158,7 +147,7 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
-    // change password
+    // change password     'token' => $token,
     public function changePassword(Request $request)
     {
         $request->validate([

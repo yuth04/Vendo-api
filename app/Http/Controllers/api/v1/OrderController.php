@@ -43,18 +43,22 @@ class OrderController extends Controller
             'phone' => 'required_without:address_id|string|max:20',
             // 'payment_method' => 'required|in:Cash on Delivery,ABA,Credit Card',
             'payment_method' => 'required|string',
-            'note' => 'nullable|string'
+            'note' => 'nullable|string',
+            // get cart from frontend
+            'items' => 'required|array|min:1',
+            'items.*.product_variant_id' => 'required|exists:product_variants,id',
+            'items.*.quantity' => 'required|integer|min:1',
         ]);
         $user = Auth::user();
-        $cart = Cart::with('items.variant.product.discount')->where('user_id', $user->id)->first();
-        if (!$cart || $cart->items->isEmpty()) {
-            return response()->json(['message' => 'Cart is empty'], 400);
-        }
+        // $cart = Cart::with('items.variant.product.discount')->where('user_id', $user->id)->first();
+        // if (!$cart || $cart->items->isEmpty()) {
+        //     return response()->json(['message' => 'Cart is empty'], 400);
+        // }
         try {
-            $result = DB::transaction(function () use ($user, $cart, $request) {
+            $result = DB::transaction(function () use ($user, $request) {
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
-                $total = $this->processOrderItems($order, $cart);
+                $total = $this->processOrderItems($order, $request->items);
                 $order->update(['total_price' => round($total + 1.00, 2)]);
                 $payment = Payment::create([
                     'order_id' => $order->id,
@@ -64,7 +68,7 @@ class OrderController extends Controller
                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
                     'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
                 ]);
-                $cart->items()->delete();
+                // $cart->items()->delete();
                 return $this->prepareCheckoutResponse($order, $payment);
 
             });
@@ -101,7 +105,6 @@ class OrderController extends Controller
                 'phone' => $request->phone,
             ]);
         }
-
     }
     // Initialize new Order record
     private function initializeOrder($user, $address)
@@ -112,34 +115,36 @@ class OrderController extends Controller
             'order_number' => 'ODR-' . strtoupper(Str::random(10)),
             'status' => 'pending',
             'total_price' => 0,
-
         ]);
     }
     // Process stock, calculation, order item create
-    private function processOrderItems(Order $order, Cart $cart)
-    {
+    private function processOrderItems(Order $order, array $frontendItems){
         $total = 0;
 
-        foreach ($cart->items as $item) {
-            $variant = ProductVariant::where('id', $item->product_variant_id)
-                ->lockForUpdate()
+        foreach ($frontendItems as $item) {
+            $variant = ProductVariant::with('product.discount')
+                ->where('id', $item['product_variant_id'])
+                ->lockForUpdate() // Protects against 2 people buying the last item
                 ->firstOrFail();
 
-            if ($variant->stock < $item->quantity) {
-                throw new \Exception("Stock not enough for {$variant->product->productName}");
+            // Check if stock is actually available in the DB
+            if ($variant->stock < $item['quantity']) {
+                throw new \Exception("Insufficient stock for {$variant->product->productName}");
             }
 
-            // Logic fix: Ensure we use the base price if discount is null
+            // Calculate price based on DB records
             $price = $this->discountService->discountedPrice($variant->product) ?? $variant->product->price;
-            $total += $price * $item->quantity;
+            $total += $price * $item['quantity'];
 
-            $variant->decrement('stock', $item->quantity);
+            // Deduct stock
+            $variant->decrement('stock', $item['quantity']);
 
+            // Save the item to the order
             $order->items()->create([
                 'product_variant_id' => $variant->id,
                 'product_name' => $variant->product->productName,
                 'price' => round($price, 2),
-                'quantity' => $item->quantity,
+                'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
             ]);
@@ -152,7 +157,7 @@ class OrderController extends Controller
     {
         if ($payment->payment_method === "Cash on Delivery") {
             $order->update([
-                'status' => 'delivered',
+                'status' => 'pending',
             ]);
             return [
                 'message' => 'Order placed successfully',
@@ -165,17 +170,13 @@ class OrderController extends Controller
 
         // ✅ BAKONG / ONLINE PAYMENT
         $bakongService = new BakongService();
-
         $qrData = $bakongService->generateKhqr($order, $payment);
         $khqrString = $qrData['khqr_string'];
-
-        $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='
-            . urlencode($khqrString);
 
         return [
             'message' => 'QR Generated',
             'data' => [
-                'qr_code_url' => $qrCodeUrl,
+                // 'qr_code_url' => $qrCodeUrl,
                 'khqr_string' => $khqrString,
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
