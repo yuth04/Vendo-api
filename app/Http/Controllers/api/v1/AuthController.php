@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\api\v1;
 use App\Mail\ForgotPasswordMail;
+use App\Mail\LoginNotificationMail;
+use App\Mail\PasswordChangedMail;
 use App\Mail\PasswordResetSuccess;
 use App\Mail\ResendNewCode;
 use App\Mail\SendCode;
+use App\Mail\WelcomeUserMail;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use App\Http\Controllers\Controller;
@@ -76,29 +79,22 @@ class AuthController extends Controller
                 'email' => 'required|email',
                 'password' => 'required|string'
             ]);
-
-            // 1. Attempt login
             if (!Auth::attempt($request->only('email', 'password'))) {
                 return response()->json([
                     'errors' => ['email' => 'Invalid email or password']
                 ], 401);
             }
-
             $user = Auth::user();
-
             // 2. Check verification
             if (!$user->is_verified) {
                 return response()->json([
                     'errors' => ['email' => 'Please verify your email before logging in.']
                 ], 403);
             }
-
-
             // Create token (Sanctum)
             $user->tokens()->delete();
             $token = $user->createToken('api-token')->plainTextToken;
-
-            // Return response
+            Mail::to($user->email)->send(new LoginNotificationMail($user));
             return response()->json([
                 'message' => 'Login successful',
                 'user' => [
@@ -170,6 +166,7 @@ class AuthController extends Controller
         }
         $user->password = Hash::make($request->new_password);
         $user->save();
+        Mail::to($user->email)->send(new PasswordChangedMail($user));
         return response()->json([
             'message' => 'Password changed successfully',
         ]);
@@ -311,7 +308,7 @@ class AuthController extends Controller
         ]);
 
         Cache::forget('register_' . $request->email);
-
+        Mail::to($user->email)->send(new WelcomeUserMail($user));
         return response()->json([
             'message' => 'Account verified successfully',
             'user' => $user

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\v1;
 
+use App\Mail\GoogleWelcomeMail;
 use Auth;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -44,6 +45,7 @@ class GoogleAuthController extends Controller
                     'email_verified_at' => now(),
                     'role' => 'customer'
                 ]);
+                Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {
                 if (!$user->google_id) {
                     $user->update([

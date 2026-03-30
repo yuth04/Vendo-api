@@ -1,8 +1,9 @@
 <?php
 
 namespace App\Http\Controllers\api\v1;
-
+use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Controller;
+use App\Mail\OrderPlaced;
 use App\Models\Address;
 use App\Models\Cart;
 use App\Models\Order;
@@ -16,9 +17,10 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-
+use Barryvdh\DomPDF\Facade\Pdf;
 class OrderController extends Controller
 {
     protected $discountService;
@@ -50,12 +52,9 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
         ]);
         $user = Auth::user();
-        // $cart = Cart::with('items.variant.product.discount')->where('user_id', $user->id)->first();
-        // if (!$cart || $cart->items->isEmpty()) {
-        //     return response()->json(['message' => 'Cart is empty'], 400);
-        // }
         try {
-            $result = DB::transaction(function () use ($user, $request) {
+            $orderModel = null;
+            $result = DB::transaction(function () use ($user, $request, &$orderModel) {
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
                 $total = $this->processOrderItems($order, $request->items);
@@ -69,12 +68,18 @@ class OrderController extends Controller
                     'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
                 ]);
                 // $cart->items()->delete();
+                $orderModel = $order;
                 return $this->prepareCheckoutResponse($order, $payment);
 
             });
+            if ($orderModel) {
+                // Load relationships needed for the email (items and user)
+                $orderModel->load(['items', 'user', 'address', 'payment']);
+                Mail::to($user->email)->send(new OrderPlaced($orderModel));
+            }
             return response()->json([
                 'message' => $result['message'],
-                'data' => $result['data']
+                'order' => $result['order']
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -94,17 +99,17 @@ class OrderController extends Controller
             return Address::where('id', $request->address_id)
                 ->where('user_id', $user->id)
                 ->firstOrFail();
-        } else {
-            return Address::create([
-                'user_id' => $user->id,
-                'first_name' => $request->first_name,
-                'last_name' => $request->last_name,
-                'address_line' => $request->address_line,
-                'city' => $request->city,
-                'province' => $request->province,
-                'phone' => $request->phone,
-            ]);
         }
+        return Address::create([
+            'user_id' => $user->id,
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'address_line' => $request->address_line,
+            'city' => $request->city,
+            'province' => $request->province,
+            'phone' => $request->phone,
+        ]);
+
     }
     // Initialize new Order record
     private function initializeOrder($user, $address)
@@ -118,7 +123,8 @@ class OrderController extends Controller
         ]);
     }
     // Process stock, calculation, order item create
-    private function processOrderItems(Order $order, array $frontendItems){
+    private function processOrderItems(Order $order, array $frontendItems)
+    {
         $total = 0;
 
         foreach ($frontendItems as $item) {
@@ -153,15 +159,17 @@ class OrderController extends Controller
         return $total;
     }
     // Return data based on payment method
-    private function prepareCheckoutResponse(Order $order, Payment $payment)
-    {
+    private function prepareCheckoutResponse(Order $order, Payment $payment){
         if ($payment->payment_method === "Cash on Delivery") {
             $order->update([
                 'status' => 'pending',
+                'delivered_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+
             ]);
+
             return [
                 'message' => 'Order placed successfully',
-                'data' => [
+                'order' => [
                     'order_id' => $order->id,
                     'order_number' => $order->order_number
                 ]
@@ -215,7 +223,10 @@ class OrderController extends Controller
             foreach ($order->items as $item) {
                 $item->variant?->increment('stock', $item->quantity);
             }
-            $order->update(['status' => 'cancelled']);
+            $order->update([
+                'status' => 'cancelled',
+                'canelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+            ]);
         });
 
         return response()->json(['message' => 'Order cancelled successfully', 'order' => $this->formatOrder($order->fresh())]);
@@ -275,7 +286,7 @@ class OrderController extends Controller
     private function formatOrder($order)
     {
         return [
-            'id' => $order->id,
+            'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
             'total_price' => (float) $order->total_price,
@@ -295,7 +306,7 @@ class OrderController extends Controller
                     'id' => $item->variant->id,
                     'size' => $item->variant->size,
                     'color' => $item->variant->color,
-                    'price' => (float) $item->variant->product->price,
+                    'price' => (float) $item->price,
                     'product' => [
                         'id' => $item->variant->product->id,
                         'name' => $item->variant->product->productName,
@@ -306,5 +317,64 @@ class OrderController extends Controller
             ])
         ];
     }
+    // Mark shipping (Admin only)
+    public function markAsShipping($id)
+    {
+        if (Auth::user()->role !== 'admin') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        $order = Order::findOrFail($id);
+        if ($order->status !== 'pending') {
+            return response()->json(['message' => 'Only pending orders can be marked as shipping'], 400);
+        }
+        $order->update([
+            'status' => 'shipping',
+            'shipping_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+        ]);
+        return response()->json(['message' => 'Order marked as shipping successfully', 'data' => $order]);
+    }
+    // Mark delivered (Admin only)
+    public function markAsDelivered($id)
+    {
+        if (Auth::user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
 
+        $order = Order::findOrFail($id);
+
+        if ($order->status !== 'shipped') {
+            return response()->json([
+                'message' => 'Only shipped orders can be delivered'
+            ], 400);
+        }
+
+        $order->update([
+            'status' => 'delivered',
+            'delivered_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+        ]);
+
+        return response()->json([
+            'message' => 'Order delivered successfully',
+            'data' => $order
+        ]);
+    }
+
+    // PDF download
+    public function downloadReceipt(Request $request, Order $order)
+    {
+        if (!$request->hasValidSignature()) {
+            abort(403, 'The download link has expired.');
+        }
+        $order->load(['items', 'user', 'address', 'payment']);
+
+
+        $pdf = Pdf::loadView('invoices.receipt', [
+            'order' => $order,
+            // 'isPdf' => true
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Vendo-Receipt-' . $order->order_number . '.pdf');
+    }
 }

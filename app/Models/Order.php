@@ -14,7 +14,17 @@ class Order extends Model
         'status',
         'contact',
         'note',
+        'delivered_at',
+        'shipped_at',
+        'cancelled_at',
+        'returned_at',
 
+    ];
+    protected $casts = [
+        'delivered_at' => 'datetime',
+        'shipped_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'returned_at' => 'datetime',
     ];
     protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';
@@ -33,5 +43,13 @@ class Order extends Model
     public function payment()
     {
         return $this->hasOne(Payment::class);
+    }
+    public function returnOrder()
+    {
+        return $this->hasOne(ReturnOrder::class);
+    }
+    public function address()
+    {
+        return $this->belongsTo(Address::class, 'address_id');
     }
 }

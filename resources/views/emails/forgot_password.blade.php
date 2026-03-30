@@ -6,64 +6,57 @@
     <title>Reset Password</title>
 </head>
 
-<body style="margin:0; padding:20px; background-color:#f8f9fa; font-family: Arial, sans-serif;">
+<body style="margin:0; padding:50px 20px; background-color:#f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
 
     <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
             <td align="center">
 
-                <!-- Email container -->
-                <table width="600" cellpadding="0" cellspacing="0"
-                    style="background-color:#ffffff; border-radius:8px; padding:30px; box-shadow:0 4px 10px rgba(0,0,0,0.05);">
+                <table width="500" cellpadding="0" cellspacing="0"
+                    style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
 
-                    <!-- Header -->
                     <tr>
-                        <td style="text-align:center; padding-bottom:20px;">
-                            <h2 style="margin:0; color:#0d6efd; font-size:24px;">Reset Your Password</h2>
+                        <td style="background: linear-gradient(135deg, #2b3a55 0%, #4a5d7e 100%); padding: 40px 20px; text-align: center;">
+                            <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 30px;">🔐</span>
+                            </div>
+                            <h2 style="margin:0; color:#ffffff; font-size:24px; font-weight: 600;">Reset Your Password</h2>
                         </td>
                     </tr>
 
-                    <!-- Body -->
                     <tr>
-                        <td style="color:#212529; font-size:16px; line-height:1.6;">
+                        <td style="padding: 35px; text-align: center;">
+                            <p style="color:#1e293b; font-size:18px; font-weight: 600; margin-bottom: 10px;">Forgot your password?</p>
+                            <p style="color:#64748b; font-size:15px; line-height:1.6;">No worries! Use the verification code below to set up a new one. This code is private and should not be shared.</p>
 
-                            <p>Hello,</p>
-
-                            <p>You recently requested to reset your password. Use the verification code below:</p>
-
-                            <!-- OTP Code Box -->
-                            <div style="
-                                        text-align:center;
-                                        margin:30px 0;
-                                        ">
+                            <div style="margin:30px 0;">
                                 <span style="
-                                                display:inline-block;
-                                                padding:14px 30px;
-                                                font-size:30px;
-                                                font-weight:bold;
-                                                letter-spacing:8px;
-                                                color:#ffffff;
-                                                background-color:#0d6efd;
-                                                border-radius:6px;
-                                                ">
+                                    display:inline-block;
+                                    padding:16px 35px;
+                                    font-size:32px;
+                                    font-weight:bold;
+                                    letter-spacing:10px;
+                                    color:#2b3a55;
+                                    background-color:#f1f5f9;
+                                    border-radius:12px;
+                                    border: 2px dashed #cbd5e1;
+                                ">
                                     {{ $code }}
                                 </span>
-
                             </div>
 
-                            <p>This code will expire in <strong>{{ $expired }} minutes</strong>.</p>
+                            <p style="color:#94a3b8; font-size:13px;">This code will expire in <strong style="color:#ef4444;">{{ $expired }} minutes</strong>.</p>
 
-                            <p>If you did not request a password reset, please ignore this email.</p>
-
+                            <p style="color:#64748b; font-size:14px; margin-top: 25px;">If you did not request a password reset, you can safely ignore this email.</p>
                         </td>
                     </tr>
 
-                    <!-- Footer -->
                     <tr>
-                        <td
-                            style="padding-top:20px; border-top:1px solid #dee2e6; color:#6c757d; font-size:14px; text-align:center;">
-                            Thanks,<br>
-                            {{ config('app.name') }} Team
+                        <td style="padding: 0 35px 35px 35px; text-align:center;">
+                            <div style="border-top:1px solid #e2e8f0; padding-top:20px; color:#cbd5e1; font-size:12px;">
+                                Sent with ❤️ from Vendo Team<br>
+                                Phnom Penh, Cambodia
+                            </div>
                         </td>
                     </tr>
 

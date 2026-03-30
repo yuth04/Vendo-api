@@ -17,6 +17,7 @@ use App\Http\Controllers\api\v1\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductImageController;
 use App\Http\Controllers\api\v1\ProfileController;
+use App\Http\Controllers\api\v1\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\UserController;
 use App\Http\Controllers\api\v1\WishlistController;
@@ -26,7 +27,9 @@ Route::prefix('v1')->group(function () {
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
-
+    Route::get('/orders/{order}/receipt/download', [OrderController::class, 'downloadReceipt'])
+        ->name('order.receipt.download')
+        ->middleware('signed');
     // Bakong Payment
     Route::get('/payment/qr/{orderId}', [PaymentController::class, 'generateBakongQr']);
     Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
@@ -85,6 +88,9 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED (Logged-in users only) -------------------
     Route::middleware(['auth:sanctum'])->group(function () {
+
+        // Return Order
+        Route::post('/returns', [ReturnOrderController::class, 'store']);
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
@@ -131,6 +137,10 @@ Route::prefix('v1')->group(function () {
 
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
+            // Cf orders
+            Route::put('/returns/{id}', [ReturnOrderController::class, 'updateStatus']);
+            Route::patch('/orders/{id}/ship', [OrderController::class, 'markAsShipped']);
+            Route::patch('/orders/{id}/deliver', [OrderController::class, 'markAsDelivered']);
             // Admin
             Route::patch('/reviews/{id}/approve', [ReviewController::class, 'approve']);
             // Product Images

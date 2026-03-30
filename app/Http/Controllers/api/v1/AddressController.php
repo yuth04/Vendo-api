@@ -51,7 +51,7 @@ class AddressController extends Controller
                 'city' => $request->city,
                 'province' => $request->province,
                 'postal_code' => $request->postal_code,
-                'phone' => $request->phone,
+                 'phone' => $request->phone,
                 'is_default' => $request->is_default
 
             ]);

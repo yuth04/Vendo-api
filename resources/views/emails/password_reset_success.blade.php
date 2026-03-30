@@ -4,27 +4,42 @@
     <meta charset="UTF-8">
     <title>Password Reset Successful</title>
 </head>
-<body style="margin:0; padding:20px; font-family:Arial,sans-serif; background-color:#f8f9fa;">
+<body style="margin:0; padding:50px 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color:#f8fafc;">
     <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
             <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#fff; border-radius:8px; padding:30px; box-shadow:0 4px 10px rgba(0,0,0,0.05);">
+                <table width="500" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+                    
                     <tr>
-                        <td style="text-align:center; padding-bottom:20px;">
-                            <h2 style="color:#0d6efd; font-size:24px; margin:0;">Password Reset Successful</h2>
+                        <td style="background: linear-gradient(135deg, #2b3a55 0%, #4a5d7e 100%); padding: 40px 20px; text-align: center;">
+                            <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 30px;">✅</span>
+                            </div>
+                            <h2 style="color:#ffffff; font-size:24px; font-weight: 600; margin:0;">Password Updated!</h2>
                         </td>
                     </tr>
+
                     <tr>
-                        <td style="font-size:16px; color:#212529; line-height:1.5; text-align:center;">
-                            <p>Hello {{ $name }},</p>
-                            <p>Your password has been successfully reset. You can now log in using your new password.</p>
-                            <p>If you did not perform this action, please contact our support immediately.</p>
+                        <td style="padding: 35px; text-align:center;">
+                            <p style="color:#1e293b; font-size:18px; font-weight: 600; margin-bottom: 10px;">Hello {{ $name }},</p>
+                            <p style="color:#64748b; font-size:15px; line-height:1.6;">Your password has been successfully reset. You can now use your new credentials to log back into your <strong>Vendo</strong> account.</p>
+                            
+                            <div style="margin-top: 25px;">
+                                <a href="{{ url('/login') }}" style="background-color:#2b3a55; color:#ffffff; padding: 14px 30px; text-decoration:none; border-radius:10px; font-weight:600; display:inline-block; font-size:15px;">Login to Your Account</a>
+                            </div>
+
+                            <p style="color:#94a3b8; font-size:13px; margin-top: 30px; line-height:1.5;">
+                                If you did not perform this action, please contact our support team immediately to secure your account.
+                            </p>
                         </td>
                     </tr>
+
                     <tr>
-                        <td style="padding-top:20px; border-top:1px solid #dee2e6; font-size:14px; color:#6c757d; text-align:center;">
-                            Thanks,<br>
-                            {{ config('app.name') }} Team
+                        <td style="padding: 0 35px 35px 35px; text-align:center;">
+                            <div style="border-top:1px solid #e2e8f0; padding-top:20px; color:#cbd5e1; font-size:12px;">
+                                Sent with ❤️ from Vendo Team<br>
+                                Phnom Penh, Cambodia
+                            </div>
                         </td>
                     </tr>
                 </table>
