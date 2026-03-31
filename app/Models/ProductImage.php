@@ -14,8 +14,17 @@ class ProductImage extends Model
         'alt_text',
         'image_file_id'
     ];
-    protected $hidden =['variant_id','created_at', 'updated_at'];
-  
+
+    protected $casts = [
+        'is_primary' => 'boolean'
+    ];
+
+    protected $hidden = [
+        'variant_id',
+        'created_at',
+        'updated_at'
+    ];
+
     public function variant()
     {
         return $this->belongsTo(ProductVariant::class, 'variant_id');

@@ -16,6 +16,7 @@ use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductImageController;
+use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\ProfileController;
 use App\Http\Controllers\api\v1\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
@@ -74,6 +75,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [ProductImageController::class, 'getAll']);
             Route::get('/{variant_id}', [ProductImageController::class, 'index']);
         });
+        // Product Variants
+        Route::get('/product-variants', [ProductVariantController::class, 'index']);
+        Route::get('/product-variants/{id}', [ProductVariantController::class, 'show']);
 
         // Discounts
         Route::prefix('discounts')->group(function () {
@@ -183,6 +187,12 @@ Route::prefix('v1')->group(function () {
             // Admin view of user orders
             Route::get('/users', [UserController::class, 'index']);
             Route::get('/user/{user}/orders', [OrderController::class, 'userOrderHistory']);
+            // Product Variant images
+            Route::post('/product-variants', [ProductVariantController::class, 'store']);
+            Route::put('/product-variants/{id}', [ProductVariantController::class, 'update']);
+            Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
+
+
         });
 
     });
