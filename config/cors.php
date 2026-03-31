@@ -20,6 +20,7 @@ return [
     'allowed_methods' => ['*'],
     'allowed_origins' => [
         'http://localhost:3000',
+        'http://localhost:3000/',
         'https://vendo-ecommerce-two.vercel.app',
         'https://vendo-admin-panel.vercel.app'
     ],

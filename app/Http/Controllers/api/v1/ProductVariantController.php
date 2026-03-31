@@ -23,10 +23,10 @@ class ProductVariantController extends Controller
     }
     public function index()
     {
-        $productVariants = ProductVariant::with('product', 'images')->get();
+        $productVariants = ProductVariant::with('product', 'images')->orderBy('id','asc')->get();
         return response()->json([
             'message' => 'Product Variants retrieved successfully',
-            'data' => $productVariants
+            'product_variant' => $productVariants
         ]);
     }
     public function show($id)
