@@ -90,7 +90,7 @@ Route::prefix('v1')->group(function () {
 
     });
 
-    // ------------------- PROTECTED (Logged-in users only) -------------------
+    // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum'])->group(function () {
 
         // Return Order

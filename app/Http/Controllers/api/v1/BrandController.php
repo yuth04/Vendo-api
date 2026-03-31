@@ -51,9 +51,9 @@ class BrandController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => "required|string|max:255"
+            'name' => "required|string|max:255",
+            'image' => 'nullable|image|max:5120'
         ]);
-
         $slug = Str::slug($validated['name']);
         if (Brand::where('slug', $slug)->exists()) {
             $slug = $slug . '-' . Str::lower(Str::random(5));

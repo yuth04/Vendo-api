@@ -263,8 +263,8 @@ class OrderController extends Controller
      */
     public function userOrderHistory(User $user)
     {
-        if ($user->role === 'admin')
-            return response()->json(['message' => 'Admin cannot view order history', 'orders' => []]);
+        // if ($user->role === 'admin')
+        //     return response()->json(['message' => 'Admin cannot view order history', 'orders' => []]);
 
         $orders = $user->orders()->with('items.variant.product')->latest()->get();
 
