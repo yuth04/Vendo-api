@@ -43,8 +43,8 @@ class OrderController extends Controller
             'city' => 'required_without:address_id|string|max:255',
             'province' => 'required_without:address_id|string|max:255',
             'phone' => 'required_without:address_id|string|max:20',
-            // 'payment_method' => 'required|in:Cash on Delivery,ABA,Credit Card',
-            'payment_method' => 'required|string',
+            'payment_method' => 'required|in:Cash on Delivery,ABA,Bakong,Credit Card',
+            // 'payment_method' => 'required|string',
             'note' => 'nullable|string',
             // get cart from frontend
             'items' => 'required|array|min:1',
@@ -58,22 +58,28 @@ class OrderController extends Controller
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
                 $total = $this->processOrderItems($order, $request->items);
-                $order->update(['total_price' => round($total + 1.00, 2)]);
+                $shipping = $this->calculateShipping($order->address->province);
+                $subtotal = round($total, 2);
+                $order->update([
+                    // 'total_price' => round($total + $shipping, 2)
+                    'total_price' => round($subtotal + $shipping, 2),
+                ]);
+                $amount = $subtotal + $shipping;
                 $payment = Payment::create([
                     'order_id' => $order->id,
                     'payment_method' => $request->payment_method,
-                    'amount' => $order->total_price,
-                    'status' => 'pending',
+                    'amount' => round($amount, 2),
+                    'status' => 'unpaid',
                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
-                    'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+                    // 'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+                    'paid_at' => null,
                 ]);
-                // $cart->items()->delete();
+
                 $orderModel = $order;
                 return $this->prepareCheckoutResponse($order, $payment);
 
             });
             if ($orderModel) {
-                // Load relationships needed for the email (items and user)
                 $orderModel->load(['items', 'user', 'address', 'payment']);
                 Mail::to($user->email)->send(new OrderPlaced($orderModel));
             }
@@ -158,13 +164,21 @@ class OrderController extends Controller
 
         return $total;
     }
+    // Shipping calculate
+    private function calculateShipping($province)
+    {
+        $province = strtolower($province);
+        if ($province === 'phnom penh' || $province === 'ភ្នំពេញ' || $province === 'pp') {
+            return 1.5;
+        }
+        return 2.0;
+    }
     // Return data based on payment method
-    private function prepareCheckoutResponse(Order $order, Payment $payment){
+    private function prepareCheckoutResponse(Order $order, Payment $payment)
+    {
         if ($payment->payment_method === "Cash on Delivery") {
             $order->update([
                 'status' => 'pending',
-                'delivered_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
-
             ]);
 
             return [
@@ -183,8 +197,7 @@ class OrderController extends Controller
 
         return [
             'message' => 'QR Generated',
-            'data' => [
-                // 'qr_code_url' => $qrCodeUrl,
+            'order' => [
                 'khqr_string' => $khqrString,
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
@@ -203,10 +216,52 @@ class OrderController extends Controller
             'orders' => $orders->map(fn($order) => $this->formatOrder($order))
         ]);
     }
+    // Filter Orders by status
+    public function filterByStatus(Request $request)
+    {
+        $status = $request->query('status');
 
-    /**
-     * ✅ Cancel order
-     */
+        $allowedStatuses = [
+            'pending',
+            'confirmed',
+            'shipping',
+            'delivered',
+            'cancelled',
+            'returned',
+            'return_requested'
+        ];
+
+        // ✅ validate status
+        if ($status && !in_array($status, $allowedStatuses)) {
+            return response()->json([
+                'message' => 'Invalid order status'
+            ], 422);
+        }
+
+        // ✅ authorization
+        if (Auth::user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized, only admins can filter orders'
+            ], 403);
+        }
+
+        // ✅ query
+        $orders = Order::when($status, function ($q) use ($status) {
+            $q->where('status', $status);
+        })
+            ->with('items.variant.product')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'message' => $orders->isEmpty()
+                ? 'No orders found'
+                : 'Orders retrieved successfully',
+
+            'orders' => $orders->map(fn($order) => $this->formatOrder($order))
+        ]);
+    }
+    // Cancel order
     public function cancel($orderId)
     {
         $user = Auth::user();
@@ -225,16 +280,14 @@ class OrderController extends Controller
             }
             $order->update([
                 'status' => 'cancelled',
-                'canelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+                'cancelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
             ]);
         });
 
         return response()->json(['message' => 'Order cancelled successfully', 'order' => $this->formatOrder($order->fresh())]);
     }
 
-    /**
-     * ✅ Delete order
-     */
+    // Delete order
     public function destroy($orderId)
     {
         $user = Auth::user();
@@ -258,14 +311,9 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order deleted successfully', 'order_id' => $orderId]);
     }
 
-    /**
-     * ✅ Admin: view specific user's orders
-     */
+    // User order history (Admin)
     public function userOrderHistory(User $user)
     {
-        if ($user->role === 'admin')
-            return response()->json(['message' => 'Admin cannot view order history', 'orders' => []]);
-
         $orders = $user->orders()->with('items.variant.product')->latest()->get();
 
         return response()->json([
@@ -279,16 +327,17 @@ class OrderController extends Controller
             'orders' => $orders->map(fn($order) => $this->formatOrder($order))
         ]);
     }
-
-    /**
-     * ✅ Helper: Format order response
-     */
+    // Format order response
     private function formatOrder($order)
     {
+        $shipping = $this->calculateShipping($order->address->province ?? '');
+
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
+            'sub_total_price' => (float) $order->total_price - $shipping,
+            'shipping_fee' => (float) $shipping,
             'total_price' => (float) $order->total_price,
             'payment' => [
                 'method' => $order->payment->payment_method ?? null,
@@ -297,10 +346,18 @@ class OrderController extends Controller
                 'paid_at' => $order->payment->paid_at
 
             ],
+            'address' => [
+                'first_name' => $order->address->first_name ?? null,
+                'last_name' => $order->address->last_name ?? null,
+                'address_line' => $order->address->address_line ?? null,
+                'city' => $order->address->city ?? null,
+                'province' => $order->address->province ?? null,
+                'phone' => $order->address->phone ?? $order->user->contact ?? null,
+                'note' => $order->note,
+            ],
             'items' => $order->items->map(fn($item) => [
                 'id' => $item->id,
                 'quantity' => $item->quantity,
-                // 'price' => (float) $item->price,
                 'subtotal' => (float) ($item->price * $item->quantity),
                 'variant' => [
                     'id' => $item->variant->id,
@@ -311,54 +368,11 @@ class OrderController extends Controller
                         'id' => $item->variant->product->id,
                         'name' => $item->variant->product->productName,
                         'slug' => $item->variant->product->slug,
-
+                        'image' => $item->variant->product->image,
                     ]
                 ]
             ])
         ];
-    }
-    // Mark shipping (Admin only)
-    public function markAsShipping($id)
-    {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-        $order = Order::findOrFail($id);
-        if ($order->status !== 'pending') {
-            return response()->json(['message' => 'Only pending orders can be marked as shipping'], 400);
-        }
-        $order->update([
-            'status' => 'shipping',
-            'shipping_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
-        ]);
-        return response()->json(['message' => 'Order marked as shipping successfully', 'data' => $order]);
-    }
-    // Mark delivered (Admin only)
-    public function markAsDelivered($id)
-    {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Unauthorized'
-            ], 403);
-        }
-
-        $order = Order::findOrFail($id);
-
-        if ($order->status !== 'shipped') {
-            return response()->json([
-                'message' => 'Only shipped orders can be delivered'
-            ], 400);
-        }
-
-        $order->update([
-            'status' => 'delivered',
-            'delivered_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
-        ]);
-
-        return response()->json([
-            'message' => 'Order delivered successfully',
-            'data' => $order
-        ]);
     }
 
     // PDF download

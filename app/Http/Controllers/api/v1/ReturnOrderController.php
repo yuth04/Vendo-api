@@ -99,12 +99,12 @@ class ReturnOrderController extends Controller
         if (Auth::user()->role !== 'admin') {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
+        $returnOrder = ReturnOrder::findOrFail($id);
 
         $request->validate([
             'status' => 'required|in:approved,rejected,processing,completed'
         ]);
 
-        $returnOrder = ReturnOrder::findOrFail($id);
 
         $returnOrder->update([
             'status' => $request->status
