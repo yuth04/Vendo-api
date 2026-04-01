@@ -12,7 +12,8 @@ class Category extends Model
         'slug',
         'is_active',
         'image',
-        'parent_category_id'
+        'parent_category_id',
+        'image_file_id',
     ];
     protected $hidden = ['created_at', 'updated_at'];
     public function parentCategory()

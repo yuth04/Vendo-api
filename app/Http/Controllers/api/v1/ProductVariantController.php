@@ -52,7 +52,6 @@ class ProductVariantController extends Controller
                     'size' => 'required|string|max:50',
                     'color' => 'required|string|max:50',
                     'stock' => 'required|integer|min:0',
-
                     'images' => 'nullable|array|max:4',
                     'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
                 ]

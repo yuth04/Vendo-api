@@ -12,11 +12,12 @@ class UserSeeder extends Seeder
     {
         // 1. Create a specific user you can use to log in
         User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => Hash::make('password123'), 
+            'first_name' => 'Nheung',
+            'last_name' => 'Phearakyuth',
+            'email' => 'yuth.code@gmail.com',
+            'password' => Hash::make('admin@123'), 
         ]);
 
-        User::factory()->count(10)->create();
+        User::factory()->count(1)->create();
     }
 }
