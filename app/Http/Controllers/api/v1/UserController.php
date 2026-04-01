@@ -10,10 +10,36 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::all();
+        $users = User::with('orders.items.variant.product')->get();
+
         return response()->json([
-            'message' => 'Retrieved User successfully',
-            'users' => $users
+            'message' => 'Users with orders retrieved successfully',
+            'data' => $users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+
+                    'orders' => $user->orders->map(function ($order) {
+                        return [
+                            'id' => $order->id,
+                            'total' => $order->total_price,
+                            'status'=>$order->status,
+                            'payment'=>$order->payment->status,
+
+                            'items' => $order->items->map(function ($item) {
+                                return [
+                                    'quantity' => $item->quantity,
+                                    'price' => $item->price,
+                                    'product_name' => optional($item->variant->product)->productName,
+                                ];
+                            })
+                        ];
+                    })
+                ];
+            })
         ]);
     }
+
 }

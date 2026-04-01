@@ -10,6 +10,9 @@ class Brand extends Model
     protected $fillable = [
         'name',
         'slug',
+        'status',
+        'image',
+        'image_file_id',
     ];
     protected $hidden = ['created_at','updated_at'];
     public function products(){

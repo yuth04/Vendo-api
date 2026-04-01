@@ -64,8 +64,7 @@ class ProductController extends Controller
     // added product
     public function store(Request $request)
     {
-        $product = Product::all();
-        // validate
+        // ✅ Validate
         $validated = $request->validate([
             'productName' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -75,20 +74,25 @@ class ProductController extends Controller
             'image' => 'nullable|image|max:5120'
         ]);
 
-        // create slug
+        // ✅ Generate slug
         $slug = Str::slug($validated['productName']);
-        // check if slug exist
+
         if (Product::where('slug', $slug)->exists()) {
-            $slug = $slug . '-' . Str::lower(Str::random(5));
+            $slug .= '-' . Str::lower(Str::random(5));
         }
+
+
+        $imageUrl = null;
+        $imageFileId = null;
+
         if ($request->hasFile('image')) {
+
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
                 config('imagekit.url_endpoint')
             );
 
-            // Upload image to ImageKit
             $upload = $imageKit->upload([
                 'file' => fopen($request->file('image')->getRealPath(), "r"),
                 'fileName' => $request->file('image')->getClientOriginalName(),
@@ -102,20 +106,10 @@ class ProductController extends Controller
                 ], 400);
             }
 
-            // Delete old ImageKit image if exists
-            if ($product->image) {
-                try {
-                    $imageKit->deleteFile($product->image);
-                } catch (\Exception $e) {
-
-                }
-            }
-
-            // Set new image URL
-            $product->image = $upload->result->url;
+            $imageUrl = $upload->result->url;
+            $imageFileId = $upload->result->fileId;
         }
-
-        // create product
+        // Create product
         $product = Product::create([
             'productName' => $validated['productName'],
             'slug' => $slug,
@@ -123,8 +117,10 @@ class ProductController extends Controller
             'price' => $validated['price'],
             'category_id' => $validated['category_id'],
             'brand_id' => $validated['brand_id'],
-            'image' => $validated['image'] ?? null,
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId,
         ]);
+
         return response()->json([
             'message' => 'Created product successfully',
             'product' => $product
@@ -135,7 +131,7 @@ class ProductController extends Controller
     {
         $product = Product::findOrFail($id);
 
-        // validate
+        // ✅ Validate
         $validated = $request->validate([
             'productName' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -145,20 +141,28 @@ class ProductController extends Controller
             'image' => 'nullable|image|max:5120'
         ]);
 
-        // generate new slug if name changed
+        // ✅ Handle slug
+        $slug = $product->slug;
+
         if ($validated['productName'] !== $product->productName) {
-            $product->slug = Str::slug($validated['productName']);
+            $slug = Str::slug($validated['productName']);
+
+            if (Product::where('slug', $slug)->where('id', '!=', $id)->exists()) {
+                $slug .= '-' . Str::lower(Str::random(5));
+            }
         }
 
-        // handle image upload if provided
+        $imageUrl = $product->image;
+        $imageFileId = $product->image_file_id;
+
         if ($request->hasFile('image')) {
+
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
                 config('imagekit.url_endpoint')
             );
 
-            // Upload image to ImageKit
             $upload = $imageKit->upload([
                 'file' => fopen($request->file('image')->getRealPath(), "r"),
                 'fileName' => $request->file('image')->getClientOriginalName(),
@@ -172,31 +176,35 @@ class ProductController extends Controller
                 ], 400);
             }
 
-            // Delete old ImageKit image if exists
-            if ($product->image) {
+            // DELETE OLD IMAGE (safe)
+            if ($product->image_file_id) {
                 try {
-                    $imageKit->deleteFile($product->image);
+                    $imageKit->deleteFile($product->image_file_id);
                 } catch (\Exception $e) {
-                    // ignore errors
+                    // ignore if already deleted
                 }
             }
 
-            // Set new image URL
-            $product->image = $upload->result->url;
+            //  SET NEW IMAGE DATA
+            $imageUrl = $upload->result->url;
+            $imageFileId = $upload->result->fileId;
         }
 
-        // update other product fields
+        //Final update
         $product->update([
             'productName' => $validated['productName'],
+            'slug' => $slug,
             'description' => $validated['description'] ?? null,
             'price' => $validated['price'],
             'category_id' => $validated['category_id'],
             'brand_id' => $validated['brand_id'],
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId,
         ]);
 
         return response()->json([
             'message' => 'Updated product successfully',
-            'product' => $product
+            'product' => $product->fresh()
         ]);
     }
     // destroy product
@@ -208,11 +216,36 @@ class ProductController extends Controller
                 'message' => "product id: $id not found"
             ], 404);
         }
-        $product->delete();
-        DB::statement("SELECT setval(pg_get_serial_sequence('products', 'id'), coalesce(max(id), 0) + 1, false) FROM products;");
-        return response()->json([
-            'message' => 'product deleted successfully',
-        ], 200);
+        try {
+            $imageKit = new ImageKit(
+                config('imagekit.public_key'),
+                config('imagekit.private_key'),
+                config('imagekit.url_endpoint')
+            );
+            // Delete image from ImageKit
+            if ($product->image_file_id) {
+                $imageKit->deleteFile($product->image_file_id);
+            }
+
+            if ($product->images) {
+                foreach ($product->images as $img) {
+                    if (!empty($img->file_id)) {
+                        $imageKit->deleteFile($img->file_id);
+                    }
+                }
+            }
+            $product->delete();
+            DB::statement("SELECT setval(pg_get_serial_sequence('products', 'id'), coalesce(max(id), 0) + 1, false) FROM products;");
+            return response()->json([
+                'message' => 'product deleted successfully',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'failed to delete product image',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
     public function uploadImageToProduct(Request $request, $id)
     {
@@ -246,7 +279,7 @@ class ProductController extends Controller
 
             // Save new image URL
             $product->image = $upload->result->url;
-            $product->save(); 
+            $product->save();
         }
 
         return response()->json([
