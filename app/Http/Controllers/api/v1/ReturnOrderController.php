@@ -15,6 +15,24 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 class ReturnOrderController extends Controller
 {
+    public function index()
+    {
+        $returns = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->get();
+
+        return response()->json([
+            'message'=> 'Return orders retrieved successfully',
+            'data' => $returns
+        ]);
+    }
+    public function show($id)
+    {
+        $return = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->findOrFail($id);
+
+        return response()->json([
+            'message'=> 'Return order retrieved successfully',
+            'data' => $return
+        ]);
+    }
     public function store(Request $request)
     {
         $request->validate([
@@ -115,25 +133,80 @@ class ReturnOrderController extends Controller
             'data' => $returnOrder
         ]);
     }
-    // public function updateStatus(Request $request, $id)
-    // {
-    //     $request->validate([
-    //         'status' => 'required|in:approved,rejected'
-    //     ]);
+    // Approve
+    public function approve($id)
+    {
+        $return = ReturnOrder::with('items.OrderItem')->findOrFail($id);
 
-    //     $returnOrder = ReturnOrder::findOrFail($id);
+        if ($return->status !== 'pending') {
+            return response()->json(['message' => 'Return request is not pending'], 400);
+        }
+        DB::beginTransaction();
+        try {
+            $refund = 0;
+            foreach ($return->items as $item) {
+                $refund += $item->quantity * $item->orderItem->price;
 
-    //     $returnOrder->update([
-    //         'status' => $request->status
+            }
+            $return->update([
+                'message' => 'Your return request has been approved. Refund amount: $' . number_format($refund, 2),
+                'status' => 'approved',
+                'approved_at' => now('Asia/Phnom Penh')->format('h:i d-m-y'),
+                'refund_amount' => $refund
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Error approving return request', 'error' => $e->getMessage()], 500);
+        }
+    }
+    // Reject
+    public function reject($id)
+    {
+        $return = ReturnOrder::findOrFail($id);
 
-    //     ]);
-    //     if ($returnOrder->user && $returnOrder->user->email) {
-    //         Mail::to($returnOrder->user->email)->send(new ReturnStatusUpdatedMail($returnOrder));
-    //     }
-    //     return response()->json([
-    //         'message' => 'Return status updated successfully',
-    //         'data' => $returnOrder
-    //     ]);
-    // }
+        if ($return->status !== 'pending') {
+            return response()->json(['message' => 'Invalid status'], 400);
+        }
 
+        $return->update([
+            'status' => 'rejected',
+            'rejected_at' => now()
+        ]);
+
+        return response()->json(['message' => 'Rejected']);
+    }
+    public function complete($id)
+    {
+        $return = ReturnOrder::with('items.orderItem.variant')->findOrFail($id);
+
+        if ($return->status !== 'approved') {
+            return response()->json(['message' => 'Not approved'], 400);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // ✅ Restock
+            foreach ($return->items as $item) {
+                $variant = $item->orderItem->variant;
+                $variant->increment('stock', $item->quantity);
+            }
+
+            // ✅ Update return
+            $return->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+                'refund_status' => 'processed',
+
+            ]);
+
+            DB::commit();
+
+            return response()->json(['message' => 'Completed']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

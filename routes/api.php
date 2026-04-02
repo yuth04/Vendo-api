@@ -27,6 +27,9 @@ use App\Http\Controllers\api\v1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('/api/health', function () {
+        return response()->json(['status' => 'ok']);
+    });
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
@@ -94,9 +97,10 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum'])->group(function () {
-
         // Return Order
         Route::post('/returns', [ReturnOrderController::class, 'store']);
+        Route::get('/returns', [ReturnOrderController::class, 'index']);
+        Route::get('/returns/{id}', [ReturnOrderController::class, 'show']);
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
@@ -148,6 +152,10 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/{id}/ship', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/{id}/deliver', [UpdateStatusController::class, 'markAsDelivered']);
             Route::put('/orders/{id}/return', [ReturnOrderController::class, 'updateStatus']);
+            Route::patch('/returns/{id}/approve', [ReturnOrderController::class, 'approve']);
+            Route::patch('/returns/{id}/reject', [ReturnOrderController::class, 'reject']);
+            Route::patch('/returns/{id}/complete', [ReturnOrderController::class, 'complete']);
+
             //    Filter orders by status
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
             // Admin
