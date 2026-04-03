@@ -13,7 +13,7 @@ class DiscountCategoryController extends Controller
 
     public function index()
     {
-        $categories = DiscountCategory::with('discounts')->get();
+        $categories = DiscountCategory::with('discounts.product')->get();
         if ($categories->isEmpty()) {
             return response()->json([
                 'message' => "Discount categories is empty"

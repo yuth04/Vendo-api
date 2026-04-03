@@ -16,7 +16,7 @@ class DiscountController extends Controller
 
         $discounts = Discount::active()
             ->when($productId, fn($q) => $q->where('product_id', $productId))
-            ->with('product')
+            ->with(['product', 'discountCategory'])
             ->get();
 
         return response()->json([
@@ -80,34 +80,93 @@ class DiscountController extends Controller
             'data' => $discount,
         ], 201);
     }
-    public function update(Request $request, $id){
+
+
+    public function update(Request $request, $id)
+    {
         $discount = Discount::findOrFail($id);
 
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'amount' => 'sometimes|numeric|min:0',
+            'type' => 'sometimes|in:percent,fixed',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
 
-        $discount->update($request->all());
-        $discount = $discount->fresh(); 
+        $discount->update($validated);
+
+        $discount = $discount->fresh();
 
         $product = $discount->product;
 
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found for this discount'
+            ], 404);
+        }
+
+        // calculate discount price safely
         if ($discount->type === 'percent') {
             $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
         } else {
             $discountPrice = $product->price - $discount->amount;
         }
 
-        // Save to database
         $product->update([
             'discount_price' => max(0, round($discountPrice, 2))
         ]);
 
         return response()->json([
             'message' => 'Discount updated successfully',
-            'data' => $discount->load('product')
+            'data' => $discount->load(['product', 'discountCategory'])
         ]);
     }
+
+    // public function update(Request $request, $id)
+    // {
+    //     $discount = Discount::findOrFail($id);
+
+
+    //     $validated = $request->validate([
+    //         'name' => 'nullable|string|max:255',
+    //         'description' => 'nullable|string',
+    //         'amount' => 'sometimes|numeric|min:0',
+    //         'type' => 'sometimes|in:percent,fixed',
+    //         'start_date' => 'nullable|date',
+    //         'end_date' => 'nullable|date|after_or_equal:start_date',
+    //     ]);
+
+    //     $discount->update($validated);
+    //     $discount = $discount->fresh();
+
+    //     $product = $discount->product;
+    //     if (!$product) {
+    //         return response()->json([
+    //             'message' => 'Product not found for this discount'
+    //         ], 404);
+    //     }
+    //     if ($discount->type === 'percent') {
+    //         $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
+    //     } else {
+    //         $discountPrice = $product->price - $discount->amount;
+    //     }
+
+    //     // Save to database
+    //     $product->update([
+    //         'discount_price' => max(0, round($discountPrice, 2))
+    //     ]);
+
+    //     return response()->json([
+    //         'message' => 'Discount updated successfully',
+    //         'data' => $discount->load('product')
+    //     ]);
+    // }
+
     public function destroy($id)
     {
-        $discount = Discount::active()->findOrFail($id);
+        $discount = Discount::findOrFail($id);
         $discount->delete();
         DB::statement("SELECT setval(pg_get_serial_sequence('discounts', 'id'), coalesce(max(id), 0) + 1, false) FROM discounts;");
         return response()->json([
