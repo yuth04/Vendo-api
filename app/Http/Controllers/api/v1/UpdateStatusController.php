@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Mail\OrderConfirmedMail;
+use App\Mail\OrderDeliveredMail;
 use App\Mail\OrderShippedMail;
 use App\Models\Order;
 use Illuminate\Http\Request;
@@ -11,6 +12,16 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 class UpdateStatusController extends Controller
 {
+
+    private function calculateShipping($province)
+    {
+        $province = strtolower($province);
+        if ($province === 'phnom penh' || $province === 'ភ្នំពេញ' || $province === 'pp') {
+            return 1.5;
+        }
+        return 2.0;
+    }
+
     public function markAsConfirmed($id)
     {
         if (Auth::user()->role !== 'admin') {
@@ -28,7 +39,9 @@ class UpdateStatusController extends Controller
         $order->update([
             'status' => 'confirmed'
         ]);
+
         Mail::to($order->user->email)->send(new OrderConfirmedMail($order));
+
         return response()->json([
             'message' => 'Order confirmed successfully',
             'order' => $order
@@ -51,7 +64,7 @@ class UpdateStatusController extends Controller
 
         $order->update([
             'status' => 'shipping',
-            'shipped_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+            'shipped_at' => now()->format('h:i d-m-Y '),
         ]);
         Mail::to($order->user->email)->send(new OrderShippedMail($order));
         return response()->json([
@@ -77,18 +90,24 @@ class UpdateStatusController extends Controller
 
         $order->update([
             'status' => 'delivered',
-            'delivered_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+
+            'delivered_at' => now()->format('h:i d-m-Y'),
         ]);
         if ($order->status === 'delivered') {
             $payment = $order->payment;
             if ($payment) {
                 $payment->update([
                     'status' => 'paid',
-                    'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+                    'paid_at' => now()->format('h:i d-m-Y'),
                     'transaction_id' => 'COD-' . $order->order_number,
                 ]);
             }
         }
+
+        $shipping = $this->calculateShipping($order->address->province ?? '');
+        $order->load(['items', 'user']);
+        Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping));
+
         return response()->json([
             'message' => 'Order delivered successfully',
             'order' => $order
@@ -108,7 +127,8 @@ class UpdateStatusController extends Controller
         }
         $order->update([
             'status' => 'returned',
-            'returned_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+            'returned_at' => now()->format('h:i d-m-Y'),
+
         ]);
         return response()->json([
             'message' => 'Order marked as returned successfully',
@@ -129,7 +149,11 @@ class UpdateStatusController extends Controller
         }
         $order->update([
             'status' => 'cancelled',
-            'cancelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+
+            'cancelled_at' => now()->format('h:i d-m-Y'),
+
+
+
         ]);
         return response()->json([
             'message' => 'Order marked as cancelled successfully',

@@ -237,7 +237,7 @@
                 </tr>
                 <tr>
                     <td style="padding: 5px; color: #64748b;">Shipping</td>
-                    <td style="padding: 5px;">$1.00</td>
+                    <td style="padding: 5px;">USD ${{ number_format($order->shipping_fee ?? 0, 2) }}</td>
                 </tr>
                 <tr class="total-row">
                     <td style="padding: 15px 5px;">Total</td>

@@ -14,22 +14,25 @@ class OrderShippedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public $order;
+
     /**
      * Create a new message instance.
      */
-    public $order;
-
     public function __construct(Order $order)
     {
         $this->order = $order;
     }
 
+    /**
+     * Build the message.
+     */
     public function build()
     {
-        return $this->subject('Your Order has been Confirmed!')
+        return $this->subject('🚚 Your Order Has Been Shipped!')
             ->view('emails.order_shipped');
     }
-    /**
+
     /**
      * Get the attachments for the message.
      *
