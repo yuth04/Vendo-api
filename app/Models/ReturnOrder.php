@@ -60,12 +60,10 @@ class ReturnOrder extends Model
                 }
 
                 if ($next === self::STATUS_APPROVED) {
-<<<<<<< HEAD
-<<<<<<< Updated upstream
                     $returnOrder->approved_at = now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A');
-=======
+
                     $returnOrder->approved_at = now('Asia/Phnom_Penh')->format('h:i d-m-y');
->>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
+
                 }
 
                 if ($next === self::STATUS_REJECTED) {
@@ -73,9 +71,9 @@ class ReturnOrder extends Model
                 }
 
                 if ($next === self::STATUS_COMPLETED) {
-<<<<<<< HEAD
+
                     $returnOrder->completed_at = now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A');
-=======
+
                     $returnOrder->approved_at = now()->format('h:i d-m-Y');
                 }
 
@@ -85,10 +83,9 @@ class ReturnOrder extends Model
 
                 if ($next === self::STATUS_COMPLETED) {
                     $returnOrder->completed_at = now()->format('h:i d-m-Y');
->>>>>>> Stashed changes
-=======
+
                     $returnOrder->completed_at = now('Asia/Phnom_Penh')->format('h:i d-m-y');
->>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
+
                     $returnOrder->refund_status = self::REFUND_REFUNDED;
 
                     if (!$returnOrder->refund_amount) {
