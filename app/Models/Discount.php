@@ -39,7 +39,7 @@ class Discount extends Model
     // Optional: check if single discount is active
     public function getIsActiveAttribute()
     {
-        $now = now('Asia/Phnom_Penh')->format('H:i d-m-Y');
+        $now = now();
 
         return (
             (is_null($this->start_date) || $this->start_date <= $now) &&

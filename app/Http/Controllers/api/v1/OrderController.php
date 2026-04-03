@@ -21,12 +21,6 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
-    protected $discountService;
-
-    public function __construct(DiscountService $discountService)
-    {
-        $this->discountService = $discountService;
-    }
 
     // Checkout
     public function checkout(Request $request)
@@ -57,7 +51,7 @@ class OrderController extends Controller
             $result = DB::transaction(function () use ($user, $request, &$orderModel) {
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
-                
+
                 // Set the note if provided
                 if ($request->has('note')) {
                     $order->update(['note' => $request->note]);
@@ -148,7 +142,7 @@ class OrderController extends Controller
                 throw new \Exception("Insufficient stock for {$variant->product->productName}");
             }
 
-            $price = $this->discountService->discountedPrice($variant->product) ?? $variant->product->price;
+            $price = $variant->product->price;
             $total += $price * $item['quantity'];
 
             $variant->decrement('stock', $item['quantity']);
@@ -241,9 +235,12 @@ class OrderController extends Controller
         $user = Auth::user();
         $order = $user->orders()->with('items.variant')->find($orderId);
 
-        if (!$order) return response()->json(['message' => 'Order not found'], 404);
-        if ($user->role === 'admin') return response()->json(['message' => 'Admin cannot cancel orders'], 403);
-        if ($order->status !== 'pending') return response()->json(['message' => 'Only pending orders can be canceled'], 400);
+        if (!$order)
+            return response()->json(['message' => 'Order not found'], 404);
+        if ($user->role === 'admin')
+            return response()->json(['message' => 'Admin cannot cancel orders'], 403);
+        if ($order->status !== 'pending')
+            return response()->json(['message' => 'Only pending orders can be canceled'], 400);
 
         DB::transaction(function () use ($order) {
             foreach ($order->items as $item) {
@@ -263,8 +260,10 @@ class OrderController extends Controller
         $user = Auth::user();
         $order = $user->orders()->find($orderId);
 
-        if (!$order) return response()->json(['message' => 'Order not found'], 404);
-        if ($order->status !== 'pending') return response()->json(['message' => 'Only pending orders can be deleted'], 400);
+        if (!$order)
+            return response()->json(['message' => 'Order not found'], 404);
+        if ($order->status !== 'pending')
+            return response()->json(['message' => 'Only pending orders can be deleted'], 400);
 
         DB::transaction(function () use ($order) {
             foreach ($order->items as $item) {
