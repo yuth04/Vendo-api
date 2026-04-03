@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api\v1;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Discount;
@@ -16,7 +16,11 @@ class DiscountController extends Controller
 
         $discounts = Discount::active()
             ->when($productId, fn($q) => $q->where('product_id', $productId))
+
+            ->with(['product', 'discountCategory'])
             ->with('product')
+            ->orderBy('id', 'asc')
+
             ->get();
 
         return response()->json([
@@ -26,7 +30,6 @@ class DiscountController extends Controller
             'data' => $discounts,
         ]);
     }
-
 
     public function show($id)
     {
@@ -38,56 +41,86 @@ class DiscountController extends Controller
             ], 404);
         }
 
+        $product = $discount->product;
+
+        // Calculate discount price for response
+        if ($discount->type === 'percent') {
+            $discountPrice = $product->price - ($product->price * $discount->amount / 100);
+        } else {
+            $discountPrice = $product->price - $discount->amount;
+        }
+
+        $product->discount_price = max(0, round($discountPrice, 2));
+
         return response()->json([
             'message' => 'Discount retrieved successfully',
             'data' => $discount,
+            'product' => $product
         ]);
     }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
+            'discount_category_id' => 'nullable|exists:discount_categories,id',
             'name' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
-            'type' => 'nullable|in:percent,fixed',
+            'type' => 'required|in:percent,fixed',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
+
+        // Check for existing active discount to prevent overlaps
         $exists = Discount::where('product_id', $validated['product_id'])
-            ->where(function ($q) {
-                $q->whereNull('end_date')
-                    ->orWhere('end_date', '>=', now());
-            })
+            ->active()
             ->exists();
+
         if ($exists) {
             return response()->json([
                 'message' => 'This product already has an active discount'
             ], 409);
         }
-        $discount = Discount::create([
-            'product_id' => $validated['product_id'],
-            'name' => $validated['name'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'amount' => $validated['amount'],
-            'type' => $validated['type'] ?? 'percent',
-            'start_date' => $validated['start_date'] ?? null,
-            'end_date' => $validated['end_date'] ?? null,
-        ]);
+
+        $discount = Discount::create($validated);
 
         return response()->json([
             'message' => 'Discount created successfully',
-            'data' => $discount,
+            'data' => $discount
         ], 201);
     }
-    public function update(Request $request, $id){
+
+
+    public function update(Request $request, $id)
+    {
         $discount = Discount::findOrFail($id);
 
+        $validated = $request->validate([
 
-        $discount->update($request->all());
-        $discount = $discount->fresh(); 
+
+            'product_id' => 'sometimes|exists:products,id',
+
+            'name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'amount' => 'sometimes|numeric|min:0',
+            'type' => 'sometimes|in:percent,fixed',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        $discount->update($validated);
+
+        $discount = $discount->fresh();
 
         $product = $discount->product;
+
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found for this discount'
+            ], 404);
+        }
+
+        // calculate discount price safely
 
         if ($discount->type === 'percent') {
             $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
@@ -95,38 +128,74 @@ class DiscountController extends Controller
             $discountPrice = $product->price - $discount->amount;
         }
 
-        // Save to database
+
         $product->update([
             'discount_price' => max(0, round($discountPrice, 2))
         ]);
 
         return response()->json([
             'message' => 'Discount updated successfully',
-            'data' => $discount->load('product')
+
+            'data' => $discount->load(['product', 'discountCategory'])
         ]);
     }
+
+    // public function update(Request $request, $id)
+    // {
+    //     $discount = Discount::findOrFail($id);
+
+
+    //     $validated = $request->validate([
+    //         'name' => 'nullable|string|max:255',
+    //         'description' => 'nullable|string',
+    //         'amount' => 'sometimes|numeric|min:0',
+    //         'type' => 'sometimes|in:percent,fixed',
+    //         'start_date' => 'nullable|date',
+    //         'end_date' => 'nullable|date|after_or_equal:start_date',
+    //     ]);
+
+    //     $discount->update($validated);
+    //     $discount = $discount->fresh();
+
+    //     $product = $discount->product;
+    //     if (!$product) {
+    //         return response()->json([
+    //             'message' => 'Product not found for this discount'
+    //         ], 404);
+    //     }
+    //     if ($discount->type === 'percent') {
+    //         $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
+    //     } else {
+    //         $discountPrice = $product->price - $discount->amount;
+    //     }
+
+    //     // Save to database
+    //     $product->update([
+    //         'discount_price' => max(0, round($discountPrice, 2))
+    //     ]);
+
+    //     return response()->json([
+    //         'message' => 'Discount updated successfully',
+    //         'data' => $discount->load('product')
+    //     ]);
+    // }
+
     public function destroy($id)
     {
-        $discount = Discount::active()->findOrFail($id);
+        $discount = Discount::findOrFail($id);
         $discount->delete();
         DB::statement("SELECT setval(pg_get_serial_sequence('discounts', 'id'), coalesce(max(id), 0) + 1, false) FROM discounts;");
         return response()->json([
             'message' => 'Active discount deleted successfully',
+
+            'data' => $discount->load('product'),
         ]);
     }
 
-    public function discountedPrice(Product $product)
-    {
-        $discount = $product->discounts()->latest()->first();
 
-        if (!$discount) {
-            return $product->price;
-        }
 
-        return match ($discount->type) {
-            'percent' => round($product->price * (1 - $discount->amount / 100), 2),
-            'fixed' => round($product->price - $discount->amount, 2),
-            default => $product->price,
-        };
-    }
+    /**
+     * Helper to get the calculated price directly
+     */
+
 }

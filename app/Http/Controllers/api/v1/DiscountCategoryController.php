@@ -13,7 +13,7 @@ class DiscountCategoryController extends Controller
 
     public function index()
     {
-        $categories = DiscountCategory::with('discounts')->get();
+        $categories = DiscountCategory::with('discounts.product')->get();
         if ($categories->isEmpty()) {
             return response()->json([
                 'message' => "Discount categories is empty"
@@ -111,7 +111,9 @@ class DiscountCategoryController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
-        $imageUrl = $discountCategory->image;
+
+        // keep old data
+        $imageUrl = $discountCategory->banner_image;
         $imageFileId = $discountCategory->image_file_id;
 
         if ($request->hasFile('banner_image')) {
@@ -135,26 +137,25 @@ class DiscountCategoryController extends Controller
                 ], 400);
             }
 
-            // DELETE OLD IMAGE (safe)
+            // delete old image safely
             if ($discountCategory->image_file_id) {
                 try {
                     $imageKit->deleteFile($discountCategory->image_file_id);
                 } catch (\Exception $e) {
-                    // ignore if already deleted
                 }
             }
 
-            //  SET NEW IMAGE DATA
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
+
         $discountCategory->update([
-            'title' => $request->title,
-            'description' => $request->description,
+            'title' => $request->title ?? $discountCategory->title,
+            'description' => $request->description ?? $discountCategory->description,
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'start_date',
-            'end_date',
+            'start_date' => $request->start_date ?? $discountCategory->start_date,
+            'end_date' => $request->end_date ?? $discountCategory->end_date,
         ]);
 
         return response()->json([
@@ -203,8 +204,5 @@ class DiscountCategoryController extends Controller
             ], 500);
         }
 
-        return response()->json([
-            'message' => 'Discount category deleted successfully'
-        ]);
     }
 }
