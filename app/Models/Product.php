@@ -3,34 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class DiscountCategory extends Model
+class Product extends Model
 {
     protected $fillable = [
-        'title', 
-        'description', 
-        'banner_image', 
-        'is_active', 
-        'image_file_id', 
-        'start_date', 
-        'end_date'
+        'productName',
+        'slug',
+        'description',
+        'price',
+        'category_id',
+        'brand_id',
+        'discount_price',
+        'image',
+        'image_file_id',
     ];
-
 
     protected $hidden = ['created_at', 'updated_at', 'activeDiscount'];
-    protected $casts = [
-        'start_date' => 'datetime',
-        'end_date' => 'datetime',
-        'is_active' => 'boolean'
-    ];
-
-    /**
-     * Get the discounts associated with the category.
-     */
-    public function discounts(): HasMany
+    public function category()
     {
-        return $this->hasMany(Discount::class);
+        return $this->belongsTo(Category::class);
     }
 
     public function brand()
@@ -58,21 +49,7 @@ class DiscountCategory extends Model
                     ->where('end_date', '>=', $now);
             });
     }
-    // public function getDiscountPriceAttribute()
-    // {
-    //     $discount = $this->activeDiscount;
 
-    //     if (!$discount)
-    //         return $this->price;
 
-    //     if ($discount->type === 'percent') {
-    //         return round($this->price - ($this->price * $discount->amount / 100), 2);
-    //     }
-
-    //     return max(0, $this->price - $discount->amount);
-    // }
 
 }
-
-
-
