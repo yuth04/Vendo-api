@@ -15,11 +15,16 @@ class Discount extends Model
         'type',
         'start_date',
         'end_date',
+        'discount_category_id'
     ];
     protected $hidden = ['created_at', 'updated_at', 'discount_price'];
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+    public function discountCategory()
+    {
+        return $this->belongsTo(DiscountCategory::class, 'discount_category_id');
     }
     public function scopeActive(Builder $query)
     {

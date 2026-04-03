@@ -9,6 +9,7 @@ use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CarouselController;
 use App\Http\Controllers\api\v1\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
+use App\Http\Controllers\api\v1\DiscountCategoryController;
 use App\Http\Controllers\api\v1\DiscountController;
 use App\Http\Controllers\api\v1\GoogleAuthController;
 use App\Http\Controllers\api\v1\ImageController;
@@ -88,6 +89,8 @@ Route::prefix('v1')->group(function () {
         Route::prefix('discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'index']);
         });
+        Route::get('/discount-categories', [DiscountCategoryController::class, 'index']);
+        Route::get('/discount-categories/{id}', [DiscountCategoryController::class, 'show']);
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
@@ -170,7 +173,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
             Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
-
+            Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
+            Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
+            Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
             // Carousels
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'update']);
