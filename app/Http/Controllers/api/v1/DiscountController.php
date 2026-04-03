@@ -80,25 +80,29 @@ class DiscountController extends Controller
             'data' => $discount,
         ], 201);
     }
-    public function update(Request $request, $id)
-    {
+    public function update(Request $request, $id){
         $discount = Discount::findOrFail($id);
 
-        $validated = $request->validate([
-            'product_id' => 'sometimes|exists:products,id',
-            'name' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'amount' => 'sometimes|numeric|min:0',
-            'type' => 'sometimes|in:percent,fixed',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
-        ]);
 
-        $discount->update($validated);
+        $discount->update($request->all());
+        $discount = $discount->fresh(); 
+
+        $product = $discount->product;
+
+        if ($discount->type === 'percent') {
+            $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
+        } else {
+            $discountPrice = $product->price - $discount->amount;
+        }
+
+        // Save to database
+        $product->update([
+            'discount_price' => max(0, round($discountPrice, 2))
+        ]);
 
         return response()->json([
             'message' => 'Discount updated successfully',
-            'data' => $discount,
+            'data' => $discount->load('product')
         ]);
     }
     public function destroy($id)

@@ -15,11 +15,12 @@ class Product extends Model
         'brand_id',
         'image',
         'image_file_id',
+        'discount_price'
     ];
 
     protected $hidden = ['created_at', 'updated_at','activeDiscount'];
 
-    protected $appends = ['discount_price'];
+    // protected $appends = ['discount_price'];
 
     public function category()
     {
