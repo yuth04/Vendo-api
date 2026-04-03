@@ -14,31 +14,30 @@ class DiscountController extends Controller
     {
         $productId = $request->query('product_id');
 
-        $discounts = Discount::when($productId, function ($query, $productId) {
-            return $query->where('product_id', $productId);
-        })
+        $discounts = Discount::active()
+            ->when($productId, fn($q) => $q->where('product_id', $productId))
             ->with('product')
             ->orderBy('id', 'asc')
             ->get();
-        if ($discounts->isEmpty()) {
-            return response()->json([
-                'message' => "Discount is empty"
-            ]);
-        }
+
         return response()->json([
-            'message' => 'Discounts retrieved successfully',
+            'message' => $discounts->isEmpty()
+                ? 'No active discounts found'
+                : 'Active discounts retrieved successfully',
             'data' => $discounts,
         ]);
     }
 
     public function show($id)
     {
-        $discount = Discount::with('product.discount')->findOrFail($id);
+        $discount = Discount::with('product')->find($id);
+
         if (!$discount) {
             return response()->json([
-                'message' => "Discount not found"
-            ]);
+                'message' => 'Discount not found'
+            ], 404);
         }
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
         $product = $discount->product;
@@ -53,6 +52,9 @@ class DiscountController extends Controller
         $product->discount_price = max(0, $discountPrice);
 
 >>>>>>> Stashed changes
+=======
+
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         return response()->json([
             'message' => 'Discount retrieved successfully',
             'data' => $discount,
@@ -71,8 +73,22 @@ class DiscountController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
+<<<<<<< HEAD
 
 <<<<<<< Updated upstream
+=======
+        $exists = Discount::where('product_id', $validated['product_id'])
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', now());
+            })
+            ->exists();
+        if ($exists) {
+            return response()->json([
+                'message' => 'This product already has an active discount'
+            ], 409);
+        }
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         $discount = Discount::create([
             'product_id' => $validated['product_id'],
             'name' => $validated['name'] ?? null,
@@ -112,6 +128,8 @@ class DiscountController extends Controller
             'description' => 'nullable|string',
             'amount' => 'sometimes|numeric|min:0',
             'type' => 'sometimes|in:percent,fixed',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 =======
 >>>>>>> Stashed changes
@@ -161,14 +179,18 @@ class DiscountController extends Controller
 
     public function destroy($id)
     {
-        $discount = Discount::findOrFail($id);
+        $discount = Discount::active()->findOrFail($id);
         $discount->delete();
         DB::statement("SELECT setval(pg_get_serial_sequence('discounts', 'id'), coalesce(max(id), 0) + 1, false) FROM discounts;");
         return response()->json([
-            'message' => 'Discount deleted successfully',
+            'message' => 'Active discount deleted successfully',
         ]);
     }
+<<<<<<< HEAD
 <<<<<<< Updated upstream
+=======
+
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
     public function discountedPrice(Product $product)
     {
         $discount = $product->discounts()->latest()->first();

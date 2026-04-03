@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Database\Eloquent\Builder;
 class Discount extends Model
 {
 
@@ -24,6 +24,26 @@ class Discount extends Model
     public function discountCategory()
     {
         return $this->belongsTo(DiscountCategory::class);
+    }
+    public function scopeActive(Builder $query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('start_date')
+                ->orWhere('start_date', '<=', now());
+        })->where(function ($q) {
+            $q->whereNull('end_date')
+                ->orWhere('end_date', '>=', now());
+        });
+    }
+    // Optional: check if single discount is active
+    public function getIsActiveAttribute()
+    {
+        $now = now('Asia/Phnom_Penh')->format('H:i d-m-Y');
+
+        return (
+            (is_null($this->start_date) || $this->start_date <= $now) &&
+            (is_null($this->end_date) || $this->end_date >= $now)
+        );
     }
     public function scopeActive(Builder $query)
     {

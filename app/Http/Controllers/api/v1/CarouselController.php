@@ -43,30 +43,38 @@ class CarouselController extends Controller
 
         ]);
 
-        $file = $request->file('image');
 
-        // Upload image to ImageKit
-        $upload = $this->imageKit->upload([
-            'file' => fopen($file->getRealPath(), 'r'),
-            'fileName' => time() . '_' . $file->getClientOriginalName(),
-            'folder' => '/carousels',
-        ]);
+        $imageUrl = null;
+        $imageFileId = null;
 
-        if (isset($upload->error)) {
-            return response()->json([
-                'message' => 'Image upload failed',
-                'error' => $upload->error->message
-            ], 400);
+        if ($request->hasFile('image')) {
+
+
+            $upload = $this->imageKit->upload([
+                'file' => fopen($request->file('image')->getRealPath(), "r"),
+                'fileName' => $request->file('image')->getClientOriginalName(),
+                'folder' => '/carousels',
+            ]);
+
+            if (isset($upload->error)) {
+                return response()->json([
+                    'message' => 'Upload failed',
+                    'error' => $upload->error->message,
+                ], 400);
+            }
+
+            $imageUrl = $upload->result->url;
+            $imageFileId = $upload->result->fileId;
         }
 
         $carousel = Carousel::create([
             'title' => $request->title,
             'description' => $request->description,
-            'image' => $upload->result->url,
             'link' => $request->link,
             'position' => $request->position,
             'status' => $request->status ?? true,
-            'image_file_id' => $upload->result->fileId,
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId,
         ]);
 
         return response()->json([
@@ -75,7 +83,7 @@ class CarouselController extends Controller
         ]);
     }
     // update
-    public function updateImage(Request $request, $id)
+    public function update(Request $request, $id)
     {
         $carousel = Carousel::findOrFail($id);
 
@@ -88,45 +96,45 @@ class CarouselController extends Controller
             'status' => 'nullable|boolean',
         ]);
 
-        if ($request->hasFile('image')) {
-            $file = $request->file('image');
+        $imageUrl = $carousel->image;
+        $imageFileId = $carousel->image_file_id;
 
-            // Delete old image from ImageKit
+        if ($request->hasFile('image')) {
+
+
+            $upload = $this->imageKit->upload([
+                'file' => fopen($request->file('image')->getRealPath(), "r"),
+                'fileName' => $request->file('image')->getClientOriginalName(),
+                'folder' => '/carousels',
+            ]);
+
+            if (isset($upload->error)) {
+                return response()->json([
+                    'message' => 'Upload failed',
+                    'error' => $upload->error->message,
+                ], 400);
+            }
+            // DELETE OLD IMAGE (safe)
             if ($carousel->image_file_id) {
                 try {
                     $this->imageKit->deleteFile($carousel->image_file_id);
                 } catch (\Exception $e) {
-                    \Log::error("ImageKit delete failed: " . $e->getMessage());
+                    // ignore if already deleted
                 }
             }
-
-            // Upload new image to ImageKit
-            $upload = $this->imageKit->upload([
-                'file' => fopen($file->getRealPath(), 'r'),
-                'fileName' => time() . '_' . $file->getClientOriginalName(),
-                'folder' => '/carousels',
-            ]);
-
-            if (!empty($upload->error)) {
-                return response()->json([
-                    'message' => 'Image upload failed',
-                    'error' => $upload->error
-                ], 400);
-            }
-
-            // Save new image URL and file ID
-            $carousel->image = $upload->result->url;
-            $carousel->image_file_id = $upload->result->fileId;
+            $imageUrl = $upload->result->url;
+            $imageFileId = $upload->result->fileId;
         }
 
-        // Update other fields if provided
-        $carousel->title = $request->title ?? $carousel->title;
-        $carousel->description = $request->description ?? $carousel->description;
-        $carousel->link = $request->link ?? $carousel->link;
-        $carousel->position = $request->position ?? $carousel->position;
-        $carousel->status = $request->status ?? $carousel->status;
-
-        $carousel->save();
+        $carousel->update([
+            'title' => $request->title ?? $carousel->title,
+            'description' => $request->description ?? $carousel->description,
+            'link' => $request->link ?? $carousel->link,
+            'position' => $request->position ?? $carousel->position,
+            'status' => $request->status ?? $carousel->status,
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId,
+        ]);
 
         return response()->json([
             'message' => 'Carousel updated successfully',
@@ -137,19 +145,43 @@ class CarouselController extends Controller
     public function destroy($id)
     {
         $carousel = Carousel::findOrFail($id);
-
-        if ($carousel->image_file_id) {
-            try {
-                $this->imageKit->deleteFile($carousel->image_file_id);
-            } catch (Exception $e) {
-                // ignore errors
-            }
+        if (!$carousel) {
+            return response()->json([
+                'message' => "Carousel id: $id not found"
+            ], 404);
         }
+        try {
+            $imageKit = new ImageKit(
+                config('imagekit.public_key'),
+                config('imagekit.private_key'),
+                config('imagekit.url_endpoint')
+            );
+            // Delete image from ImageKit
+            if ($carousel->image_file_id) {
+                $imageKit->deleteFile($carousel->image_file_id);
+            }
 
-        $carousel->delete();
+            if ($carousel->images) {
+                foreach ($carousel->images as $img) {
+                    if (!empty($img->file_id)) {
+                        $imageKit->deleteFile($img->file_id);
+                    }
+                }
+            }
+            $carousel->delete();
+            DB::statement("SELECT setval('carousels_id_seq', COALESCE((SELECT MAX(id) FROM carousels), 0) + 1, false);");
 
+            return response()->json([
+                'message' => 'carousel deleted successfully',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'failed to delete carousel image',
+                'error' => $e->getMessage()
+            ], 500);
+        }
         // Reset sequence (PostgreSQL only)
-        DB::statement("SELECT setval('carousels_id_seq', COALESCE((SELECT MAX(id) FROM carousels), 0) + 1, false);");
 
         return response()->json([
             'message' => 'Carousel deleted successfully'

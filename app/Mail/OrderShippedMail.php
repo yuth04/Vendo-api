@@ -18,16 +18,27 @@ class OrderShippedMail extends Mailable
      * Create a new message instance.
      */
     public $order;
+<<<<<<< HEAD
     
     public function __construct(Order $order,)
     {
         $this->order = $order;
        
+=======
+
+    public function __construct(Order $order)
+    {
+        $this->order = $order;
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
     }
 
     public function build()
     {
+<<<<<<< HEAD
         return $this->subject('🚚 Your Order Has Been Shipped!')
+=======
+        return $this->subject('Your Order has been Confirmed!')
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
             ->view('emails.order_shipped');
     }
     /**
