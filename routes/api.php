@@ -28,7 +28,7 @@ use App\Http\Controllers\api\v1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    Route::get('api/health', function () {
+    Route::get('/api/health', function () {
         return response()->json(['status' => 'ok']);
     });
     // Google OAuth
@@ -121,7 +121,7 @@ Route::prefix('v1')->group(function () {
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
-        Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
+        Route::delete('/orders/{order}/cancel', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
 
         // Wishlists
@@ -150,18 +150,18 @@ Route::prefix('v1')->group(function () {
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
             //  Update Order Status
-            Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
-            Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
-            Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
-            Route::put('/orders/return/{id}', [ReturnOrderController::class, 'updateStatus']);
-            Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
-            Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
-            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+            Route::patch('/orders/{id}/confirm', [UpdateStatusController::class, 'markAsConfirmed']);
+            Route::patch('/orders/{id}/ship', [UpdateStatusController::class, 'markAsShipping']);
+            Route::patch('/orders/{id}/deliver', [UpdateStatusController::class, 'markAsDelivered']);
+            Route::put('/orders/{id}/return', [ReturnOrderController::class, 'updateStatus']);
+            Route::patch('/returns/{id}/approve', [ReturnOrderController::class, 'approve']);
+            Route::patch('/returns/{id}/reject', [ReturnOrderController::class, 'reject']);
+            Route::patch('/returns/{id}/complete', [ReturnOrderController::class, 'complete']);
 
             //    Filter orders by status
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
             // Admin
-            Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
+            Route::patch('/reviews/{id}/approve', [ReviewController::class, 'approve']);
             // Product Images
             Route::post('/product-images', [ProductImageController::class, 'store']);
             Route::post('/product-images/{id}', [ProductImageController::class, 'update']);
@@ -203,7 +203,7 @@ Route::prefix('v1')->group(function () {
 
             // Admin view of user orders
             Route::get('/user/orders', [UserController::class, 'index']);
-            Route::get('/user/orders/{user}', [OrderController::class, 'userOrderHistory']);
+            Route::get('/user/{user}/orders', [OrderController::class, 'userOrderHistory']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             // Product Variant images
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
