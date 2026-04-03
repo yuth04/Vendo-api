@@ -10,22 +10,21 @@ use ImageKit\ImageKit;
 
 class DiscountCategoryController extends Controller
 {
+
     public function index()
     {
-        $categories = DiscountCategory::with('discounts')->get();
-        
+        $categories = DiscountCategory::with('discounts.product')->get();
         if ($categories->isEmpty()) {
             return response()->json([
-                'message' => "Discount categories list is empty",
-                'data' => []
+                'message' => "Discount categories is empty"
             ]);
         }
-
         return response()->json([
             'message' => 'Discount categories fetched successfully',
             'data' => $categories
         ]);
     }
+
 
     public function store(Request $request)
     {
@@ -36,11 +35,11 @@ class DiscountCategoryController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
-
         $imageUrl = null;
         $imageFileId = null;
 
         if ($request->hasFile('banner_image')) {
+
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -55,7 +54,7 @@ class DiscountCategoryController extends Controller
 
             if (isset($upload->error)) {
                 return response()->json([
-                    'message' => 'Error uploading banner image',
+                    'message' => 'Upload failed',
                     'error' => $upload->error->message,
                 ], 400);
             }
@@ -63,7 +62,6 @@ class DiscountCategoryController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
-
         $category = DiscountCategory::create([
             'title' => $request->title,
             'description' => $request->description,
@@ -79,9 +77,10 @@ class DiscountCategoryController extends Controller
         ], 201);
     }
 
+
     public function show($id)
     {
-        $category = DiscountCategory::with('discounts')->find($id);
+        $category = DiscountCategory::find($id);
 
         if (!$category) {
             return response()->json([
@@ -113,10 +112,12 @@ class DiscountCategoryController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
+        // keep old data
         $imageUrl = $discountCategory->banner_image;
         $imageFileId = $discountCategory->image_file_id;
 
         if ($request->hasFile('banner_image')) {
+
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -136,12 +137,11 @@ class DiscountCategoryController extends Controller
                 ], 400);
             }
 
-            // Delete old image safely
+            // delete old image safely
             if ($discountCategory->image_file_id) {
                 try {
                     $imageKit->deleteFile($discountCategory->image_file_id);
                 } catch (\Exception $e) {
-                    // Ignore if already deleted
                 }
             }
 
@@ -173,20 +173,17 @@ class DiscountCategoryController extends Controller
                 'message' => 'Discount category not found'
             ], 404);
         }
-
         try {
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
                 config('imagekit.url_endpoint')
             );
-
-            // Delete main banner from ImageKit
+            // Delete image from ImageKit
             if ($category->image_file_id) {
                 $imageKit->deleteFile($category->image_file_id);
             }
 
-            // Delete related images if the relationship exists
             if ($category->images) {
                 foreach ($category->images as $img) {
                     if (!empty($img->file_id)) {
@@ -194,21 +191,18 @@ class DiscountCategoryController extends Controller
                     }
                 }
             }
-
             $category->delete();
-
-            // Reset PostgreSQL sequence
             DB::statement("SELECT setval(pg_get_serial_sequence('discount_categories', 'id'), coalesce(max(id), 0) + 1, false) FROM discount_categories;");
-
             return response()->json([
-                'message' => 'Discount category deleted successfully',
+                'message' => 'product deleted successfully',
             ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to delete category and its assets',
+                'message' => 'failed to delete product image',
                 'error' => $e->getMessage()
             ], 500);
         }
+
     }
 }
