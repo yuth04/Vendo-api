@@ -15,6 +15,7 @@ class Product extends Model
         'brand_id',
         'discount_price',
         'image',
+        'image_file_id',
     ];
 
     protected $hidden = ['created_at', 'updated_at', 'activeDiscount'];

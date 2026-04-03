@@ -4,7 +4,10 @@ namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Mail\OrderConfirmedMail;
+<<<<<<< HEAD
 use App\Mail\OrderDeliveredMail;
+=======
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
 use App\Mail\OrderShippedMail;
 use App\Models\Order;
 use Illuminate\Http\Request;
@@ -12,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 class UpdateStatusController extends Controller
 {
+<<<<<<< HEAD
     private function calculateShipping($province)
     {
         $province = strtolower($province);
@@ -20,6 +24,8 @@ class UpdateStatusController extends Controller
         }
         return 2.0;
     }
+=======
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
     public function markAsConfirmed($id)
     {
         if (Auth::user()->role !== 'admin') {
@@ -37,8 +43,12 @@ class UpdateStatusController extends Controller
         $order->update([
             'status' => 'confirmed'
         ]);
+<<<<<<< HEAD
         $shipping = $this->calculateShipping($order->address->province ?? '');
         Mail::to($order->user->email)->send(new OrderConfirmedMail($order, $shipping));
+=======
+        Mail::to($order->user->email)->send(new OrderConfirmedMail($order));
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         return response()->json([
             'message' => 'Order confirmed successfully',
             'order' => $order
@@ -61,7 +71,11 @@ class UpdateStatusController extends Controller
 
         $order->update([
             'status' => 'shipping',
+<<<<<<< HEAD
             'shipped_at' => now()->format('h:i d-m-Y '),
+=======
+            'shipped_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         ]);
         Mail::to($order->user->email)->send(new OrderShippedMail($order));
         return response()->json([
@@ -87,21 +101,32 @@ class UpdateStatusController extends Controller
 
         $order->update([
             'status' => 'delivered',
+<<<<<<< HEAD
             'delivered_at' => now()->format('h:i d-m-Y'),
+=======
+            'delivered_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         ]);
         if ($order->status === 'delivered') {
             $payment = $order->payment;
             if ($payment) {
                 $payment->update([
                     'status' => 'paid',
+<<<<<<< HEAD
                     'paid_at' => now()->format('h:i d-m-Y'),
+=======
+                    'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
                     'transaction_id' => 'COD-' . $order->order_number,
                 ]);
             }
         }
+<<<<<<< HEAD
         $shipping = $this->calculateShipping($order->address->province ?? '');
         $order->load(['items', 'user']);
         Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping));
+=======
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         return response()->json([
             'message' => 'Order delivered successfully',
             'order' => $order
@@ -121,7 +146,11 @@ class UpdateStatusController extends Controller
         }
         $order->update([
             'status' => 'returned',
+<<<<<<< HEAD
             'returned_at' => now()->format('h:i d-m-Y'),
+=======
+            'returned_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         ]);
         return response()->json([
             'message' => 'Order marked as returned successfully',
@@ -142,7 +171,11 @@ class UpdateStatusController extends Controller
         }
         $order->update([
             'status' => 'cancelled',
+<<<<<<< HEAD
             'cancelled_at' => now()->format('h:i d-m-Y'),
+=======
+            'cancelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i'),
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         ]);
         return response()->json([
             'message' => 'Order marked as cancelled successfully',

@@ -4,6 +4,7 @@
 
 use App\Http\Controllers\api\v1\AddressController;
 use App\Http\Controllers\api\v1\AuthController;
+
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CarouselController;
 use App\Http\Controllers\api\v1\CartController;
@@ -21,11 +22,15 @@ use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\ProfileController;
 use App\Http\Controllers\api\v1\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
+use App\Http\Controllers\api\v1\UpdateStatusController;
 use App\Http\Controllers\api\v1\UserController;
 use App\Http\Controllers\api\v1\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('api/health', function () {
+        return response()->json(['status' => 'ok']);
+    });
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
@@ -92,11 +97,12 @@ Route::prefix('v1')->group(function () {
 
     });
 
-    // ------------------- PROTECTED (Logged-in users only) -------------------
+    // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum'])->group(function () {
-
         // Return Order
         Route::post('/returns', [ReturnOrderController::class, 'store']);
+        Route::get('/returns', [ReturnOrderController::class, 'index']);
+        Route::get('/returns/{id}', [ReturnOrderController::class, 'show']);
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
@@ -115,7 +121,7 @@ Route::prefix('v1')->group(function () {
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
-        Route::delete('/orders/{order}/cancel', [OrderController::class, 'cancel']);
+        Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
 
         // Wishlists
@@ -143,12 +149,19 @@ Route::prefix('v1')->group(function () {
 
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
-            // Cf orders
-            Route::put('/returns/{id}', [ReturnOrderController::class, 'updateStatus']);
-            Route::patch('/orders/{id}/ship', [OrderController::class, 'markAsShipped']);
-            Route::patch('/orders/{id}/deliver', [OrderController::class, 'markAsDelivered']);
+            //  Update Order Status
+            Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
+            Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
+            Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
+            Route::put('/orders/return/{id}', [ReturnOrderController::class, 'updateStatus']);
+            Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
+            Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
+            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+
+            //    Filter orders by status
+            Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
             // Admin
-            Route::patch('/reviews/{id}/approve', [ReviewController::class, 'approve']);
+            Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
             // Product Images
             Route::post('/product-images', [ProductImageController::class, 'store']);
             Route::post('/product-images/{id}', [ProductImageController::class, 'update']);
@@ -164,33 +177,34 @@ Route::prefix('v1')->group(function () {
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
             // Carousels
             Route::post('/carousels', [CarouselController::class, 'store']);
-            Route::post('/carousels/{id}', [CarouselController::class, 'updateImage']);
+            Route::post('/carousels/{id}', [CarouselController::class, 'update']);
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
 
             // Products
             Route::post('/products', [ProductController::class, 'store']);
-            Route::put('/products/{id}', [ProductController::class, 'update']);
+            Route::post('/products/{id}', [ProductController::class, 'update']);
             Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 
             // Categories
             Route::post('/categories', [CategoryController::class, 'store']);
-            Route::put('/categories/{id}', [CategoryController::class, 'update']);
+            Route::post('/categories/{id}', [CategoryController::class, 'update']);
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
             Route::post('/categories/upload-image/{id}', [CategoryController::class, 'uploadImageToCategory']);
 
             // Brands
             Route::post('/brands', [BrandController::class, 'store']);
-            Route::put('/brands/{id}', [BrandController::class, 'update']);
+            Route::post('/brands/{id}', [BrandController::class, 'update']);
             Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
 
             // Parent Categories
             Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
-            Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
+            Route::post('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
-            Route::get('/users', [UserController::class, 'index']);
-            Route::get('/user/{user}/orders', [OrderController::class, 'userOrderHistory']);
+            Route::get('/user/orders', [UserController::class, 'index']);
+            Route::get('/user/orders/{user}', [OrderController::class, 'userOrderHistory']);
+            Route::get('/orders', [OrderController::class, 'filterByStatus']);
             // Product Variant images
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
             Route::put('/product-variants/{id}', [ProductVariantController::class, 'update']);

@@ -70,8 +70,10 @@ class CategoryController extends Controller
             $parentId = $validated['parent_category_id'] ?? null;
             $slug = $this->generateUniqueSlug($validated['name'], $parentId);
             $imageUrl = null;
+            $imageFileId = null;
 
             if ($request->hasFile('image')) {
+
                 $imageKit = new ImageKit(
                     config('imagekit.public_key'),
                     config('imagekit.private_key'),
@@ -85,9 +87,14 @@ class CategoryController extends Controller
                 ]);
 
                 if (isset($upload->error)) {
-                    return response()->json(['message' => 'Upload failed', 'error' => $upload->error->message], 400);
+                    return response()->json([
+                        'message' => 'Upload failed',
+                        'error' => $upload->error->message,
+                    ], 400);
                 }
+
                 $imageUrl = $upload->result->url;
+                $imageFileId = $upload->result->fileId;
             }
 
             $category = Category::create([
@@ -95,7 +102,8 @@ class CategoryController extends Controller
                 'slug' => $slug,
                 'parent_category_id' => $parentId,
                 'is_active' => $validated['is_active'] ?? true,
-                'image' => $imageUrl, // Save the URL here
+                'image' => $imageUrl,
+                'image_file_id' => $imageFileId,
             ]);
 
             return response()->json([
@@ -124,14 +132,17 @@ class CategoryController extends Controller
         // Generate slug unique per parent
         $slug = $this->generateUniqueSlug($validated['name'], $parentId, $id);
 
+        $imageUrl = $category->image;
+        $imageFileId = $category->image_file_id;
+
         if ($request->hasFile('image')) {
+
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
                 config('imagekit.url_endpoint')
             );
 
-            // Upload image to ImageKit
             $upload = $imageKit->upload([
                 'file' => fopen($request->file('image')->getRealPath(), "r"),
                 'fileName' => $request->file('image')->getClientOriginalName(),
@@ -144,25 +155,24 @@ class CategoryController extends Controller
                     'error' => $upload->error->message,
                 ], 400);
             }
-
-            // Delete old ImageKit image if exists
-            if ($category->image) {
+            //delete old image from ImageKit if exists
+            if ($category->image_file_id) {
                 try {
-                    $imageKit->deleteFile($category->image);
+                    $imageKit->deleteFile($category->image_file_id);
                 } catch (\Exception $e) {
-                    // ignore errors
+                    // ignore if already deleted
                 }
             }
-
-            // Set new image URL
-            $category->image = $upload->result->url;
+            $imageUrl = $upload->result->url;
+            $imageFileId = $upload->result->fileId;
         }
         $category->update([
             'name' => $validated['name'],
             'slug' => $slug,
             'parent_category_id' => $parentId,
             'is_active' => $validated['is_active'] ?? $category->is_active,
-            'image' => $validated['image'] ?? $category->image,
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId,
         ]);
 
         return response()->json([
@@ -174,17 +184,52 @@ class CategoryController extends Controller
     // Delete category
     public function destroy($id)
     {
-        $category = Category::findOrFail($id);
-        $category->delete();
+        $category = Category::find($id);
 
-        DB::statement("SELECT setval(pg_get_serial_sequence('categories', 'id'), coalesce(max(id), 0) + 1, false) FROM categories;");
+        if (!$category) {
+            return response()->json([
+                'message' => "Category id: $id not found"
+            ], 404);
+        }
 
-        return response()->json([
-            'message' => "Deleted category successfully"
-        ]);
+        try {
+            $imageKit = new ImageKit(
+                config('imagekit.public_key'),
+                config('imagekit.private_key'),
+                config('imagekit.url_endpoint')
+            );
+
+            //  delete main image
+            if ($category->image_file_id) {
+                $imageKit->deleteFile($category->image_file_id);
+            }
+
+            // delete related images
+            if ($category->images) {
+                foreach ($category->images as $img) {
+                    if (!empty($img->file_id)) {
+                        $imageKit->deleteFile($img->file_id);
+                    }
+                }
+            }
+
+            //  delete category
+            $category->delete();
+            DB::statement("SELECT setval(pg_get_serial_sequence('categories', 'id'), coalesce(max(id), 0) + 1, false) FROM categories;");
+            return response()->json([
+                'message' => 'Category deleted successfully',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to delete category',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-
     // Helper function to generate unique slug per parent
+
+
     private function generateUniqueSlug(string $name, ?int $parentId, ?int $excludeId = null): string
     {
         $slug = Str::slug($name);
