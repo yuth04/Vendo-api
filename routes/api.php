@@ -91,6 +91,7 @@ Route::prefix('v1')->group(function () {
         });
         Route::get('/discount-categories', [DiscountCategoryController::class, 'index']);
         Route::get('/discount-categories/{id}', [DiscountCategoryController::class, 'show']);
+
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
 
@@ -170,7 +171,7 @@ Route::prefix('v1')->group(function () {
             // Discounts
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
-            Route::put('/discounts/{id}', [DiscountController::class, 'update']);
+            Route::post('/discounts/{id}', [DiscountController::class, 'update']);
             Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);

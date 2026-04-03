@@ -3,27 +3,35 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DiscountCategory extends Model
 {
     protected $fillable = [
-        'title',
-        'description',
-        'is_active',
-        'banner_image',
-        'start_date',
-        'end_date',
-        'image_file_id',
-        
+        'title', 
+        'description', 
+        'banner_image', 
+        'is_active', 
+        'image_file_id', 
+        'start_date', 
+        'end_date'
     ];
 
-  protected $casts = [
-        'is_active' => 'boolean',
-        'start_date' => 'date',
-        'end_date' => 'date',
+    protected $casts = [
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
+        'is_active' => 'boolean'
     ];
-    protected $hidden = ['created_at', 'updated_at'];
-    public function discounts()
+
+    protected $hidden = [
+        'created_at', 
+        'updated_at'
+    ];
+
+    /**
+     * Get the discounts associated with the category.
+     */
+    public function discounts(): HasMany
     {
         return $this->hasMany(Discount::class);
     }
