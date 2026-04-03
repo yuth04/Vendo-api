@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\api\v1;
+use App\Mail\AdminOrderPlaced;
 use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Controller;
 use App\Mail\OrderPlaced;
@@ -23,12 +24,7 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 class OrderController extends Controller
 {
-    protected $discountService;
 
-    public function __construct(DiscountService $discountService)
-    {
-        $this->discountService = $discountService;
-    }
     //Checkout
     public function checkout(Request $request)
     {
@@ -58,21 +54,43 @@ class OrderController extends Controller
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
                 $total = $this->processOrderItems($order, $request->items);
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+                $order->update(['total_price' => round($total + 1.00, 2)]);
+=======
+                $shipping = (float) $this->calculateShipping($order->address->province ?? '');
+=======
                 $shipping = $this->calculateShipping($order->address->province);
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
                 $subtotal = round($total, 2);
                 $order->update([
                     // 'total_price' => round($total + $shipping, 2)
                     'total_price' => round($subtotal + $shipping, 2),
+<<<<<<< HEAD
+                    'shipping_fee' => $shipping,
                 ]);
                 $amount = $subtotal + $shipping;
+>>>>>>> Stashed changes
+=======
+                ]);
+                $amount = $subtotal + $shipping;
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
                 $payment = Payment::create([
                     'order_id' => $order->id,
                     'payment_method' => $request->payment_method,
                     'amount' => round($amount, 2),
                     'status' => 'unpaid',
                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+                    'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+=======
+                    'paid_at' => null,
+>>>>>>> Stashed changes
+=======
                     // 'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
                     'paid_at' => null,
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
                 ]);
 
                 $orderModel = $order;
@@ -81,6 +99,7 @@ class OrderController extends Controller
             });
             if ($orderModel) {
                 $orderModel->load(['items', 'user', 'address', 'payment']);
+                Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($orderModel));
                 Mail::to($user->email)->send(new OrderPlaced($orderModel));
             }
             return response()->json([
@@ -136,7 +155,7 @@ class OrderController extends Controller
         foreach ($frontendItems as $item) {
             $variant = ProductVariant::with('product.discount')
                 ->where('id', $item['product_variant_id'])
-                ->lockForUpdate() // Protects against 2 people buying the last item
+                ->lockForUpdate()
                 ->firstOrFail();
 
             // Check if stock is actually available in the DB
@@ -280,7 +299,15 @@ class OrderController extends Controller
             }
             $order->update([
                 'status' => 'cancelled',
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+                'canelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+=======
+                'cancelled_at' => now('Asia/Phnom_Penh')->format('h:i A Y-m-d'),
+>>>>>>> Stashed changes
+=======
                 'cancelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
             ]);
         });
 
@@ -330,21 +357,35 @@ class OrderController extends Controller
     // Format order response
     private function formatOrder($order)
     {
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+=======
         $shipping = $this->calculateShipping($order->address->province ?? '');
 
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
+<<<<<<< HEAD
+<<<<<<< Updated upstream
+=======
+            'sub_total_price' => (float) $order->total_price - $order->shipping_fee,
+            'shipping_fee' => (float) $order->shipping_fee,
+>>>>>>> Stashed changes
+=======
             'sub_total_price' => (float) $order->total_price - $shipping,
             'shipping_fee' => (float) $shipping,
+>>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
             'total_price' => (float) $order->total_price,
             'payment' => [
                 'method' => $order->payment->payment_method ?? null,
                 'status' => $order->payment->status ?? null,
                 'reference' => $order->payment->payment_reference ?? null,
                 'paid_at' => $order->payment->paid_at
-
             ],
             'address' => [
                 'first_name' => $order->address->first_name ?? null,
