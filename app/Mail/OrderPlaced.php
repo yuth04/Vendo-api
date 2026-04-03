@@ -22,12 +22,6 @@ class OrderPlaced extends Mailable
     public function __construct(Order $order)
     {
         $this->order = $order;
-
-        $this->downloadUrl = URL::temporarySignedRoute(
-            'order.receipt.download',
-            now()->addDays(7),
-            ['order' => $order->id]
-        );
     }
 
 
@@ -37,7 +31,7 @@ class OrderPlaced extends Mailable
             ->view('emails.place_ordered')
             ->with([
                 'order' => $this->order,
-                'downloadUrl' => $this->downloadUrl,
+
             ]);
     }
     /**
