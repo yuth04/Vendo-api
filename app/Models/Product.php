@@ -47,18 +47,5 @@ class Product extends Model
         return $this->hasOne(Discount::class)->latest();
     }
 
-    public function getDiscountPriceAttribute()
-    {
-        $discount = $this->activeDiscount;
 
-        if (!$discount) {
-            return $this->price;
-        }
-
-        if ($discount->type === 'percent') {
-            return round($this->price - ($this->price * $discount->amount / 100), 2);
-        }
-
-        return round($this->price - $discount->amount, 2);
-    }
 }
