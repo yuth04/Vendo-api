@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\api\v1;
+use App\Mail\AdminOrderPlaced;
 use Illuminate\Support\Facades\URL;
 use App\Http\Controllers\Controller;
 use App\Mail\OrderPlaced;
@@ -23,12 +24,7 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 class OrderController extends Controller
 {
-    protected $discountService;
 
-    public function __construct(DiscountService $discountService)
-    {
-        $this->discountService = $discountService;
-    }
     //Checkout
     public function checkout(Request $request)
     {
@@ -58,14 +54,29 @@ class OrderController extends Controller
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
                 $total = $this->processOrderItems($order, $request->items);
+<<<<<<< Updated upstream
                 $order->update(['total_price' => round($total + 1.00, 2)]);
+=======
+                $shipping = (float) $this->calculateShipping($order->address->province ?? '');
+                $subtotal = round($total, 2);
+                $order->update([
+                    // 'total_price' => round($total + $shipping, 2)
+                    'total_price' => round($subtotal + $shipping, 2),
+                    'shipping_fee' => $shipping,
+                ]);
+                $amount = $subtotal + $shipping;
+>>>>>>> Stashed changes
                 $payment = Payment::create([
                     'order_id' => $order->id,
                     'payment_method' => $request->payment_method,
                     'amount' => $order->total_price,
                     'status' => 'pending',
                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
+<<<<<<< Updated upstream
                     'paid_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+=======
+                    'paid_at' => null,
+>>>>>>> Stashed changes
                 ]);
                 // $cart->items()->delete();
                 $orderModel = $order;
@@ -75,6 +86,7 @@ class OrderController extends Controller
             if ($orderModel) {
                 // Load relationships needed for the email (items and user)
                 $orderModel->load(['items', 'user', 'address', 'payment']);
+                Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($orderModel));
                 Mail::to($user->email)->send(new OrderPlaced($orderModel));
             }
             return response()->json([
@@ -130,7 +142,7 @@ class OrderController extends Controller
         foreach ($frontendItems as $item) {
             $variant = ProductVariant::with('product.discount')
                 ->where('id', $item['product_variant_id'])
-                ->lockForUpdate() // Protects against 2 people buying the last item
+                ->lockForUpdate()
                 ->firstOrFail();
 
             // Check if stock is actually available in the DB
@@ -225,7 +237,11 @@ class OrderController extends Controller
             }
             $order->update([
                 'status' => 'cancelled',
+<<<<<<< Updated upstream
                 'canelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+=======
+                'cancelled_at' => now('Asia/Phnom_Penh')->format('h:i A Y-m-d'),
+>>>>>>> Stashed changes
             ]);
         });
 
@@ -285,17 +301,25 @@ class OrderController extends Controller
      */
     private function formatOrder($order)
     {
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
+<<<<<<< Updated upstream
+=======
+            'sub_total_price' => (float) $order->total_price - $order->shipping_fee,
+            'shipping_fee' => (float) $order->shipping_fee,
+>>>>>>> Stashed changes
             'total_price' => (float) $order->total_price,
             'payment' => [
                 'method' => $order->payment->payment_method ?? null,
                 'status' => $order->payment->status ?? null,
                 'reference' => $order->payment->payment_reference ?? null,
                 'paid_at' => $order->payment->paid_at
-
             ],
             'items' => $order->items->map(fn($item) => [
                 'id' => $item->id,

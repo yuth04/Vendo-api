@@ -18,6 +18,7 @@ class DiscountController extends Controller
             return $query->where('product_id', $productId);
         })
             ->with('product')
+            ->orderBy('id', 'asc')
             ->get();
         if ($discounts->isEmpty()) {
             return response()->json([
@@ -30,7 +31,6 @@ class DiscountController extends Controller
         ]);
     }
 
-
     public function show($id)
     {
         $discount = Discount::with('product.discount')->findOrFail($id);
@@ -39,23 +39,40 @@ class DiscountController extends Controller
                 'message' => "Discount not found"
             ]);
         }
+<<<<<<< Updated upstream
+=======
+        $product = $discount->product;
+
+        // Recalculate discount price here
+        if ($discount->type === 'percent') {
+            $discountPrice = $product->price - ($product->price * $discount->amount / 100);
+        } else {
+            $discountPrice = $product->price - $discount->amount;
+        }
+
+        $product->discount_price = max(0, $discountPrice);
+
+>>>>>>> Stashed changes
         return response()->json([
             'message' => 'Discount retrieved successfully',
             'data' => $discount,
+            'product' => $product
         ]);
     }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
+            'discount_category_id' => 'nullable|exists:discount_categories,id',
             'name' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
-            'type' => 'nullable|in:percent,fixed',
+            'type' => 'required|in:percent,fixed',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
+<<<<<<< Updated upstream
         $discount = Discount::create([
             'product_id' => $validated['product_id'],
             'name' => $validated['name'] ?? null,
@@ -65,16 +82,30 @@ class DiscountController extends Controller
             'start_date' => $validated['start_date'] ?? null,
             'end_date' => $validated['end_date'] ?? null,
         ]);
+=======
+        // Check for existing active discount
+        $exists = Discount::where('product_id', $validated['product_id'])
+            ->active()
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Product already has an active discount'], 409);
+        }
+
+        $discount = Discount::create($validated);
+>>>>>>> Stashed changes
 
         return response()->json([
             'message' => 'Discount created successfully',
-            'data' => $discount,
+            'data' => $discount
         ], 201);
     }
+    // update
     public function update(Request $request, $id)
     {
         $discount = Discount::findOrFail($id);
 
+<<<<<<< Updated upstream
         $validated = $request->validate([
             'product_id' => 'sometimes|exists:products,id',
             'name' => 'nullable|string|max:255',
@@ -82,14 +113,52 @@ class DiscountController extends Controller
             'amount' => 'sometimes|numeric|min:0',
             'type' => 'sometimes|in:percent,fixed',
         ]);
+=======
+>>>>>>> Stashed changes
 
-        $discount->update($validated);
+        $discount->update($request->all());
+        $discount = $discount->fresh();
+
+        $product = $discount->product;
+
+        if ($discount->type === 'percent') {
+            $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
+        } else {
+            $discountPrice = $product->price - $discount->amount;
+        }
+
+        // Save to database
+        $product->update([
+            'discount_price' => max(0, round($discountPrice, 2))
+        ]);
 
         return response()->json([
             'message' => 'Discount updated successfully',
-            'data' => $discount,
+            'data' => $discount->load('product'),
         ]);
     }
+    // public function update(Request $request, $id)
+    // {
+    //     $discount = Discount::findOrFail($id);
+
+    //     $validated = $request->validate([
+    //         'name' => 'nullable|string',
+    //         'amount' => 'sometimes|numeric|min:0',
+    //         'type' => 'sometimes|in:percent,fixed',
+    //         'start_date' => 'nullable|date',
+    //         'end_date' => 'nullable|date|after_or_equal:start_date',
+    //     ]);
+
+    //     $discount->update($validated);
+    //     $product = Product::with('activeDiscount')->find($discount->product_id);
+
+    //     return response()->json([
+    //         'message' => 'Discount updated successfully',
+    //         'data' => $discount->fresh(),
+    //         'product' => $product
+    //     ]);
+    // }
+
     public function destroy($id)
     {
         $discount = Discount::findOrFail($id);
@@ -99,6 +168,7 @@ class DiscountController extends Controller
             'message' => 'Discount deleted successfully',
         ]);
     }
+<<<<<<< Updated upstream
     public function discountedPrice(Product $product)
     {
         $discount = $product->discounts()->latest()->first();
@@ -113,4 +183,6 @@ class DiscountController extends Controller
             default => $product->price,
         };
     }
+=======
+>>>>>>> Stashed changes
 }

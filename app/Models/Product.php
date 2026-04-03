@@ -13,13 +13,11 @@ class Product extends Model
         'price',
         'category_id',
         'brand_id',
+        'discount_price',
         'image',
     ];
 
-    protected $hidden = ['created_at', 'updated_at','activeDiscount'];
-
-    protected $appends = ['discount_price'];
-
+    protected $hidden = ['created_at', 'updated_at', 'activeDiscount'];
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -42,21 +40,27 @@ class Product extends Model
 
     public function activeDiscount()
     {
-        return $this->hasOne(Discount::class)->latest();
+        return $this->hasOne(Discount::class)
+            ->where('product_id', $this->id)
+            ->where(function ($query) {
+                $now = now()->toDateTimeString(); // Uses Asia/Phnom_Penh
+                $query->where('start_date', '<=', $now)
+                    ->where('end_date', '>=', $now);
+            });
     }
 
-    public function getDiscountPriceAttribute()
-    {
-        $discount = $this->activeDiscount;
+    // public function getDiscountPriceAttribute()
+    // {
+    //     $discount = $this->activeDiscount;
 
-        if (!$discount) {
-            return $this->price;
-        }
+    //     if (!$discount)
+    //         return $this->price;
 
-        if ($discount->type === 'percent') {
-            return round($this->price - ($this->price * $discount->amount / 100), 2);
-        }
+    //     if ($discount->type === 'percent') {
+    //         return round($this->price - ($this->price * $discount->amount / 100), 2);
+    //     }
 
-        return round($this->price - $discount->amount, 2);
-    }
+    //     return max(0, $this->price - $discount->amount);
+    // }
+
 }

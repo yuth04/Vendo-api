@@ -60,6 +60,7 @@ class ReturnOrder extends Model
                 }
 
                 if ($next === self::STATUS_APPROVED) {
+<<<<<<< Updated upstream
                     $returnOrder->approved_at = now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A');
                 }
 
@@ -69,6 +70,17 @@ class ReturnOrder extends Model
 
                 if ($next === self::STATUS_COMPLETED) {
                     $returnOrder->completed_at = now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A');
+=======
+                    $returnOrder->approved_at = now()->format('h:i d-m-Y');
+                }
+
+                if ($next === self::STATUS_REJECTED) {
+                    $returnOrder->rejected_at = now()->format('h:i d-m-Y');
+                }
+
+                if ($next === self::STATUS_COMPLETED) {
+                    $returnOrder->completed_at = now()->format('h:i d-m-Y');
+>>>>>>> Stashed changes
                     $returnOrder->refund_status = self::REFUND_REFUNDED;
 
                     if (!$returnOrder->refund_amount) {
