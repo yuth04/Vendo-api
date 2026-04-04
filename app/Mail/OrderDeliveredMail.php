@@ -18,10 +18,12 @@ class OrderDeliveredMail extends Mailable
      * Create a new message instance.
      */
      public $order;
-
+     public $shpping;
+  
     public function __construct(Order $order, $shipping)
     {
         $this->order = $order;
+        $this->shpping = $shipping;
 
     }
 

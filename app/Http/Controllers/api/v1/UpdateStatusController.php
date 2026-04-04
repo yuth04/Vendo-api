@@ -64,7 +64,7 @@ class UpdateStatusController extends Controller
 
         $order->update([
             'status' => 'shipping',
-            'shipped_at' => now()->format('h:i d-m-Y '),
+            'shipped_at' => now(),
         ]);
         Mail::to($order->user->email)->send(new OrderShippedMail($order));
         return response()->json([
@@ -90,15 +90,14 @@ class UpdateStatusController extends Controller
 
         $order->update([
             'status' => 'delivered',
-
-            'delivered_at' => now()->format('h:i d-m-Y'),
+            'delivered_at' => now(),
         ]);
         if ($order->status === 'delivered') {
             $payment = $order->payment;
             if ($payment) {
                 $payment->update([
                     'status' => 'paid',
-                    'paid_at' => now()->format('h:i d-m-Y'),
+                    'paid_at' => now(),
                     'transaction_id' => 'COD-' . $order->order_number,
                 ]);
             }
@@ -127,7 +126,7 @@ class UpdateStatusController extends Controller
         }
         $order->update([
             'status' => 'returned',
-            'returned_at' => now()->format('h:i d-m-Y'),
+            'returned_at' => now(),
 
         ]);
         return response()->json([
@@ -149,8 +148,7 @@ class UpdateStatusController extends Controller
         }
         $order->update([
             'status' => 'cancelled',
-
-            'cancelled_at' => now()->format('h:i d-m-Y'),
+            'cancelled_at' => now(),
 
 
 

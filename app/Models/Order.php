@@ -27,6 +27,10 @@ class Order extends Model
         'cancelled_at' => 'datetime',
         'returned_at' => 'datetime',
     ];
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
     protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';
     const STATUS_COMPLETED = 'paid';
