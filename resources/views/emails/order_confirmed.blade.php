@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 <div style="background-color: #f3f4f6; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
 
@@ -101,12 +101,12 @@
                 <table width="100%">
                     <tr>
                         <td style="color: #64748b;">Subtotal</td>
-                        <td align="right">${{ number_format($order->total_price - $shipping, 2) }}</td>
+                        <td align="right">${{ number_format($order->total_price - $order->shipping_fee, 2) }}</td>
                     </tr>
 
                     <tr>
                         <td style="color: #64748b;">Shipping</td>
-                        <td align="right">${{ number_format($shipping, 2) }}</td>
+                        <td align="right">${{ number_format($order->shipping_fee, 2) }}</td>
                     </tr>
 
                     <tr style="border-top: 1px solid #e2e8f0;">
@@ -167,5 +167,5 @@
         <p style="margin: 5px 0 0;">© {{ date('Y') }} Your Store Name. All rights reserved.</p>
     </div>
 
->>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
+
 </div>

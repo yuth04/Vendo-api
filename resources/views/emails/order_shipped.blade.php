@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 <div style="font-family: Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
 
     <div style="text-align: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px;">
@@ -67,7 +67,7 @@
     <div style="text-align: center; font-size: 12px; color: #a0aec0; border-top: 1px solid #f0f0f0; padding-top: 20px;">
         <p style="margin: 0;">Thank you for shopping with us!</p>
         <p style="margin: 5px 0 0;">© {{ date('Y') }} Your Brand Name. All rights reserved.</p>
->>>>>>> d8445566977b7d73bf2ff501c5c4de213759c59c
+
     </div>
 
 </div>

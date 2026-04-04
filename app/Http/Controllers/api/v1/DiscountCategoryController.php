@@ -41,7 +41,7 @@ class DiscountCategoryController extends Controller
     }
     public function index()
     {
-        $category = DiscountCategory::with('discounts.product')->first();
+        $category = DiscountCategory::with('discounts.products')->first();
 
         if (!$category) {
             return response()->json([

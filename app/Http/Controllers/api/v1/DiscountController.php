@@ -13,7 +13,7 @@ class DiscountController extends Controller
     public function index(Request $request)
     {
 
-        $discounts = Discount::with('product')
+        $discounts = Discount::with('products')
             ->orderBy('id', 'asc')
             ->get();
 
@@ -56,36 +56,58 @@ class DiscountController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'amount' => 'required|numeric',
+            'product_id' => 'required|array', // Now an array [1,3,6,2]
+            'product_id.*' => 'exists:products,id',
+            'discount_category_id' => 'nullable|exists:discount_categories,id',
+            'description' => 'nullable|string|max:255',
+            'name' => 'nullable|string|max:255',
+            'amount' => 'required|numeric|min:0',
             'type' => 'required|in:percent,fixed',
             'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
+        // 1. Check for overlapping discounts for ANY of the products in the array
+        $exists = Discount::whereIn('product_id', $validated['product_id'])
+
+            ->where('start_date', $request->start_date)
+            ->where('end_date', $request->end_date)
+            ->exists();
+        if ($exists) {
+            return response()->json([
+                'message' => 'One or more products already have a discount in this period'
+            ], 409);
+        }
+
         return DB::transaction(function () use ($validated) {
-            // 1. Create the discount
-            $discount = Discount::create($validated);
+            // 2. Create the Discount Rule
+            // If your DB still requires product_id, we use the first one from the array
+            // If you fixed your DB to be nullable, remove 'product_id' from this create call
+            $discountData = $validated;
+            $discountData['product_id'] = $validated['product_id'][0]; // Temporary fix for your DB constraint
 
-            // 2. Find the product
-            $product = Product::findOrFail($validated['product_id']);
+            $discount = Discount::create($discountData);
 
-            // 3. Calculate the price
-            $price = (float) $product->price;
-            $amount = (float) $validated['amount'];
+            // 3. Update ALL products in the array
+            $products = Product::whereIn('id', $validated['product_id'])->get();
 
-            $newPrice = $validated['type'] === 'percent'
-                ? $price - ($price * $amount / 100)
-                : $price - $amount;
+            foreach ($products as $product) {
+                $price = (float) $product->price;
+                $amount = (float) $validated['amount'];
 
-            // 4. SAVE to the actual database column
-            $product->update([
-                'discount_price' => max(0, round($newPrice, 2))
-            ]);
+                $discountPrice = $validated['type'] === 'percent'
+                    ? $price - ($price * $amount / 100)
+                    : $price - $amount;
+
+                $product->update([
+                    'discount_id' => $discount->id, // Link them
+                    'discount_price' => max(0, round($discountPrice, 2))
+                ]);
+            }
 
             return response()->json([
-                'message' => 'Discount created and product column updated',
-                'data' => $discount->load('product') // This will now show the DB value
+                'message' => 'Discount applied to ' . $products->count() . ' products successfully',
+                'data' => $discount->load('products')
             ], 201);
         });
     }

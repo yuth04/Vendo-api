@@ -16,9 +16,10 @@ class Product extends Model
         'brand_id',
         'image',
         'image_file_id',
+        'discount_id'
     ];
 
-    protected $hidden = ['created_at', 'updated_at'];
+    protected $hidden = ['created_at', 'updated_at','discount_id'];
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -36,7 +37,7 @@ class Product extends Model
 
     public function discount()
     {
-        return $this->hasOne(Discount::class);
+        return $this->belongsTo(Discount::class);
     }
 
     public function activeDiscount()
