@@ -12,13 +12,13 @@ class Product extends Model
         'description',
         'price',
         'category_id',
-        'brand_id',
         'discount_price',
+        'brand_id',
         'image',
         'image_file_id',
     ];
 
-    protected $hidden = ['created_at', 'updated_at', 'activeDiscount'];
+    protected $hidden = ['created_at', 'updated_at'];
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -41,15 +41,14 @@ class Product extends Model
 
     public function activeDiscount()
     {
+        $now = now();
         return $this->hasOne(Discount::class)
-            ->where('product_id', $this->id)
-            ->where(function ($query) {
-                $now = now()->toDateTimeString(); // Uses Asia/Phnom_Penh
-                $query->where('start_date', '<=', $now)
-                    ->where('end_date', '>=', $now);
+            ->where(function ($q) use ($now) {
+                $q->whereNull('start_date')->orWhere('start_date', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('end_date')->orWhere('end_date', '>=', $now);
             });
     }
-
-
 
 }
