@@ -12,11 +12,8 @@ class DiscountController extends Controller
 {
     public function index(Request $request)
     {
-        $productId = $request->query('product_id');
 
-        $discounts = Discount::active()
-            ->when($productId, fn($q) => $q->where('product_id', $productId))
-            ->with('product')
+        $discounts = Discount::with('product')
             ->orderBy('id', 'asc')
             ->get();
 
@@ -60,31 +57,37 @@ class DiscountController extends Controller
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'discount_category_id' => 'nullable|exists:discount_categories,id',
-            'name' => 'nullable|string|max:255',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'required|numeric',
             'type' => 'required|in:percent,fixed',
             'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'end_date' => 'nullable|date',
         ]);
 
-        // Check for existing active discount to prevent overlaps
-        $exists = Discount::where('product_id', $validated['product_id'])
-            ->active()
-            ->exists();
+        return DB::transaction(function () use ($validated) {
+            // 1. Create the discount
+            $discount = Discount::create($validated);
 
-        if ($exists) {
+            // 2. Find the product
+            $product = Product::findOrFail($validated['product_id']);
+
+            // 3. Calculate the price
+            $price = (float) $product->price;
+            $amount = (float) $validated['amount'];
+
+            $newPrice = $validated['type'] === 'percent'
+                ? $price - ($price * $amount / 100)
+                : $price - $amount;
+
+            // 4. SAVE to the actual database column
+            $product->update([
+                'discount_price' => max(0, round($newPrice, 2))
+            ]);
+
             return response()->json([
-                'message' => 'This product already has an active discount'
-            ], 409);
-        }
-
-        $discount = Discount::create($validated);
-
-        return response()->json([
-            'message' => 'Discount created successfully',
-            'data' => $discount
-        ], 201);
+                'message' => 'Discount created and product column updated',
+                'data' => $discount->load('product') // This will now show the DB value
+            ], 201);
+        });
     }
     public function update(Request $request, $id)
     {
@@ -109,7 +112,7 @@ class DiscountController extends Controller
 
         $discount->update($validated);
 
-        $discount->load(['product', 'discountCategory']);
+        $discount->load(['product']);
 
         $product = $discount->product;
 
@@ -191,14 +194,9 @@ class DiscountController extends Controller
         return response()->json([
             'message' => 'Active discount deleted successfully',
 
-            'data' => $discount->load('product'),
+
         ]);
     }
 
-
-
-    /**
-     * Helper to get the calculated price directly
-     */
 
 }

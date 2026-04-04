@@ -11,21 +11,49 @@ use ImageKit\ImageKit;
 
 class DiscountCategoryController extends Controller
 {
-
+    private function formatCategory($category)
+    {
+        return [
+            'id' => $category->id,
+            'title' => $category->title,
+            'slug' => $category->slug,
+            'description' => $category->description,
+            'banner_image' => $category->banner_image,
+            'is_active' => (bool) $category->is_active,
+            'start_date' => $category->start_date,
+            'end_date' => $category->end_date,
+            'products' => $category->discounts->map(fn($discount) => [
+                'id' => $discount->id,
+                'name' => $discount->name,
+                'description' => $discount->description,
+                'amount' => (float) $discount->amount,
+                'type' => $discount->type,
+                'product' => [
+                    'id' => $discount->product->id ?? null,
+                    'name' => $discount->product->productName ?? null,
+                    'slug' => $discount->product->slug ?? null,
+                    'original_price' => (float) ($discount->product->price ?? 0),
+                    'discount_price' => (float) ($discount->product->discount_price ?? 0),
+                    'image' => $discount->product->image ?? null,
+                ]
+            ])
+        ];
+    }
     public function index()
     {
-        $categories = DiscountCategory::with('discounts.product')->get();
-        if ($categories->isEmpty()) {
+        $category = DiscountCategory::with('discounts.product')->first();
+
+        if (!$category) {
             return response()->json([
-                'message' => "Discount categories is empty"
-            ]);
+                'message' => "No discount category found"
+            ], 404);
         }
+
         return response()->json([
-            'message' => 'Discount categories fetched successfully',
-            'data' => $categories
+            'message' => 'Discount category fetched successfully',
+            'data' => $category
         ]);
     }
-
 
     public function store(Request $request)
     {

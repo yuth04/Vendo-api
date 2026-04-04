@@ -20,31 +20,13 @@ class Discount extends Model
     protected $hidden = ['created_at', 'updated_at', 'discount_price'];
     public function product()
     {
-        return $this->belongsTo(Product::class, 'discount_category_id');
+        return $this->belongsTo(Product::class, 'product_id');
     }
+
     public function discountCategory()
     {
-        return $this->belongsTo(DiscountCategory::class);
+        return $this->belongsTo(DiscountCategory::class, 'discount_category_id');
     }
-    public function scopeActive(Builder $query)
-    {
-        return $query->where(function ($q) {
-            $q->whereNull('start_date')
-                ->orWhere('start_date', '<=', now());
-        })->where(function ($q) {
-            $q->whereNull('end_date')
-                ->orWhere('end_date', '>=', now());
-        });
-    }
-    // Optional: check if single discount is active
-    public function getIsActiveAttribute()
-    {
-        $now = now();
 
-        return (
-            (is_null($this->start_date) || $this->start_date <= $now) &&
-            (is_null($this->end_date) || $this->end_date >= $now)
-        );
-    }
 
 }

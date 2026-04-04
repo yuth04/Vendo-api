@@ -8,15 +8,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class DiscountCategory extends Model
 {
     protected $fillable = [
-        'title', 
+        'title',
         'slug',
-        'description', 
-        'banner_image', 
-        'is_active', 
-        'image_file_id', 
-        'start_date', 
+        'description',
+        'banner_image',
+        'is_active',
+        'image_file_id',
+        'start_date',
         'end_date',
-        
+
     ];
 
     protected $casts = [
@@ -26,15 +26,15 @@ class DiscountCategory extends Model
     ];
 
     protected $hidden = [
-        'created_at', 
+        'created_at',
         'updated_at'
     ];
 
     /**
      * Get the discounts associated with the category.
      */
-    public function discounts(): HasMany
+    public function discounts()
     {
-        return $this->hasMany(Discount::class);
+        return $this->hasMany(Discount::class, 'discount_category_id');
     }
 }
