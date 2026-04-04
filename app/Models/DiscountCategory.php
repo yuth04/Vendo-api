@@ -9,12 +9,14 @@ class DiscountCategory extends Model
 {
     protected $fillable = [
         'title', 
+        'slug',
         'description', 
         'banner_image', 
         'is_active', 
         'image_file_id', 
         'start_date', 
-        'end_date'
+        'end_date',
+        
     ];
 
     protected $casts = [
