@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DiscountCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 
 class DiscountCategoryController extends Controller
@@ -35,6 +36,9 @@ class DiscountCategoryController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
+        $slug = Str::slug($request->title);
+        $count = DiscountCategory::where('slug', 'like', "{$slug}%")->count();
+        $slug = $count ? "{$slug}-{$count}" : $slug;
         $imageUrl = null;
         $imageFileId = null;
 
@@ -64,6 +68,7 @@ class DiscountCategoryController extends Controller
         }
         $category = DiscountCategory::create([
             'title' => $request->title,
+            'slug' => $slug,
             'description' => $request->description,
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
@@ -111,7 +116,20 @@ class DiscountCategoryController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
+        $title = $request->title ?? $discountCategory->title;
 
+        if ($request->has('title') && $request->title !== $discountCategory->title) {
+            $slug = Str::slug($request->title);
+
+            // avoid duplicate slug (exclude current record)
+            $count = DiscountCategory::where('slug', 'like', "{$slug}%")
+                ->where('id', '!=', $discountCategory->id)
+                ->count();
+
+            $slug = $count ? "{$slug}-{$count}" : $slug;
+        } else {
+            $slug = $discountCategory->slug;
+        }
         // keep old data
         $imageUrl = $discountCategory->banner_image;
         $imageFileId = $discountCategory->image_file_id;
@@ -151,6 +169,7 @@ class DiscountCategoryController extends Controller
 
         $discountCategory->update([
             'title' => $request->title ?? $discountCategory->title,
+            'slug' => $slug,
             'description' => $request->description ?? $discountCategory->description,
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
