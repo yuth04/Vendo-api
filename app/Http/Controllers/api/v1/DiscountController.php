@@ -16,18 +16,15 @@ class DiscountController extends Controller
 
         $discounts = Discount::active()
             ->when($productId, fn($q) => $q->where('product_id', $productId))
-
-            ->with(['product', 'discountCategory'])
             ->with('product')
             ->orderBy('id', 'asc')
-
             ->get();
 
         return response()->json([
             'message' => $discounts->isEmpty()
                 ? 'No active discounts found'
                 : 'Active discounts retrieved successfully',
-            'data' => $discounts,
+            'discount' => $discounts,
         ]);
     }
 
@@ -89,17 +86,19 @@ class DiscountController extends Controller
             'data' => $discount
         ], 201);
     }
-
-
     public function update(Request $request, $id)
     {
-        $discount = Discount::findOrFail($id);
+        $discount = Discount::find($id);
+
+        if (!$discount) {
+            return response()->json([
+                'message' => 'Discount not found'
+            ], 404);
+        }
 
         $validated = $request->validate([
-
-
             'product_id' => 'sometimes|exists:products,id',
-
+            'discount_category_id' => 'nullable|exists:discount_categories,id',
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'amount' => 'sometimes|numeric|min:0',
@@ -110,7 +109,7 @@ class DiscountController extends Controller
 
         $discount->update($validated);
 
-        $discount = $discount->fresh();
+        $discount->load(['product', 'discountCategory']);
 
         $product = $discount->product;
 
@@ -120,14 +119,10 @@ class DiscountController extends Controller
             ], 404);
         }
 
-        // calculate discount price safely
-
-        if ($discount->type === 'percent') {
-            $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
-        } else {
-            $discountPrice = $product->price - $discount->amount;
-        }
-
+        // ✅ SAFE calculation
+        $discountPrice = $discount->type === 'percent'
+            ? $product->price - ($product->price * $discount->amount / 100)
+            : $product->price - $discount->amount;
 
         $product->update([
             'discount_price' => max(0, round($discountPrice, 2))
@@ -135,8 +130,7 @@ class DiscountController extends Controller
 
         return response()->json([
             'message' => 'Discount updated successfully',
-
-            'data' => $discount->load(['product', 'discountCategory'])
+            'data' => $discount
         ]);
     }
 
@@ -144,8 +138,11 @@ class DiscountController extends Controller
     // {
     //     $discount = Discount::findOrFail($id);
 
-
     //     $validated = $request->validate([
+
+
+    //         'product_id' => 'sometimes|exists:products,id',
+
     //         'name' => 'nullable|string|max:255',
     //         'description' => 'nullable|string',
     //         'amount' => 'sometimes|numeric|min:0',
@@ -155,28 +152,34 @@ class DiscountController extends Controller
     //     ]);
 
     //     $discount->update($validated);
+
     //     $discount = $discount->fresh();
 
     //     $product = $discount->product;
+
     //     if (!$product) {
     //         return response()->json([
     //             'message' => 'Product not found for this discount'
     //         ], 404);
     //     }
+
+    //     // calculate discount price safely
+
     //     if ($discount->type === 'percent') {
     //         $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
     //     } else {
     //         $discountPrice = $product->price - $discount->amount;
     //     }
 
-    //     // Save to database
+
     //     $product->update([
     //         'discount_price' => max(0, round($discountPrice, 2))
     //     ]);
 
     //     return response()->json([
     //         'message' => 'Discount updated successfully',
-    //         'data' => $discount->load('product')
+
+    //         'data' => $discount->load(['product', 'discountCategory'])
     //     ]);
     // }
 
