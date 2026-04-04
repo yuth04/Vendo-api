@@ -18,9 +18,9 @@ class Discount extends Model
         'discount_category_id'
     ];
     protected $hidden = ['created_at', 'updated_at', 'discount_price'];
-    public function product()
+    public function products()
     {
-        return $this->belongsTo(Product::class, 'product_id');
+        return $this->hasMany(Product::class);
     }
 
     public function discountCategory()
