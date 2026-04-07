@@ -1,171 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 
-<div style="background-color: #f3f4f6; padding: 40px 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>Order Confirmed - #{{ $order->order_number }}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
 
-        <!-- HEADER -->
-        <div style="padding: 40px; border-bottom: 1px solid #f1f5f9;">
-            <table width="100%">
-                <tr>
-                    <td>
-                        <h1 style="margin: 0; color: #2b3a55; font-size: 28px;">🎉 Order Confirmed</h1>
-                        <p style="margin: 5px 0 0; color: #94a3b8; font-size: 12px;">
-                            Thank you for shopping with VENDO
-                        </p>
-                    </td>
-                    <td style="text-align: right;">
-                        <p style="margin: 0; font-weight: 700; color: #1e293b;">
-                            Order #{{ $order->order_number }}
-                        </p>
-                        <p style="margin: 5px 0 0; color: #64748b;">
-                            {{ $order->created_at->format('M d, Y') }}
-                        </p>
-                    </td>
-                </tr>
-            </table>
-        </div>
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
 
-        <!-- CUSTOMER INFO -->
-        <div style="padding: 30px 40px; background-color: #fafbfd;">
-            <table width="100%">
-                <tr>
-                    <td width="50%">
-                        <p style="margin: 0 0 10px; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase;">
-                            Shipping To
-                        </p>
+            .content-padding {
+                padding: 30px 20px !important;
+            }
 
-                        <p style="margin: 0; font-weight: 600; color: #1e293b;">
-                            {{ $order->user->first_name }} {{ $order->user->last_name }}
-                        </p>
+            .mobile-stack {
+                display: block !important;
+                width: 100% !important;
+                text-align: left !important;
+            }
+        }
+    </style>
+</head>
 
-                        <p style="margin: 5px 0; color: #64748b; font-size: 13px; line-height: 1.4;">
-                            {{ $order->address->address_line ?? 'No address provided' }}<br>
-                            {{ $order->address->city ?? '' }}, {{ $order->address->province ?? '' }}<br>
-                            {{ $order->address->phone ?? '' }}
-                        </p>
-                    </td>
+<body style="background-color: #f8fafc; padding: 40px 10px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
+        <tr>
+            <td align="center">
+                <table class="container" border="0" cellpadding="0" cellspacing="0" width="100%"
+                    style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
 
-                    <td width="50%" style="text-align: right;">
-                        <p style="margin: 0 0 10px; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase;">
-                            Payment Method
-                        </p>
-
-                        <p style="margin: 0; font-weight: 600;">
-                            {{ $order->payment->payment_method ?? 'Online Payment' }}
-                        </p>
-
-                        <p style="margin: 5px 0; color: #10b981; font-size: 13px; font-weight: 600;">
-                            Status: Confirmed
-                        </p>
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <!-- ITEMS -->
-        <div style="padding: 40px;">
-            <table width="100%" style="border-collapse: collapse;">
-                <thead>
                     <tr>
-                        <th align="left" style="padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;">Item</th>
-                        <th align="center" style="padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;">Qty</th>
-                        <th align="right" style="padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;">Total</th>
+                        <td style="padding: 40px; border-bottom: 1px solid #f1f5f9; background-color: #ffffff;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td class="mobile-stack">
+                                        <h1 style="margin: 0; color: #2b3a55; font-size: 26px; font-weight: 800;">Order
+                                            Confirmed</h1>
+                                        <p style="margin: 4px 0 0; color: #94a3b8; font-size: 13px;">Hi
+                                            {{ $order->user->first_name }}, your items are being prepared.</p>
+                                    </td>
+                                    <td align="right" class="mobile-stack" style="padding-top: 10px;">
+                                        <div
+                                            style="background-color: #f1f5f9; padding: 8px 15px; border-radius: 6px; display: inline-block;">
+                                            <span
+                                                style="display: block; font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">Order
+                                                Number</span>
+                                            <span
+                                                style="font-size: 14px; font-weight: 700; color: #1e293b;">#{{ $order->order_number }}</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
-                </thead>
 
-                <tbody>
-                    @foreach($order->items as $item)
-                        <tr>
-                            <td style="padding: 20px 0; border-bottom: 1px solid #f1f5f9;">
-                                <p style="margin: 0; font-weight: 600; color: #1e293b;">
-                                    {{ $item->product_name }}
+                    <tr>
+                        <td style="padding: 0 40px 30px;">
+                            <div
+                                style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 15px; text-align: center;">
+                                <p style="margin: 0; font-size: 14px; color: #166534; font-weight: 600;">
+                                    Current Status: <span style="text-transform: uppercase;">{{ $order->status }}</span>
                                 </p>
-                                <p style="margin: 5px 0 0; color: #94a3b8; font-size: 12px;">
-                                    {{ $item->size }} / {{ $item->color }}
-                                </p>
-                            </td>
-
-                            <td align="center" style="color: #64748b;">
-                                {{ $item->quantity }}
-                            </td>
-
-                            <td align="right" style="font-weight: 600; color: #1e293b;">
-                                ${{ number_format($item->price * $item->quantity, 2) }}
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-
-            <!-- TOTAL -->
-            <div style="margin-top: 30px; width: 250px; margin-left: auto;">
-                <table width="100%">
-                    <tr>
-                        <td style="color: #64748b;">Subtotal</td>
-                        <td align="right">${{ number_format($order->total_price - $order->shipping_fee, 2) }}</td>
+                            </div>
+                        </td>
                     </tr>
 
                     <tr>
-                        <td style="color: #64748b;">Shipping</td>
-                        <td align="right">${{ number_format($order->shipping_fee, 2) }}</td>
+                        <td style="padding: 0 40px 30px;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0"
+                                style="background-color: #f8fafc; border-radius: 8px; padding: 20px;">
+                                <tr>
+                                    <td width="50%" valign="top" class="mobile-stack" style="padding-bottom: 20px;">
+                                        <div
+                                            style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+                                            Shipping Address</div>
+                                        <div style="font-size: 14px; color: #1e293b; line-height: 1.5;">
+                                            <strong>{{ $order->user->first_name }}
+                                                {{ $order->user->last_name }}</strong><br>
+                                            {{ $order->address->address_line ?? 'Address N/A' }}<br>
+                                            {{ $order->address->city }}, {{ $order->address->province }}<br>
+                                            {{ $order->address->phone }}
+                                        </div>
+                                    </td>
+                                    <td width="50%" valign="top" align="right" class="mobile-stack">
+                                        <div
+                                            style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px;">
+                                            Payment Details</div>
+                                        <div style="font-size: 14px; color: #1e293b; line-height: 1.5;">
+                                            <strong>{{ $order->payment->payment_method ?? 'Bakong KHQR' }}</strong><br>
+                                            <span style="color: #64748b;">Method: Online</span><br>
+                                            <span style="color: #10b981; font-weight: 600;">Payment Verified</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
                     </tr>
 
-                    <tr style="border-top: 1px solid #e2e8f0;">
-                        <td style="font-size: 16px; font-weight: 700;">Total</td>
-                        <td align="right" style="font-size: 18px; font-weight: 800;">
-                            ${{ number_format($order->total_price, 2) }}
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <thead>
+                                    <tr>
+                                        <th align="left"
+                                            style="padding-bottom: 12px; border-bottom: 2px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-transform: uppercase;">
+                                            Item Description</th>
+                                        <th align="center"
+                                            style="padding-bottom: 12px; border-bottom: 2px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-transform: uppercase;">
+                                            Qty</th>
+                                        <th align="right"
+                                            style="padding-bottom: 12px; border-bottom: 2px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-transform: uppercase;">
+                                            Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($order->items as $item)
+                                        <tr>
+                                            <td style="padding: 20px 0; border-bottom: 1px solid #f1f5f9;">
+                                                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">
+                                                    {{ $item->product_name }}</div>
+                                                <div style="font-size: 12px; color: #94a3b8;">{{ $item->size }} /
+                                                    {{ $item->color }}</div>
+                                            </td>
+                                            <td align="center"
+                                                style="padding: 20px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 14px;">
+                                                {{ $item->quantity }}</td>
+                                            <td align="right"
+                                                style="padding: 20px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; font-weight: 700; color: #1e293b;">
+                                                ${{ number_format($item->price * $item->quantity, 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 30px 40px;">
+                            <table align="right" width="240" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="padding: 5px 0; font-size: 14px; color: #64748b;">Subtotal</td>
+                                    <td align="right" style="padding: 5px 0; font-size: 14px; color: #1e293b;">
+                                        ${{ number_format($order->total_price - $order->shipping_fee, 2) }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0; font-size: 14px; color: #64748b;">Shipping</td>
+                                    <td align="right" style="padding: 5px 0; font-size: 14px; color: #1e293b;">
+                                        ${{ number_format($order->shipping_fee, 2) }}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 15px 0 0; font-size: 18px; font-weight: 800; color: #2b3a55;">
+                                        Total</td>
+                                    <td align="right"
+                                        style="padding: 15px 0 0; font-size: 18px; font-weight: 800; color: #2b3a55;">
+                                        ${{ number_format($order->total_price, 2) }}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 0 40px 40px; text-align: center;">
+                            <hr style="border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 30px;">
+                            @if(!isset($isPdf) || !$isPdf)
+                                <a href="{{ $downloadUrl ?? '#' }}" target="_blank"
+                                    style="display: inline-block; background-color: #2b3a55; color: #ffffff; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; box-shadow: 0 4px 6px rgba(43, 58, 85, 0.2);">
+                                    View Full Invoice
+                                </a>
+                            @endif
+                            <p style="margin: 25px 0 0; color: #94a3b8; font-size: 12px; line-height: 1.6;">
+                                We'll send you another email with a tracking number once your order ships.<br>
+                                Need help? Contact us at <strong>support@vendo.com</strong>
+                            </p>
                         </td>
                     </tr>
                 </table>
-            </div>
-        </div>
 
-        <!-- FOOTER -->
-        <div style="padding: 0 40px 40px; text-align: center;">
-            @if(!isset($isPdf) || !$isPdf)
-                <a href="{{ $downloadUrl }}" target="_blank"
-                   style="display: inline-block; background-color: #2b3a55; color: #fff; padding: 12px 25px; border-radius: 6px; text-decoration: none; font-weight: 600;">
-                    📥 Download Invoice
-                </a>
-            @endif
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px;">
+                    <tr>
+                        <td style="padding: 30px; text-align: center; color: #94a3b8; font-size: 11px;">
+                            &copy; {{ date('Y') }} VENDO. All rights reserved.<br>
+                            Phnom Penh, Cambodia.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
 
-            <p style="margin: 20px 0 0; color: #94a3b8; font-size: 12px;">
-                Thank you for your order 💙 If you have any questions, contact support@vendo.com
-            </p>
-        </div>
-
-    </div>
-=======
-<div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f0f0f0; border-radius: 8px;">
-    
-    <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f8f9fa;">
-        <h2 style="color: #2d3748; margin: 0;">Order Confirmation</h2>
-    </div>
-
-    <div style="padding: 30px 0;">
-        <h1 style="font-size: 22px; color: #1a202c; margin-top: 0;">
-            Hello, {{ $order->user->name }}!
-        </h1>
-        
-        <p style="font-size: 16px; color: #4a5568;">
-            Good news! Your order <span style="font-weight: bold; color: #2d3748;">#{{ $order->id }}</span> has been confirmed and is now being processed.
-        </p>
-
-        <div style="background-color: #ebf8ff; border-left: 4px solid #4299e1; padding: 15px; margin: 20px 0;">
-            <p style="margin: 0; font-size: 15px; color: #2b6cb0;">
-                <strong>Current Status:</strong> 
-                <span style="text-transform: uppercase; letter-spacing: 1px;">{{ $order->status }}</span>
-            </p>
-        </div>
-
-        <p style="font-size: 16px; color: #4a5568;">
-            We'll notify you as soon as your items are on their way.
-        </p>
-    </div>
-
-    <div style="text-align: center; font-size: 12px; color: #a0aec0; border-top: 1px solid #f0f0f0; padding-top: 20px;">
-        <p style="margin: 0;">Thank you for shopping with us!</p>
-        <p style="margin: 5px 0 0;">© {{ date('Y') }} Your Store Name. All rights reserved.</p>
-    </div>
-
-
-</div>
+</html>
