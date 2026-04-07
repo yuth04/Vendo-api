@@ -200,7 +200,7 @@ Route::prefix('v1')->group(function () {
 
             // Parent Categories
             Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
-            Route::post('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
+            Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
