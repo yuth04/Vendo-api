@@ -112,8 +112,7 @@ class ProductVariantController extends Controller
     //         ], 500);
     //     }
     // }
-    public function store(Request $request)
-    {
+    public function store(Request $request){
         DB::beginTransaction();
 
         try {
@@ -178,8 +177,6 @@ class ProductVariantController extends Controller
             ], 500);
         }
     }
-
-
     // update
 
     public function update(Request $request, $id)
@@ -235,7 +232,7 @@ class ProductVariantController extends Controller
                     $upload = $this->imageKit->upload([
                         'file' => fopen($image->getPathname(), 'r'),
                         'fileName' => time() . '_' . $image->getClientOriginalName(),
-                        'folder' => '/variant-images/'
+                        'folder' => '/variant-images'
                     ]);
 
                     if (isset($upload->error)) {
