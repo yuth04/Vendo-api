@@ -177,6 +177,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
+            Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
+
             // Carousels
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'update']);
