@@ -16,6 +16,7 @@ use App\Http\Controllers\api\v1\ImageController;
 use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\PaymentController;
+use App\Http\Controllers\api\v1\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductImageController;
 use App\Http\Controllers\api\v1\ProductVariantController;
@@ -206,6 +207,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/user/orders', [UserController::class, 'index']);
             Route::get('/user/orders/{user}', [OrderController::class, 'userOrderHistory']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
+            Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
             // Product Variant images
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
             Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
