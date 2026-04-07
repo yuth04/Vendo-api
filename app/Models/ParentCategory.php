@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ParentCategory extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['name','status'];
     protected $hidden = ['created_at', 'updated_at'];
     public function categories()
     {
