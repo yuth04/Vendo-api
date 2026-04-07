@@ -112,7 +112,8 @@ class ProductVariantController extends Controller
     //         ], 500);
     //     }
     // }
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         DB::beginTransaction();
 
         try {
@@ -181,12 +182,10 @@ class ProductVariantController extends Controller
 
     public function update(Request $request, $id)
     {
-        $variant = ProductVariant::find($id);
+        $variant = ProductVariant::with('images')->find($id);
 
         if (!$variant) {
-            return response()->json([
-                'message' => 'Product Variant not found'
-            ], 404);
+            return response()->json(['message' => 'Product Variant not found'], 404);
         }
 
         DB::beginTransaction();
@@ -201,65 +200,62 @@ class ProductVariantController extends Controller
                 'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
             ]);
 
-            // ✅ Update basic fields
-            $variant->update([
-                'product_id' => $validated['product_id'] ?? $variant->product_id,
-                'size' => $validated['size'] ?? $variant->size,
-                'color' => $validated['color'] ?? $variant->color,
-                'stock' => $validated['stock'] ?? $variant->stock,
-            ]);
+            // 1. Update basic variant fields
+            $variant->update(array_filter([
+                'product_id' => $validated['product_id'] ?? null,
+                'size' => $validated['size'] ?? null,
+                'color' => $validated['color'] ?? null,
+                'stock' => $validated['stock'] ?? null,
+            ]));
 
-            // =========================
-            // REPLACE IMAGES
-            // =========================
+            // 2. Handle Image Replacement
             if ($request->hasFile('images')) {
 
-                // ❌ Step 1: Delete old images (ImageKit + DB)
+                // Delete existing images from ImageKit and Database
                 foreach ($variant->images as $oldImage) {
-
                     if ($oldImage->image_file_id) {
-                        $this->imageKit->deleteFile($oldImage->image_file_id);
+                        try {
+                            $this->imageKit->deleteFile($oldImage->image_file_id);
+                        } catch (\Exception $e) {
+                            // Log error but continue so the DB stays clean
+                            \Log::error("ImageKit Delete Failed: " . $e->getMessage());
+                        }
                     }
-
                     $oldImage->delete();
                 }
-
-                // ✅ Step 2: Upload new images
-                $index = 0;
-
-                foreach ($request->file('images') as $image) {
+                // Upload new images
+                foreach ($request->file('images') as $index => $image) {
+                    $fileName = time() . '_' . $image->getClientOriginalName();
 
                     $upload = $this->imageKit->upload([
                         'file' => fopen($image->getPathname(), 'r'),
-                        'fileName' => time() . '_' . $image->getClientOriginalName(),
-                        'folder' => '/variant-images'
+                        'fileName' => $fileName,
+                        'folder' => '/variant-images/'
                     ]);
 
                     if (isset($upload->error)) {
                         throw new \Exception($upload->error->message);
                     }
 
+                    // Create new record
                     $variant->images()->create([
                         'image' => $upload->result->url,
                         'image_file_id' => $upload->result->fileId ?? null,
                         'position' => $index,
                         'is_primary' => $index === 0
                     ]);
-
-                    $index++;
                 }
             }
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Product Variant updated successfully (images replaced)',
+                'message' => 'Product Variant updated successfully',
                 'data' => $variant->load('images')
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-
             return response()->json([
                 'message' => 'Failed to update Product Variant',
                 'error' => $e->getMessage()
@@ -267,88 +263,6 @@ class ProductVariantController extends Controller
         }
     }
 
-
-    // public function update(Request $request, $id){
-    //     $variant = ProductVariant::find($id);
-
-    //     if (!$variant) {
-    //         return response()->json([
-    //             'message' => 'Product Variant not found'
-    //         ], 404);
-    //     }
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $validated = $request->validate([
-    //             'product_id' => 'nullable|exists:products,id',
-    //             'size' => 'nullable|string|max:50',
-    //             'color' => 'nullable|string|max:50',
-    //             'stock' => 'nullable|integer|min:0',
-
-    //             'images' => 'nullable|array|max:4',
-    //             'images.*' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-    //         ]);
-
-    //         // ✅ SAFE UPDATE (no array_filter bug)
-    //         $variant->update([
-    //             'product_id' => $validated['product_id'] ?? $variant->product_id,
-    //             'size' => $validated['size'] ?? $variant->size,
-    //             'color' => $validated['color'] ?? $variant->color,
-    //             'stock' => $validated['stock'] ?? $variant->stock,
-    //         ]);
-
-    //         // =========================
-    //         // IMAGE UPLOAD
-    //         // =========================
-    //         if ($request->hasFile('images')) {
-
-    //             $existingCount = $variant->images()->count();
-    //             $newCount = count($request->file('images'));
-
-    //             if ($existingCount + $newCount > 4) {
-    //                 return response()->json([
-    //                     'message' => 'Maximum 4 images allowed per variant'
-    //                 ], 422);
-    //             }
-
-    //             $index = $existingCount;
-
-    //             foreach ($request->file('images') as $image) {
-
-    //                 $upload = $this->imageKit->upload([
-    //                     'file' => fopen($image->getPathname(), 'r'),
-    //                     'fileName' => time() . '_' . $image->getClientOriginalName(),
-    //                     'folder' => '/variant-images/'
-    //                 ]);
-
-    //                 $variant->images()->create([
-    //                     'image' => $upload->result->url,
-    //                     'image_file_id' => $upload->result->fileId ?? null,
-    //                     'position' => $index,
-    //                     'is_primary' => $variant->images()->count() === 0 && $index === 0,
-    //                 ]);
-
-    //                 $index++;
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'message' => 'Product Variant updated successfully',
-    //             'data' => $variant->load('images')
-    //         ]);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'message' => 'Failed to update Product Variant',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
     // delete
     // public function destroy($id)
     // {
@@ -359,8 +273,7 @@ class ProductVariantController extends Controller
     //     $productVariant->delete();
     //     return response()->json(['message' => 'Product Variant deleted successfully']);
     // }
-    public function destroy($id)
-    {
+    public function destroy($id){
         $variant = ProductVariant::with('images')->find($id);
 
         if (!$variant) {
