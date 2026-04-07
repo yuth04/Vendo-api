@@ -1,42 +1,57 @@
-<div style="background-color: #f8fafc; padding: 50px 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-        
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
-            <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 30px;">✨</span>
-            </div>
-            <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Success!</h2>
-        </div>
+<div
+    style="background-color: #f1f5f9; padding: 60px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+    <div
+        style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);">
 
-        <div style="padding: 40px 35px; text-align: center;">
-            <h3 style="color: #1e293b; font-size: 19px; margin: 0 0 10px 0;">Password Updated</h3>
-            
-            <p style="color: #64748b; font-size: 15px; line-height: 1.7; margin-bottom: 25px;">
-                Hi {{ $user->name }}, your <strong>Vendo</strong> account password has been changed successfully. You can now use your new password to log in.
+        <div style="height: 6px; background: linear-gradient(90deg, #059669 0%, #10b981 100%);"></div>
+
+        <div style="padding: 40px 40px 30px;">
+            <div style="margin-bottom: 30px; text-align: left;">
+                <span style="font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #1e293b;">VENDO</span>
+            </div>
+
+            <h2
+                style="color: #1e293b; font-size: 24px; font-weight: 700; margin: 0 0 16px 0; letter-spacing: -0.025em;">
+                Password Reset Successful</h2>
+
+            <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
+                Hello {{ $user->name }},<br><br>
+                This email confirms that your password for your <strong>Vendo</strong> account has been successfully
+                updated. Your account security is our priority.
             </p>
 
-            <div style="display: inline-block; margin-bottom: 30px;">
-                <div style="background-color: #ecfdf5; color: #10b981; padding: 10px 20px; border-radius: 50px; font-size: 14px; font-weight: 700; display: flex; align-items: center; border: 1px solid #d1fae5;">
-                    <span style="margin-right: 8px;">✓</span> Account Secure
-                </div>
+            <div
+                style="background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 8px; padding: 12px 16px; display: inline-flex; align-items: center; margin-bottom: 32px;">
+                <svg width="20" height="20" fill="#16a34a" viewBox="0 0 20 20" style="margin-right: 10px;">
+                    <path fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clip-rule="evenodd"></path>
+                </svg>
+                <span style="color: #166534; font-size: 14px; font-weight: 600;">Account status: Secured</span>
             </div>
 
-            <div style="margin-top: 10px;">
-                <a href="{{ url('https://vendo-ecommerce-two.vercel.app/') }}" style="background-color: #2b3a55; color: #ffffff; padding: 14px 40px; text-decoration: none; border-radius: 10px; font-weight: 600; display: inline-block; font-size: 15px; box-shadow: 0 4px 12px rgba(43, 58, 85, 0.15);">
-                    Back to Shopping
+            <div style="text-align: left; margin-bottom: 40px;">
+                <a href="{{ url('https://vendo-ecommerce-two.vercel.app/') }}"
+                    style="background-color: #0f172a; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block; font-size: 15px;">
+                    Continue to Dashboard
                 </a>
             </div>
-            
-            <p style="color: #94a3b8; font-size: 13px; margin-top: 30px;">
-                If you didn't make this change, please contact our support immediately.
-            </p>
+
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 24px;">
+                <p style="color: #64748b; font-size: 14px; line-height: 1.5; margin: 0;">
+                    <strong>Didn't make this change?</strong><br>
+                    If you did not authorize this password update, please <a href="#"
+                        style="color: #10b981; text-decoration: underline;">secure your account immediately</a> or
+                    contact our security team.
+                </p>
+            </div>
         </div>
 
-        <div style="padding: 0 35px 35px 35px; text-align: center;">
-            <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; color: #cbd5e1; font-size: 12px;">
-                Sent with ❤️ from Vendo Team<br>
+        <div style="background-color: #f8fafc; padding: 30px 40px; text-align: left; border-top: 1px solid #f1f5f9;">
+            <p style="color: #94a3b8; font-size: 12px; line-height: 1.5; margin: 0;">
+                &copy; {{ date('Y') }} Vendo E-commerce. All rights reserved.<br>
                 Phnom Penh, Cambodia
-            </div>
+            </p>
         </div>
     </div>
 </div>
