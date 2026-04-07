@@ -217,6 +217,73 @@ class DiscountController extends Controller
 
         ]);
     }
+    public function addProducts(Request $request, $discountId)
+    {
+        // Find the existing discount
+        $discount = Discount::findOrFail($discountId);
 
+        $validated = $request->validate([
+            'product_ids' => 'required|array',
+            'product_ids.*' => 'exists:products,id',
+        ]);
+
+        return DB::transaction(function () use ($validated, $discount) {
+            $products = Product::whereIn('id', $validated['product_ids'])->get();
+            $addedCount = 0;
+
+            foreach ($products as $product) {
+                // Optional: Skip if product already has this discount
+                if ($product->discount_id == $discount->id)
+                    continue;
+
+                $price = (float) $product->price;
+                $amount = (float) $discount->amount;
+
+                // Calculate price based on existing discount rules
+                $discountPrice = $discount->type === 'percent'
+                    ? $price - ($price * $amount / 100)
+                    : $price - $amount;
+
+                $product->update([
+                    'discount_id' => $discount->id,
+                    'discount_price' => max(0, round($discountPrice, 2))
+                ]);
+
+                $addedCount++;
+            }
+
+            return response()->json([
+                'message' => "$addedCount new products added to discount: {$discount->name}",
+                'discount' => $discount->load('products')
+            ]);
+        });
+    }
+    public function removeProduct(Request $request, $discountId)
+{
+    $validated = $request->validate([
+        'product_id' => 'required|exists:products,id',
+    ]);
+
+    // Find the product that belongs to this specific discount
+    $product = Product::where('id', $validated['product_id'])
+                      ->where('discount_id', $discountId)
+                      ->first();
+
+    if (!$product) {
+        return response()->json([
+            'message' => 'Product not found or not associated with this discount.'
+        ], 404);
+    }
+
+    // Reset the discount fields
+    $product->update([
+        'discount_id' => null,
+        'discount_price' => 0 // Or keep original price depending on your logic
+    ]);
+
+    return response()->json([
+        'message' => "Product {$product->id} removed from discount successfully."
+    ]);
+}
 
 }
