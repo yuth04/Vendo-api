@@ -18,17 +18,21 @@ class ReturnOrder extends Model
         'rejected_at',
         'completed_at'
     ];
+        protected $casts = [
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
+        'completed_at' => 'datetime',
+    ];
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
 
     protected $attributes = [
         'status' => 'pending',
         'refund_status' => 'pending',
     ];
 
-    protected $casts = [
-        'approved_at' => 'datetime',
-        'rejected_at' => 'datetime',
-        'completed_at' => 'datetime',
-    ];
 
     // ✅ Status constants
     const STATUS_PENDING = 'pending';

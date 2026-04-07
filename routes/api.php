@@ -208,7 +208,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             // Product Variant images
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
-            Route::put('/product-variants/{id}', [ProductVariantController::class, 'update']);
+            Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
             Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
 
 
