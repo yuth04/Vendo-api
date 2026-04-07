@@ -92,7 +92,9 @@ class AuthController extends Controller
                 ], 403);
             }
             // Create token (Sanctum)
-            $user->tokens()->delete();
+            // $user->tokens()->delete();
+            $request->user()?->currentAccessToken()?->delete();
+
             $token = $user->createToken('api-token')->plainTextToken;
             Mail::to($user->email)->send(new LoginNotificationMail($user));
             return response()->json([

@@ -17,13 +17,17 @@ class OrderDeliveredMail extends Mailable
     /**
      * Create a new message instance.
      */
-     public $order;
-     public $shpping;
-  
-    public function __construct(Order $order, $shipping)
+    public $order;
+    public $shipping;
+    public $transaction_id;
+    public $payment_reference;
+
+    public function __construct(Order $order, $shipping, $transaction_id, $payment_reference)
     {
         $this->order = $order;
-        $this->shpping = $shipping;
+        $this->shipping = $shipping;
+        $this->transaction_id = $transaction_id;
+        $this->payment_reference = $payment_reference;
 
     }
 

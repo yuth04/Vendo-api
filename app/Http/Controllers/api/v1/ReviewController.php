@@ -9,9 +9,7 @@ use ImageKit\ImageKit;
 
 class ReviewController extends Controller
 {
-    /**
-     * Get all reviews (optional filter by product)
-     */
+
     public function index(Request $request)
     {
         $query = Review::with(['user', 'product']);

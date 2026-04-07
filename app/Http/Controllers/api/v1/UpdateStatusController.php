@@ -102,10 +102,11 @@ class UpdateStatusController extends Controller
                 ]);
             }
         }
-
+        $transaction_id = $order->payment->transaction_id;
+        $payment_reference = $order->payment->payment_reference;
         $shipping = $this->calculateShipping($order->address->province ?? '');
         $order->load(['items', 'user']);
-        Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping));
+        Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping, $transaction_id,$payment_reference));
 
         return response()->json([
             'message' => 'Order delivered successfully',
