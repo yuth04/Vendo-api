@@ -103,7 +103,8 @@ class ParentCategoryController extends Controller
             ], 400);
         }
         $parentCategory = ParentCategory::create([
-            'name' => $validated['name']
+            'name' => $validated['name'],
+            'status' => ''
         ]);
 
         return response()->json([
@@ -113,6 +114,7 @@ class ParentCategoryController extends Controller
     }
     public function update(Request $request, $id)
     {
+        $parentCategory = ParentCategory::find($id);
         $validated = $request->validate([
             'name' => "required|string|max:255"
         ]);
@@ -121,7 +123,7 @@ class ParentCategoryController extends Controller
                 'message' => 'Parent category with this name already exists'
             ], 400);
         }
-        $parentCategory = ParentCategory::update([
+        $parentCategory->update([
             'name' => $validated['name']
         ]);
 
