@@ -27,29 +27,27 @@ class DiscountController extends Controller
 
     public function show($id)
     {
-        $discount = Discount::with('product')->find($id);
+        $discount = Discount::with('products')->find($id);
 
         if (!$discount) {
-            return response()->json([
-                'message' => 'Discount not found'
-            ], 404);
+            return response()->json(['message' => 'Discount not found'], 404);
         }
 
-        $product = $discount->product;
+        $discountedProducts = $discount->products->map(function ($product) use ($discount) {
+            $price = (float) $product->price;
+            $amount = (float) $discount->amount;
 
-        // Calculate discount price for response
-        if ($discount->type === 'percent') {
-            $discountPrice = $product->price - ($product->price * $discount->amount / 100);
-        } else {
-            $discountPrice = $product->price - $discount->amount;
-        }
+            $discountPrice = $discount->type === 'percent'
+                ? $price - ($price * $amount / 100)
+                : $price - $amount;
 
-        $product->discount_price = max(0, round($discountPrice, 2));
+            $product->discount_price = max(0, round($discountPrice, 2));
+            return $product;
+        });
 
         return response()->json([
             'message' => 'Discount retrieved successfully',
             'data' => $discount,
-            'product' => $product
         ]);
     }
 
@@ -113,12 +111,11 @@ class DiscountController extends Controller
     }
     public function update(Request $request, $id)
     {
-        $discount = Discount::find($id);
+        // 1. Load the discount with all associated products
+        $discount = Discount::with('products')->find($id);
 
         if (!$discount) {
-            return response()->json([
-                'message' => 'Discount not found'
-            ], 404);
+            return response()->json(['message' => 'Discount not found'], 404);
         }
 
         $validated = $request->validate([
@@ -132,31 +129,32 @@ class DiscountController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
-        $discount->update($validated);
+        // 2. Use a Transaction to ensure data consistency
+        return DB::transaction(function () use ($discount, $validated) {
 
-        $discount->load(['product']);
+            // Update the Discount record
+            $discount->update($validated);
 
-        $product = $discount->product;
+            // 3. Loop through EVERY product attached to this discount
+            // This ensures IDs 4, 1, and 2 from your JSON all get the new price
+            foreach ($discount->products as $product) {
+                $price = (float) $product->price;
+                $amount = (float) $discount->amount;
 
-        if (!$product) {
+                $discountPrice = $discount->type === 'percent'
+                    ? $price - ($price * $amount / 100)
+                    : $price - $amount;
+
+                $product->update([
+                    'discount_price' => max(0, round($discountPrice, 2))
+                ]);
+            }
+
             return response()->json([
-                'message' => 'Product not found for this discount'
-            ], 404);
-        }
-
-        // ✅ SAFE calculation
-        $discountPrice = $discount->type === 'percent'
-            ? $product->price - ($product->price * $discount->amount / 100)
-            : $product->price - $discount->amount;
-
-        $product->update([
-            'discount_price' => max(0, round($discountPrice, 2))
-        ]);
-
-        return response()->json([
-            'message' => 'Discount updated successfully',
-            'data' => $discount
-        ]);
+                'message' => 'Discount and all associated products updated successfully',
+                'data' => $discount->load('products')
+            ]);
+        });
     }
 
     // public function update(Request $request, $id)
