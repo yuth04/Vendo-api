@@ -1,71 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Reset Password</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>Reset Your Password - Vendo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
+
+            .content-padding {
+                padding: 30px 20px !important;
+            }
+        }
+    </style>
 </head>
 
-<body style="margin:0; padding:50px 20px; background-color:#f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-
-    <table width="100%" cellpadding="0" cellspacing="0">
+<body style="background-color: #f8fafc; padding: 60px 10px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
         <tr>
             <td align="center">
-
-                <table width="500" cellpadding="0" cellspacing="0"
-                    style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+                <table class="container" border="0" cellpadding="0" cellspacing="0" width="100%"
+                    style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
 
                     <tr>
-                        <td style="background: linear-gradient(135deg, #2b3a55 0%, #4a5d7e 100%); padding: 40px 20px; text-align: center;">
-                            <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-                                <span style="font-size: 30px;">🔐</span>
+                        <td style="height: 4px; background-color: #2b3a55;"></td>
+                    </tr>
+
+                    <tr>
+                        <td class="content-padding" style="padding: 48px 40px 32px; text-align: center;">
+                            <div style="margin-bottom: 25px;">
+                                <span
+                                    style="display: inline-block; background-color: #f1f5f9; padding: 12px 20px; border-radius: 12px; font-weight: 800; color: #2b3a55; font-size: 18px; letter-spacing: 1px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">VENDO</span>
                             </div>
-                            <h2 style="margin:0; color:#ffffff; font-size:24px; font-weight: 600;">Reset Your Password</h2>
+                            <h1
+                                style="margin: 0; color: #1e293b; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">
+                                Password Reset</h1>
+                            <p style="margin: 12px 0 0; color: #64748b; font-size: 15px; line-height: 1.6;">
+                                We received a request to reset your Vendo account password. Use the verification code
+                                below to proceed.
+                            </p>
                         </td>
                     </tr>
 
                     <tr>
-                        <td style="padding: 35px; text-align: center;">
-                            <p style="color:#1e293b; font-size:18px; font-weight: 600; margin-bottom: 10px;">Forgot your password?</p>
-                            <p style="color:#64748b; font-size:15px; line-height:1.6;">No worries! Use the verification code below to set up a new one. This code is private and should not be shared.</p>
-
-                            <div style="margin:30px 0;">
-                                <span style="
-                                    display:inline-block;
-                                    padding:16px 35px;
-                                    font-size:32px;
-                                    font-weight:bold;
-                                    letter-spacing:10px;
-                                    color:#2b3a55;
-                                    background-color:#f1f5f9;
-                                    border-radius:12px;
-                                    border: 2px dashed #cbd5e1;
-                                ">
+                        <td style="padding: 0 40px 40px;">
+                            <div
+                                style="background-color: #f1f5f9; border-radius: 12px; padding: 32px 20px; text-align: center; border: 1px solid #e2e8f0;">
+                                <div
+                                    style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px;">
+                                    Verification Code</div>
+                                <div
+                                    style="font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace; font-size: 36px; font-weight: 800; color: #2b3a55; letter-spacing: 12px; margin-left: 12px;">
                                     {{ $code }}
-                                </span>
+                                </div>
                             </div>
 
-                            <p style="color:#94a3b8; font-size:13px;">This code will expire in <strong style="color:#ef4444;">{{ $expired }} minutes</strong>.</p>
-
-                            <p style="color:#64748b; font-size:14px; margin-top: 25px;">If you did not request a password reset, you can safely ignore this email.</p>
+                            <div style="margin-top: 24px; text-align: center;">
+                                <p style="margin: 0; font-size: 13px; color: #64748b;">
+                                    This code is valid for <strong style="color: #ef4444;">{{ $expired }}
+                                        minutes</strong>.
+                                </p>
+                            </div>
                         </td>
                     </tr>
 
                     <tr>
-                        <td style="padding: 0 35px 35px 35px; text-align:center;">
-                            <div style="border-top:1px solid #e2e8f0; padding-top:20px; color:#cbd5e1; font-size:12px;">
-                                Sent with ❤️ from Vendo Team<br>
-                                Phnom Penh, Cambodia
-                            </div>
+                        <td
+                            style="padding: 32px 40px; background-color: #fcfcfc; border-top: 1px solid #f1f5f9; text-align: center;">
+                            <p style="margin: 0; color: #94a3b8; font-size: 13px; line-height: 1.6;">
+                                <strong>Didn't request this?</strong><br>
+                                You can safely ignore this email. Your password will remain unchanged.
+                            </p>
                         </td>
                     </tr>
-
                 </table>
 
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px;">
+                    <tr>
+                        <td style="padding: 30px; text-align: center;">
+                            <p
+                                style="margin: 0; color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                                Sent with ❤️ from Vendo Team
+                            </p>
+                            <p style="margin: 6px 0 0; color: #cbd5e1; font-size: 11px;">
+                                Phnom Penh, Cambodia
+                            </p>
+                        </td>
+                    </tr>
+                </table>
             </td>
         </tr>
     </table>
-
 </body>
 
 </html>

@@ -1,72 +1,139 @@
-<div style="background-color: #f8fafc; padding: 50px 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-    <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-        
-        <div style="background: linear-gradient(135deg, #2b3a55 0%, #4a5d7e 100%); padding: 40px 20px; text-align: center;">
-            <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 30px;">🔄</span>
-            </div>
-            <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Return Request Update</h1>
-        </div>
+<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 
-        <div style="padding: 35px; color: #333333; line-height: 1.6;">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>Return Update - Vendo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
 
-            <p style="color: #1e293b; font-size: 17px; font-weight: 600; margin-bottom: 10px;">
-                Hello {{ $returnOrder->user->first_name }},
-            </p>
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
 
-            <p style="color: #64748b; font-size: 15px; margin-bottom: 20px;">
-                There has been an update regarding your return request for 
-                <strong style="color: #1e293b;">Order #{{ $returnOrder->order->order_number }}</strong>.
-            </p>
+            .content-padding {
+                padding: 30px 20px !important;
+            }
+        }
+    </style>
+</head>
 
-            <div style="text-align: center; margin: 30px 0;">
-                <span style="
-                    display: inline-block;
-                    padding: 8px 24px;
-                    border-radius: 50px;
-                    font-size: 14px;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    background: {{ $returnOrder->status === 'approved' ? '#dcfce7' : '#fee2e2' }};
-                    color: {{ $returnOrder->status === 'approved' ? '#166534' : '#991b1b' }};
-                    border: 1px solid {{ $returnOrder->status === 'approved' ? '#bbf7d0' : '#fecaca' }};
-                ">
-                    Status: {{ $returnOrder->status }}
-                </span>
-            </div>
+<body style="background-color: #f8fafc; padding: 60px 10px;">
+    <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
+        <tr>
+            <td align="center">
+                <table class="container" border="0" cellpadding="0" cellspacing="0" width="100%"
+                    style="max-width: 500px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
 
-            @if($returnOrder->status === 'approved')
-                <div style="padding: 20px; background: #f0f9ff; border-radius: 12px; border-left: 4px solid #0ea5e9;">
-                    <p style="margin: 0; color: #0369a1; font-size: 14px; font-weight: 500;">
-                        <strong>Next Steps:</strong> Please log in to your Vendo dashboard to download your return label and follow the shipping instructions.
-                    </p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 25px;">
-                    <a href="{{ url('/dashboard/returns') }}" style="background-color: #2b3a55; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 10px; font-weight: 600; display: inline-block; font-size: 14px;">
-                        View Instructions
-                    </a>
-                </div>
-            @else
-                <div style="padding: 20px; background: #fef2f2; border-radius: 12px; border-left: 4px solid #ef4444;">
-                    <p style="margin: 0; color: #991b1b; font-size: 14px; font-weight: 500;">
-                        Unfortunately, your request could not be approved at this time. If you have questions, please reach out to our support team.
-                    </p>
-                </div>
-            @endif
+                    <tr>
+                        <td style="height: 4px; background-color: #2b3a55;"></td>
+                    </tr>
 
-            <p style="margin-top: 35px; text-align: center; color: #94a3b8; font-size: 14px;">
-                Thank you for shopping with <strong>Vendo</strong>.
-            </p>
-        </div>
+                    <tr>
+                        <td class="content-padding" style="padding: 48px 40px 32px; text-align: center;">
+                            <div style="margin-bottom: 24px;">
+                                <span
+                                    style="display: inline-block; background-color: #f1f5f9; padding: 12px 20px; border-radius: 12px; font-weight: 800; color: #2b3a55; font-size: 18px; letter-spacing: 2px;">VENDO</span>
+                            </div>
+                            <h1
+                                style="margin: 0; color: #1e293b; font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">
+                                Return Update</h1>
+                            <p style="margin: 12px 0 0; color: #64748b; font-size: 15px; line-height: 1.6;">
+                                Hello {{ $returnOrder->user->first_name }}, there has been a status change regarding
+                                your return request for <strong>Order #{{ $returnOrder->order->order_number }}</strong>.
+                            </p>
+                        </td>
+                    </tr>
 
-        <div style="padding: 0 35px 30px 35px; text-align: center;">
-            <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; color: #cbd5e1; font-size: 11px;">
-                © {{ date('Y') }} Vendo E-commerce<br>
-                Phnom Penh, Cambodia
-            </div>
-        </div>
+                    <tr>
+                        <td style="padding: 0 40px 32px; text-align: center;">
+                            <span style="
+                                display: inline-block;
+                                padding: 8px 20px;
+                                border-radius: 99px;
+                                font-size: 12px;
+                                font-weight: 800;
+                                text-transform: uppercase;
+                                letter-spacing: 1px;
+                                background-color: {{ $returnOrder->status === 'approved' ? '#dcfce7' : '#fef2f2' }};
+                                color: {{ $returnOrder->status === 'approved' ? '#166534' : '#991b1b' }};
+                                border: 1px solid {{ $returnOrder->status === 'approved' ? '#bbf7d0' : '#fecaca' }};
+                            ">
+                                {{ $returnOrder->status }}
+                            </span>
+                        </td>
+                    </tr>
 
-    </div>
-</div>
+                    <tr>
+                        <td style="padding: 0 40px 48px;">
+                            @if($returnOrder->status === 'approved')
+                                <div
+                                    style="background-color: #f8fafc; border-radius: 12px; padding: 24px; border: 1px solid #f1f5f9;">
+                                    <div style="color: #2b3a55; font-size: 14px; font-weight: 700; margin-bottom: 8px;">Next
+                                        Steps</div>
+                                    <p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.6;">
+                                        Please log in to your dashboard to download your <strong>Return Shipping
+                                            Label</strong> and review the packaging instructions.
+                                    </p>
+                                    <div style="margin-top: 24px; text-align: center;">
+                                        <a href="{{ url('/dashboard/returns') }}"
+                                            style="display: inline-block; background-color: #2b3a55; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                                            Get Return Label
+                                        </a>
+                                    </div>
+                                </div>
+                            @else
+                                <div
+                                    style="background-color: #fffafb; border-radius: 12px; padding: 24px; border: 1px solid #fef2f2;">
+                                    <div style="color: #991b1b; font-size: 14px; font-weight: 700; margin-bottom: 8px;">
+                                        Request Denied</div>
+                                    <p style="margin: 0; color: #7f1d1d; font-size: 14px; line-height: 1.6;">
+                                        Unfortunately, we were unable to approve this return request. For more details or to
+                                        appeal this decision, please contact our support team.
+                                    </p>
+                                    <div style="margin-top: 24px; text-align: center;">
+                                        <a href="mailto:support@vendo.com"
+                                            style="display: inline-block; background-color: #991b1b; color: #ffffff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                                            Contact Support
+                                        </a>
+                                    </div>
+                                </div>
+                            @endif
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="padding: 32px 40px; background-color: #fcfcfc; border-top: 1px solid #f1f5f9; text-align: center;">
+                            <p
+                                style="margin: 0; color: #94a3b8; font-size: 12px; line-height: 1.6; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                                Sent with ❤️ from VENDO Team
+                            </p>
+                            <p style="margin: 4px 0 0; color: #cbd5e1; font-size: 11px;">
+                                Phnom Penh, Cambodia
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px;">
+                    <tr>
+                        <td style="padding: 30px; text-align: center; color: #cbd5e1; font-size: 11px;">
+                            &copy; {{ date('Y') }} Vendo E-commerce. All rights reserved.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
