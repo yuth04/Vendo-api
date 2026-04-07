@@ -1,4 +1,5 @@
-<div style="font-family: Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+<div
+    style="font-family: Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
 
     <!-- HEADER -->
     <div style="text-align: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 20px;">
@@ -12,8 +13,8 @@
         </h3>
 
         <p>
-            Great news! Your order 
-            <strong>#{{ $order->order_number ?? $order->id }}</strong> 
+            Great news! Your order
+            <strong>#{{ $order->order_number ?? $order->id }}</strong>
             has been successfully delivered.
         </p>
 
@@ -23,6 +24,25 @@
                 <strong>Delivered At:</strong>
                 {{ $order->delivered_at ? \Carbon\Carbon::parse($order->delivered_at)->format('d M Y, h:i A') : 'N/A' }}
             </p>
+            <h4
+                style="margin: 30px 0 10px; color: #111827; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">
+                Payment Information</h4>
+            <table border="0" cellpadding="0" cellspacing="0" width="100%"
+                style="background-color: #f9fafb; border-radius: 6px; margin-bottom: 20px;">
+                <tr>
+                    <td style="padding: 15px;">
+                        <p style="margin: 0; font-size: 12px; color: #4b5563; line-height: 1.8;">
+                            <strong>Payment Method:</strong> {{ ucfirst($order->payment->payment_method) }} <br>
+                            <strong>Transaction ID:</strong> <code
+                                style="color: #111827;">{{ $transaction_id ?? 'N/A' }}</code><br>
+                            <strong>Reference #:</strong> <code
+                                style="color: #111827;">{{ $payment_reference ?? 'N/A' }}</code><br>
+                            <strong>Payment Status:</strong> <span
+                                style="color: #10b981; font-weight: bold;">Paid</span>
+                        </p>
+                    </td>
+                </tr>
+            </table>
         </div>
 
         <!-- ORDER SUMMARY -->

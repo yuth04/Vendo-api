@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AdminReturnRequestMail;
 use App\Mail\ReturnOrderRequestMail;
 use App\Mail\ReturnStatusUpdatedMail;
 use App\Models\Order;
@@ -20,7 +21,7 @@ class ReturnOrderController extends Controller
         $returns = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->get();
 
         return response()->json([
-            'message'=> 'Return orders retrieved successfully',
+            'message' => 'Return orders retrieved successfully',
             'data' => $returns
         ]);
     }
@@ -29,7 +30,7 @@ class ReturnOrderController extends Controller
         $return = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->findOrFail($id);
 
         return response()->json([
-            'message'=> 'Return order retrieved successfully',
+            'message' => 'Return order retrieved successfully',
             'data' => $return
         ]);
     }
@@ -81,7 +82,8 @@ class ReturnOrderController extends Controller
             'user_id' => Auth::id(),
             'order_id' => $order->id,
             'reason' => $request->reason,
-            'note' => $request->note
+            'note' => $request->note,
+            'status' => 'pending'
         ]);
         foreach ($request->items as $item) {
             ReturnItem::create([
@@ -104,10 +106,11 @@ class ReturnOrderController extends Controller
         DB::commit();
         $adminEmail = config('mail.admin_email');
         Mail::to($adminEmail)->send(
-            new ReturnOrderRequestMail($returnOrder->load('user'))
+            new AdminReturnRequestMail($returnOrder->load('user'))
         );
-
-
+        Mail::to($order->user->email)->send(
+            new ReturnOrderRequestMail($returnOrder)
+        );
         return response()->json([
             'message' => 'Return request submitted successfully.'
         ]);
@@ -151,7 +154,7 @@ class ReturnOrderController extends Controller
             $return->update([
                 'message' => 'Your return request has been approved. Refund amount: $' . number_format($refund, 2),
                 'status' => 'approved',
-                'approved_at' => now('Asia/Phnom Penh')->format('h:i d-m-y'),
+                'approved_at' => now(),
                 'refund_amount' => $refund
             ]);
         } catch (\Exception $e) {
