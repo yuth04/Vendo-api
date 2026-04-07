@@ -17,6 +17,7 @@ class ParentCategoryController extends Controller
                 return [
                     'id' => $base->id,
                     'name' => $base->name,
+                    'status' => $base->status,
                     'created_at' => $base->created_at,
                     'updated_at' => $base->updated_at,
                     'categories' => $base->categories->map(function ($category) {
