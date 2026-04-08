@@ -35,9 +35,9 @@ class ReviewController extends Controller
             'product_id' => 'required|exists:products,id',
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'nullable|string',
-            'image'=>'nullable|image|max:5120'
+            'image' => 'nullable|image|max:5120'
         ]);
-        
+
         $user = $request->user();
         $imageUrl = null;
         $imageFileId = null;
@@ -83,8 +83,8 @@ class ReviewController extends Controller
             'rating' => $request->rating,
             'comment' => $request->comment,
             'is_approved' => true,
-            'image'=>$imageUrl,
-            'image_file_id'=>$imageFileId
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId
         ]);
 
         return response()->json([
@@ -99,22 +99,26 @@ class ReviewController extends Controller
     public function update(Request $request, $id)
     {
         $review = Review::findOrFail($id);
+        $user = $request->user();
 
-        // Only owner can delete
-        if ($request->user()->id !== $review->user_id && $request->user()->role !== 'admin') {
+        //  Authorization: only owner or admin
+        if ($user->id !== $review->user_id && $user->role !== 'admin') {
             return response()->json([
-                'message' => 'You cannot delete someone else\'s review.'
+                'message' => 'You cannot update someone else\'s review.'
             ], 403);
         }
 
+        // Validation
         $request->validate([
             'rating' => 'nullable|integer|min:1|max:5',
             'comment' => 'nullable|string',
-            'image'=>'nullable|image|max:255'
+            'image' => 'nullable|image|max:5120', // 5MB
         ]);
+
         $imageUrl = $review->image;
         $imageFileId = $review->image_file_id;
 
+        // Handle Image Upload
         if ($request->hasFile('image')) {
 
             $imageKit = new ImageKit(
@@ -136,25 +140,25 @@ class ReviewController extends Controller
                 ], 400);
             }
 
-            // DELETE OLD IMAGE (safe)
+            //  Delete old image (if exists)
             if ($review->image_file_id) {
                 try {
                     $imageKit->deleteFile($review->image_file_id);
                 } catch (\Exception $e) {
-                    // ignore if already deleted
+                    // ignore error
                 }
             }
 
-            //  SET NEW IMAGE DATA
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
 
+        // Update only provided fields
         $review->update([
-            'rating'=>$request->rating,
-            'comment'=>$request->comment,
-            'image'=>$imageUrl,
-            'image_file_id'=>$imageFileId,
+            'rating' => $request->has('rating') ? $request->rating : $review->rating,
+            'comment' => $request->has('comment') ? $request->comment : $review->comment,
+            'image' => $imageUrl,
+            'image_file_id' => $imageFileId,
         ]);
 
         return response()->json([
@@ -169,14 +173,32 @@ class ReviewController extends Controller
     public function destroy(Request $request, $id)
     {
         $review = Review::findOrFail($id);
+        $user = $request->user();
 
-        // Only owner can delete
-        if ($request->user()->id !== $review->user_id && $request->user()->role !== 'admin') {
+        // ✅ Authorization: only owner or admin
+        if ($user->id !== $review->user_id && $user->role !== 'admin') {
             return response()->json([
                 'message' => 'You cannot delete someone else\'s review.'
             ], 403);
         }
 
+        // ✅ Delete image from ImageKit (if exists)
+        if ($review->image_file_id) {
+            try {
+                $imageKit = new ImageKit(
+                    config('imagekit.public_key'),
+                    config('imagekit.private_key'),
+                    config('imagekit.url_endpoint')
+                );
+
+                $imageKit->deleteFile($review->image_file_id);
+            } catch (\Exception $e) {
+                // optional: log error instead of breaking
+                \Log::warning('Image delete failed: ' . $e->getMessage());
+            }
+        }
+
+        // ✅ Delete review
         $review->delete();
 
         return response()->json([

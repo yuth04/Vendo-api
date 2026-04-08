@@ -129,7 +129,7 @@ Route::prefix('v1')->group(function () {
         // Wishlists
         Route::prefix('wishlists')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);
-            Route::post('/', [WishlistController::class, 'store']);
+            Route::put('/', [WishlistController::class, 'store']);
             Route::delete('/{id}', [WishlistController::class, 'destroy']);
 
         });
@@ -177,6 +177,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
+            Route::post('/discounts/add-product/{id}', [DiscountController::class, 'addProducts']);
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
 
             // Carousels
