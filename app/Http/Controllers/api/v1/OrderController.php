@@ -233,26 +233,55 @@ class OrderController extends Controller
     public function cancel($orderId)
     {
         $user = Auth::user();
-        $order = $user->orders()->with('items.variant')->find($orderId);
 
-        if (!$order)
+        $order = $user->orders()
+            ->with(['items.variant', 'payment'])
+            ->find($orderId);
+
+        if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
-        if ($user->role === 'admin')
+        }
+
+        if ($user->role === 'admin') {
             return response()->json(['message' => 'Admin cannot cancel orders'], 403);
-        if ($order->status !== 'pending')
+        }
+
+        if ($order->status !== 'pending') {
             return response()->json(['message' => 'Only pending orders can be canceled'], 400);
+        }
+
+        //  Prevent cancel after payment
+        if ($order->payment && $order->payment->status === 'paid') {
+            return response()->json([
+                'message' => 'Paid orders cannot be canceled'
+            ], 400);
+        }
 
         DB::transaction(function () use ($order) {
+
             foreach ($order->items as $item) {
-                $item->variant?->increment('stock', $item->quantity);
+                $variant = $item->variant()->lockForUpdate()->first();
+                if ($variant) {
+                    $variant->increment('stock', $item->quantity);
+                }
             }
+
+            // update order
             $order->update([
                 'status' => 'cancelled',
-                'cancelled_at' => now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A'),
+                'cancelled_at' => now(),
+            ]);
+
+            // update payment
+            $order->payment?->update([
+                'status' => 'cancelled'
             ]);
         });
 
-        return response()->json(['message' => 'Order cancelled successfully', 'order' => $this->formatOrder($order->fresh())]);
+        return response()->json([
+            'message' => 'Order cancelled successfully',
+            'order' => $this->formatOrder($order->fresh())
+        ]);
     }
 
     public function destroy($orderId)
