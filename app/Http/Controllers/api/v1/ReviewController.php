@@ -39,9 +39,22 @@ class ReviewController extends Controller
         ]);
 
         $user = $request->user();
+
+        // Check duplicate FIRST (important)
+        $exists = Review::where('user_id', $user->id)
+            ->where('product_id', $request->product_id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'You already reviewed this product'
+            ], 400);
+        }
+
         $imageUrl = null;
         $imageFileId = null;
 
+        // Upload image only if exists
         if ($request->hasFile('image')) {
 
             $imageKit = new ImageKit(
@@ -66,17 +79,8 @@ class ReviewController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
-        // Prevent duplicate review per product
-        $exists = Review::where('user_id', $user->id)
-            ->where('product_id', $request->product_id)
-            ->exists();
 
-        if ($exists) {
-            return response()->json([
-                'message' => 'You already reviewed this product'
-            ], 400);
-        }
-
+        //  Create review
         $review = Review::create([
             'user_id' => $user->id,
             'product_id' => $request->product_id,
