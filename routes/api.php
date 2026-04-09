@@ -4,7 +4,6 @@
 
 use App\Http\Controllers\api\v1\AddressController;
 use App\Http\Controllers\api\v1\AuthController;
-
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CarouselController;
 use App\Http\Controllers\api\v1\CartController;
@@ -12,13 +11,11 @@ use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\DiscountCategoryController;
 use App\Http\Controllers\api\v1\DiscountController;
 use App\Http\Controllers\api\v1\GoogleAuthController;
-use App\Http\Controllers\api\v1\ImageController;
 use App\Http\Controllers\api\v1\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\PaymentController;
 use App\Http\Controllers\api\v1\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
-use App\Http\Controllers\api\v1\ProductImageController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\ProfileController;
 use App\Http\Controllers\api\v1\ReturnOrderController;
@@ -77,11 +74,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/brands/{id}', [BrandController::class, 'showById']);
         Route::get('/brands/slug/{slug}', [BrandController::class, 'showBySlug']);
 
-        // Product images
-        Route::prefix('product-images')->group(function () {
-            Route::get('/', [ProductImageController::class, 'getAll']);
-            Route::get('/{variant_id}', [ProductImageController::class, 'index']);
-        });
         // Product Variants
         Route::get('/product-variants', [ProductVariantController::class, 'index']);
         Route::get('/product-variants/{id}', [ProductVariantController::class, 'show']);
@@ -109,7 +101,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
         Route::put('/profile/update-name', [ProfileController::class, 'updateName']);
-        Route::post('/profile/upload-image', [ImageController::class, 'uploadProfileImage']);
+        Route::post('/profile/upload-image', [ProfileController::class, 'uploadProfileImage']);
         Route::get('/profile/images', [ProfileController::class, 'getProfileImage']);
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
 
@@ -164,10 +156,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
-            // Product Images
-            Route::post('/product-images', [ProductImageController::class, 'store']);
-            Route::post('/product-images/{id}', [ProductImageController::class, 'update']);
-            Route::delete('/product-images/{id}', [ProductImageController::class, 'destroy']);
 
             // Discounts
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
@@ -211,12 +199,15 @@ Route::prefix('v1')->group(function () {
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
-            Route::get('/user/orders', [UserController::class, 'index']);
-            Route::get('/user/orders/{user}', [OrderController::class, 'userOrderHistory']);
+            Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
-
-
+            // User
+            Route::get('/users',[UserController::class,'getAllUser']);
+            Route::get('/users/{id}',[UserController::class,'searchUser']);
+            Route::post('/users/{id}',[UserController::class,'updateUser']);
+            Route::delete('/users/{id}',[UserController::class, 'destroy']);
+    
         });
 
     });
