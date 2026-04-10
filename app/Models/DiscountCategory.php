@@ -22,7 +22,11 @@ class DiscountCategory extends Model
     protected $casts = [
         'start_date' => 'datetime',
         'end_date' => 'datetime',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+
+
     ];
 
     protected $hidden = [

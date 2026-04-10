@@ -6,8 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Review extends Model
 {
-    protected $fillable = ['user_id', 'product_id', 'rating', 'comment', 'is_approved','image','image_file_id'];
+    protected $fillable = ['user_id', 'product_id', 'rating', 'comment', 'is_approved', 'image', 'image_file_id'];
     protected $hidden = ['created_at', 'updated_at'];
+    protected $casts = [
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+    ];
     public function user()
     {
         return $this->belongsTo(User::class);

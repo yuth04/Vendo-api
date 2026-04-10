@@ -18,8 +18,11 @@ class Product extends Model
         'image_file_id',
         'discount_id'
     ];
-
-    protected $hidden = ['created_at', 'updated_at','discount_id'];
+    protected $casts = [
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+    ];
+    protected $hidden = ['created_at', 'updated_at', 'discount_id'];
     public function category()
     {
         return $this->belongsTo(Category::class);
