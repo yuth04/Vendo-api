@@ -17,6 +17,10 @@ class OrderItem extends Model
 
     ];
     protected $hidden = ['created_at', 'updated_at'];
+    protected $casts = [
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+    ];
     public function order()
     {
         return $this->belongsTo(Order::class);

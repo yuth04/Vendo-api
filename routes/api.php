@@ -202,12 +202,14 @@ Route::prefix('v1')->group(function () {
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
+            // Admin
+            Route::get('/users/admins', [UserController::class, 'getAllAdmin']);
             // User
-            Route::get('/users',[UserController::class,'getAllUser']);
-            Route::get('/users/{id}',[UserController::class,'searchUser']);
-            Route::post('/users/{id}',[UserController::class,'updateUser']);
-            Route::delete('/users/{id}',[UserController::class, 'destroy']);
-    
+            Route::get('/users', [UserController::class, 'getAllUser']);
+            Route::get('/users/{id}', [UserController::class, 'searchUser']);
+            Route::post('/users/{id}', [UserController::class, 'updateUser']);
+            Route::delete('/users/{id}', [UserController::class, 'destroy']);
+
         });
 
     });

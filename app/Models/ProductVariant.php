@@ -9,6 +9,10 @@ class ProductVariant extends Model
     protected $fillable = ['product_id', 'size', 'color', 'stock'];
     
     protected $hidden = ['created_at', 'updated_at'];
+        protected $casts = [
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+    ];
     public function product()
     {
         return $this->belongsTo(Product::class);

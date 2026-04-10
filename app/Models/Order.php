@@ -26,6 +26,8 @@ class Order extends Model
         'shipped_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'returned_at' => 'datetime',
+        'created_at'=>'datetime',
+        'updated_at'=>'datetime'
     ];
     protected function serializeDate(\DateTimeInterface $date)
     {

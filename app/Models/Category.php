@@ -16,6 +16,10 @@ class Category extends Model
         'image_file_id',
     ];
     protected $hidden = ['created_at', 'updated_at'];
+    protected $casts = [
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+    ];
     public function parentCategory()
     {
         return $this->belongsTo(Category::class, 'parent_category_id');
