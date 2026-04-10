@@ -16,4 +16,8 @@ class Carousel extends Model
         'status'
     ];
       protected $hidden = ['created_at','updated_at'];
+          protected $casts = [
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
+    ];
 }

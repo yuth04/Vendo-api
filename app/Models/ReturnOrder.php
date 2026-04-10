@@ -19,14 +19,16 @@ class ReturnOrder extends Model
         'completed_at'
     ];
         protected $casts = [
-        'approved_at' => 'datetime',
-        'rejected_at' => 'datetime',
-        'completed_at' => 'datetime',
+        'approved_at' => 'datetime:Y-m-d H:i:s',
+        'rejected_at' => 'datetime:Y-m-d H:i:s',
+        'completed_at' => 'datetime:Y-m-d H:i:s',   
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
     ];
-    protected function serializeDate(\DateTimeInterface $date)
-    {
-        return $date->format('Y-m-d H:i:s');
-    }
+    // protected function serializeDate(\DateTimeInterface $date)
+    // {
+    //     return $date->format('Y-m-d H:i:s');
+    // }
 
     protected $attributes = [
         'status' => 'pending',
@@ -64,31 +66,31 @@ class ReturnOrder extends Model
                 }
 
                 if ($next === self::STATUS_APPROVED) {
-                    $returnOrder->approved_at = now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A');
+                    $returnOrder->approved_at = now();
 
-                    $returnOrder->approved_at = now('Asia/Phnom_Penh')->format('h:i d-m-y');
+                    $returnOrder->approved_at = now();
 
                 }
 
                 if ($next === self::STATUS_REJECTED) {
-                    $returnOrder->rejected_at = now('Asia/Phnom_Penh')->format('h:i d-m-y');
+                    $returnOrder->rejected_at = now();
                 }
 
                 if ($next === self::STATUS_COMPLETED) {
 
-                    $returnOrder->completed_at = now()->setTimezone('Asia/Phnom_Penh')->format('Y-m-d h:i A');
+                    $returnOrder->completed_at = now();
 
-                    $returnOrder->approved_at = now()->format('h:i d-m-Y');
+                    $returnOrder->approved_at = now();
                 }
 
                 if ($next === self::STATUS_REJECTED) {
-                    $returnOrder->rejected_at = now()->format('h:i d-m-Y');
+                    $returnOrder->rejected_at = now();
                 }
 
                 if ($next === self::STATUS_COMPLETED) {
-                    $returnOrder->completed_at = now()->format('h:i d-m-Y');
+                    $returnOrder->completed_at = now();
 
-                    $returnOrder->completed_at = now('Asia/Phnom_Penh')->format('h:i d-m-y');
+                    $returnOrder->completed_at = now();
 
                     $returnOrder->refund_status = self::REFUND_REFUNDED;
 

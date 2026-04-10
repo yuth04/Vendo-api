@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'status',
         'image',
         'google_id',
         'is_verified',
@@ -35,16 +36,9 @@ class User extends Authenticatable
     // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
         'verification_code_expire' => 'datetime',
+        'created_at' => 'datetime:d-m-Y',
+        'updated_at' => 'datetime:d-m-Y',
     ];
-    // public function getFirstNameAttribute()
-    // {
-    //     return $this->attributes['first_name'];
-    // }
-
-    // public function getLastNameAttribute()
-    // {
-    //     return $this->attributes['last_name'];
-    // }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -58,10 +52,9 @@ class User extends Authenticatable
         'is_verified',
         'verification_code',
         'verification_code_expire',
-        'email_verified_at',
-        'created_at',
-        'updated_at'
+        'email_verified_at'
     ];
+
     /**
      * Get the attributes that should be cast.
      *
