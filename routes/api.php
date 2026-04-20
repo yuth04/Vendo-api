@@ -3,6 +3,7 @@
 
 
 use App\Http\Controllers\api\v1\AddressController;
+use App\Http\Controllers\api\v1\admin\SettingController;
 use App\Http\Controllers\api\v1\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CarouselController;
@@ -209,7 +210,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/users/{id}', [UserController::class, 'searchUser']);
             Route::post('/users/{id}', [UserController::class, 'updateUser']);
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
-
+            // Admin Setting
+            Route::put('/settings/change-name', [SettingController::class, 'changeName']);
+            Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
+            Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
         });
 
     });
