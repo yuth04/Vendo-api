@@ -122,7 +122,7 @@ Route::prefix('v1')->group(function () {
         // Wishlists
         Route::prefix('wishlists')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);
-            Route::put('/', [WishlistController::class, 'store']);
+            Route::post('/', [WishlistController::class, 'store']);
             Route::delete('/{id}', [WishlistController::class, 'destroy']);
 
         });
