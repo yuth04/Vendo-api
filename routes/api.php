@@ -3,7 +3,9 @@
 
 
 use App\Http\Controllers\api\v1\AddressController;
-use App\Http\Controllers\api\v1\admin\SettingController;
+use App\Http\Controllers\api\v1\dashboard\DashboardController;
+use App\Http\Controllers\api\v1\dashboard\PosController;
+use App\Http\Controllers\api\v1\dashboard\SettingController;
 use App\Http\Controllers\api\v1\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\CarouselController;
@@ -19,7 +21,7 @@ use App\Http\Controllers\api\v1\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\ProfileController;
-use App\Http\Controllers\api\v1\ReturnOrderController;
+use App\Http\Controllers\api\v1\dashboard\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\UpdateStatusController;
 use App\Http\Controllers\api\v1\UserController;
@@ -148,12 +150,13 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
-            Route::put('/orders/return/{id}', [ReturnOrderController::class, 'updateStatus']);
+            // Returns
+            Route::get('/returns',[ReturnOrderController::class, 'getAll']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
 
-            //    Filter orders by status
+            // Filter orders by status
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
@@ -200,6 +203,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
@@ -214,7 +218,17 @@ Route::prefix('v1')->group(function () {
             Route::put('/settings/change-name', [SettingController::class, 'changeName']);
             Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
             Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
-        });
+        
+            // Dashboard Stats
+            Route::get('/dashboard', [DashboardController::class, 'index']);
+            Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+            Route::get('/dashboard/order-stats', [DashboardController::class, 'orderStat']);
+            Route::get('/dashboard/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+            Route::get('/dashboard/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
+            // Stocks
+            Route::get('/dashboard/stocks', [DashboardController::class, 'stock']);
+            Route::get('/dashboard/stock-alert', [DashboardController::class, 'stockAlert']);
+            });
 
     });
 });

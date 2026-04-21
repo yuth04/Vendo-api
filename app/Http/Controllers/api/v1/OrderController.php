@@ -242,10 +242,6 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order not found'], 404);
         }
 
-        if ($user->role === 'admin') {
-            return response()->json(['message' => 'Admin cannot cancel orders'], 403);
-        }
-
         if ($order->status !== 'pending') {
             return response()->json(['message' => 'Only pending orders can be canceled'], 400);
         }
