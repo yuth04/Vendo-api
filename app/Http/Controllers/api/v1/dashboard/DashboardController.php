@@ -23,7 +23,7 @@ class DashboardController extends Controller
             'message' => 'Welcome to the Dashboard API',
             'data' => [
                 'total_orders' => Order::count(),
-                'total_revenue' => Number::currency(Order::where('status', 'delivered')->sum('total_price')),
+                'total_revenue' => Order::where('status', 'delivered')->sum('total_price'),
                 'total_customers' => Order::distinct('id')->count('id'),
                 'total_products' => Product::count(),
                 'total_brands' => Brand::count(),
@@ -110,7 +110,7 @@ class DashboardController extends Controller
                 'inventory_status' => match (true) {
                     $totalStock == 0 => 'OUT_OF_STOCK',
                     $totalStock <= 5 => 'CRITICAL_LOW',
-                    $totalStock <= 20 => 'LOW',
+                    $totalStock <= 10 => 'LOW',
                     default => 'IN_STOCK'
                 },
 
