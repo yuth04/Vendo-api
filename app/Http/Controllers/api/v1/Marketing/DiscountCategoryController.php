@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1\Marketing;
+namespace App\Http\Controllers\api\v1\Marketing;
 
 use App\Http\Controllers\Controller;
 use App\Models\DiscountCategory;
