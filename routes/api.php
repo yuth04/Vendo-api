@@ -23,7 +23,7 @@ use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
 use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
-use App\Http\Controllers\api\v1\UpdateStatusController;
+use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
 use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
@@ -97,9 +97,9 @@ Route::prefix('v1')->group(function () {
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum'])->group(function () {
         // Return Order
-        Route::post('/returns', [ReturnOrderController::class, 'store']);
-        Route::get('/returns', [ReturnOrderController::class, 'index']);
-        Route::get('/returns/{id}', [ReturnOrderController::class, 'show']);
+        Route::post('/return-orders', [ReturnOrderController::class, 'store']);
+        Route::get('/return-orders', [ReturnOrderController::class, 'index']);
+        Route::get('/return-orders/{id}', [ReturnOrderController::class, 'show']);
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
@@ -146,10 +146,11 @@ Route::prefix('v1')->group(function () {
 
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
-            //  Update Order Status
+            //  Updater Status
             Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
+            Route::put('/orders/payment/{id}', [UpdateStatusController::class, 'updatePaymentStatus']);
             // Returns
             Route::get('/returns', [ReturnOrderController::class, 'getAll']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
