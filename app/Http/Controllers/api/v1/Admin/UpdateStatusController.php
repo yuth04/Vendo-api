@@ -179,12 +179,7 @@ class UpdateStatusController extends Controller
             return response()->json([
                 'message' => 'Payment is already marked as ' . $request->status
             ], 400);
-        }
-        if ($payment->status !== 'paid') {
-            return response()->json([
-                'message' => 'Only paid payments can be refunded'
-            ], 403);
-        }
+
         if ($order->status !== 'delivered') {
             return response()->json([
                 'message' => 'Only delivered orders can be marked as paid'
