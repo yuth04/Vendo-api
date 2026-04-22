@@ -154,6 +154,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
             Route::put('/orders/payment/{id}', [UpdateStatusController::class, 'updatePaymentStatus']);
+            Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
             // Returns
             Route::get('/returns', [ReturnOrderController::class, 'getAll']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);

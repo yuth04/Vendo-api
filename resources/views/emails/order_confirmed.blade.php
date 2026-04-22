@@ -172,12 +172,7 @@
                     <tr>
                         <td style="padding: 0 40px 40px; text-align: center;">
                             <hr style="border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 30px;">
-                            @if(!isset($isPdf) || !$isPdf)
-                                <a href="{{ $downloadUrl ?? '#' }}" target="_blank"
-                                    style="display: inline-block; background-color: #2b3a55; color: #ffffff; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; box-shadow: 0 4px 6px rgba(43, 58, 85, 0.2);">
-                                    View Full Invoice
-                                </a>
-                            @endif
+                      
                             <p style="margin: 25px 0 0; color: #94a3b8; font-size: 12px; line-height: 1.6;">
                                 We'll send you another email with a tracking number once your order ships.<br>
                                 Need help? Contact us at <strong>support@vendo.com</strong>
