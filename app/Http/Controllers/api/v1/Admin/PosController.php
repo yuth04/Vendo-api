@@ -20,6 +20,7 @@ class PosController extends Controller
                 'first_name' => $order->user->first_name,
                 'last_name' => $order->user->last_name,
                 'email' => $order->user->email,
+                'avatar'=> $order->user->image,
                 'total_price' => $order->total_price,
                 // 'total' => '$' . number_format($order->total_price, 0),
                 'items_count' => $order->items->count(),
