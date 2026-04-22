@@ -62,6 +62,7 @@ class PosController extends Controller
                     'first_name' => $order->user->first_name,
                     'last_name' => $order->user->last_name,
                     'email' => $order->user->email,
+                    'avatar' => $order->user->image,
                 ],
                 'shipping_address' => $order->address,
                 'items' => $order->items->map(function ($item) {
