@@ -80,23 +80,23 @@ class ReturnOrderController extends Controller
                 'order_id' => $request->order_id
             ], 404);
         }
-        // Only delivered orders
-        if ($order->status !== 'delivered') {
+        // Only completed orders
+        if ($order->status !== 'completed') {
             return response()->json([
-                'message' => 'Only delivered orders can be returned.'
+                'message' => 'Only completed orders can be returned.'
             ], 400);
         }
 
-        if (!$order->delivered_at) {
+        if (!$order->completed_at) {
             return response()->json([
-                'message' => 'Order delivery date not found.'
+                'message' => 'Order completion date not found.'
             ], 400);
         }
 
-        $deliveryDate = $order->delivered_at;
+        $completeDate = $order->completed_at;
 
         // 7 days return window
-        if ($deliveryDate->copy()->addDays(7)->isPast()) {
+        if ($completeDate->copy()->addDays(7)->isPast()) {
             return response()->json([
                 'message' => 'Return request period has expired. Only returns within 7 days of delivery are accepted.'
             ], 400);
@@ -222,7 +222,7 @@ class ReturnOrderController extends Controller
         if ($return->status !== 'approved') {
             return response()->json(['message' => 'Not approved'], 400);
         }
-
+        
         if ($return->status === 'completed') {
             return response()->json(['message' => 'Already completed'], 400);
         }

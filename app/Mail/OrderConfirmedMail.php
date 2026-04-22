@@ -10,7 +10,6 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-use Illuminate\Support\Facades\URL;
 
 class OrderConfirmedMail extends Mailable
 {
@@ -21,18 +20,12 @@ class OrderConfirmedMail extends Mailable
      */
     public $order;
 
-    public $downloadUrl;
-
+   
     public function __construct(Order $order)
     {
         $this->order = $order;
 
-        // Generates a secure, expiring link for the receipt
-        $this->downloadUrl = URL::temporarySignedRoute(
-            'order.receipt.download',
-            now()->addDays(7),
-            ['order' => $order->id]
-        );
+
     }
     public function build()
     {
