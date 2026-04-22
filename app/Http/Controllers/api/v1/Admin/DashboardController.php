@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api\v1\dashboard;
+namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
@@ -63,16 +63,38 @@ class DashboardController extends Controller
         ]);
     }
     // most sold products
+    // public function mostSoldProducts()
+    // {
+    //     $products = DB::table('products')
+    //         ->join('product_variants', 'products.id', '=', 'product_variants.product_id')
+    //         ->join('order_items', 'product_variants.id', '=', 'order_items.product_variant_id')
+    //         ->select(
+    //             'products.id',
+    //             'products.productName',
+    //             DB::raw('SUM(order_items.quantity) as total_sold'),
+    //             DB::raw('SUM(order_items.quantity * order_items.price) as revenue')
+    //         )
+    //         ->groupBy('products.id', 'products.productName')
+    //         ->orderByDesc('total_sold')
+    //         ->limit(5)
+    //         ->get();
+
+    //     return response()->json([
+    //         'message' => 'Most Sold Products',
+    //         'data' => $products
+    //     ]);
+    // }
     public function mostSoldProducts()
     {
-        $products = DB::table('products')
-            ->join('product_variants', 'products.id', '=', 'product_variants.product_id')
-            ->join('order_items', 'product_variants.id', '=', 'order_items.product_variant_id')
+        $topProducts = DB::table('order_items')
+            ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
+            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->where('orders.status', 'completed') 
             ->select(
                 'products.id',
                 'products.productName',
-                DB::raw('SUM(order_items.quantity) as total_sold'),
-                DB::raw('SUM(order_items.quantity * order_items.price) as revenue')
+                DB::raw('SUM(order_items.quantity) as total_sold')
             )
             ->groupBy('products.id', 'products.productName')
             ->orderByDesc('total_sold')
@@ -80,8 +102,8 @@ class DashboardController extends Controller
             ->get();
 
         return response()->json([
-            'message' => 'Most Sold Products',
-            'data' => $products
+            'message' => 'Top products retrieved successfully',
+            'data' => $topProducts
         ]);
     }
     // view all stocks

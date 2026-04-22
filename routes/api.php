@@ -2,30 +2,30 @@
 
 
 
-use App\Http\Controllers\api\v1\AddressController;
-use App\Http\Controllers\api\v1\dashboard\DashboardController;
-use App\Http\Controllers\api\v1\dashboard\PosController;
-use App\Http\Controllers\api\v1\dashboard\SettingController;
-use App\Http\Controllers\api\v1\AuthController;
+use App\Http\Controllers\api\v1\Customer\AddressController;
+use App\Http\Controllers\api\v1\Admin\DashboardController;
+use App\Http\Controllers\api\v1\Admin\PosController;
+use App\Http\Controllers\api\v1\Admin\SettingController;
+use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
-use App\Http\Controllers\api\v1\CarouselController;
-use App\Http\Controllers\api\v1\CartController;
+use App\Http\Controllers\Api\V1\DiscountController;
+use App\Http\Controllers\api\v1\Marketing\CarouselController;
+use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
-use App\Http\Controllers\api\v1\DiscountCategoryController;
-use App\Http\Controllers\api\v1\DiscountController;
-use App\Http\Controllers\api\v1\GoogleAuthController;
-use App\Http\Controllers\api\v1\OrderController;
+use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
+use App\Http\Controllers\Api\V1\Marketing\DiscountCategoryController;
+use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
-use App\Http\Controllers\api\v1\PaymentController;
+use App\Http\Controllers\api\v1\Orders\PaymentController;
 use App\Http\Controllers\api\v1\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
-use App\Http\Controllers\api\v1\ProfileController;
-use App\Http\Controllers\api\v1\dashboard\ReturnOrderController;
+use App\Http\Controllers\api\v1\Customer\ProfileController;
+use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\UpdateStatusController;
-use App\Http\Controllers\api\v1\UserController;
-use App\Http\Controllers\api\v1\WishlistController;
+use App\Http\Controllers\api\v1\Customer\UserController;
+use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -151,7 +151,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
             // Returns
-            Route::get('/returns',[ReturnOrderController::class, 'getAll']);
+            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
@@ -218,17 +218,19 @@ Route::prefix('v1')->group(function () {
             Route::put('/settings/change-name', [SettingController::class, 'changeName']);
             Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
             Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
-        
+
             // Dashboard Stats
-            Route::get('/dashboard', [DashboardController::class, 'index']);
-            Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-            Route::get('/dashboard/order-stats', [DashboardController::class, 'orderStat']);
-            Route::get('/dashboard/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
-            Route::get('/dashboard/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
-            // Stocks
-            Route::get('/dashboard/stocks', [DashboardController::class, 'stock']);
-            Route::get('/dashboard/stock-alert', [DashboardController::class, 'stockAlert']);
+            Route::prefix('/dashboard')->group(function () {
+                Route::get('/', [DashboardController::class, 'index']);
+                Route::get('/stats', [DashboardController::class, 'stats']);
+                Route::get('/order-stats', [DashboardController::class, 'orderStat']);
+                Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
+                // Stocks
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
             });
+        });
 
     });
 });

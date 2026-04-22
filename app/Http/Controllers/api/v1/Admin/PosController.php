@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api\v1\dashboard;
+namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
@@ -23,6 +23,7 @@ class PosController extends Controller
                 // 'total' => '$' . number_format($order->total_price, 0),
                 'items_count' => $order->items->count(),
                 'status' => $order->status,
+                'payment'=>$order->payment->status
 
             ];
         });

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api\v1;
+namespace App\Http\Controllers\api\v1\Auth;
 use App\Mail\ForgotPasswordMail;
 use App\Mail\LoginNotificationMail;
 use App\Mail\PasswordChangedMail;
