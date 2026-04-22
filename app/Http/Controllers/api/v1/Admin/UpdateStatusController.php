@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api\v1;
+namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\OrderConfirmedMail;
@@ -106,7 +106,7 @@ class UpdateStatusController extends Controller
         $payment_reference = $order->payment->payment_reference;
         $shipping = $this->calculateShipping($order->address->province ?? '');
         $order->load(['items', 'user']);
-        Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping, $transaction_id,$payment_reference));
+        Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping, $transaction_id, $payment_reference));
 
         return response()->json([
             'message' => 'Order delivered successfully',
@@ -158,5 +158,45 @@ class UpdateStatusController extends Controller
             'message' => 'Order marked as cancelled successfully',
             'order' => $order
         ]);
+    }
+    // Payment status update (Admin only)
+    public function updatePaymentStatus($id ,Request $request)
+    {
+        $request->validate([
+            'status' => 'required|in:paid,unpaid,refunded',
+        ]);
+        if (Auth::user()->role !== "admin") {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+        $order = Order::findOrFail($id);
+        $payment = $order->payment;
+        if (!$payment) {
+            return response()->json([
+                'message' => 'Payment not found'
+            ], 404);
+        }
+        if ($payment->status == $request->status) {
+            return response()->json([
+                'message' => 'Payment is already marked as ' . $request->status
+            ], 400);
+        }
+        if($payment->status === 'unpaid'){
+            return response()->json([
+                'message' => 'Cannot update payment status from unpaid to ' . $request->status
+            ]);
+        }
+        if ($order->status !== 'delivered') {
+            return response()->json([
+                'message' => 'Only delivered orders can be marked as paid'
+            ], 400);
+        }
+        $payment->update([
+            'status'=>$request->status,
+            'paid_at'=>now()
+        ]);
+        return response()->json([
+            'message' => 'Payment status updated to ' . $request->status . ' successfully',
+            'payment' => $payment
+        ]); 
     }
 }

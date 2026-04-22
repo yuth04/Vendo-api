@@ -28,13 +28,13 @@ class ReturnOrder extends Model
     ];
 
     protected $attributes = [
-        'status' => 'pending',
+        'status' => 'requested',
         'refund_status' => 'pending',
     ];
 
 
     // ✅ Status constants
-    const STATUS_PENDING = 'pending';
+    const STATUS_REQUESTED = 'requested';
     const STATUS_APPROVED = 'approved';
     const STATUS_REJECTED = 'rejected';
     const STATUS_PROCESSING = 'processing';
@@ -53,7 +53,7 @@ class ReturnOrder extends Model
                 $next = $returnOrder->status;
 
                 $allowed = [
-                    self::STATUS_PENDING => [self::STATUS_APPROVED, self::STATUS_REJECTED],
+                    self::STATUS_REQUESTED => [self::STATUS_APPROVED, self::STATUS_REJECTED],
                     self::STATUS_APPROVED => [self::STATUS_COMPLETED],
         
                 ];

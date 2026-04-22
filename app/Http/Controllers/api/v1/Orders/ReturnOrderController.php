@@ -20,7 +20,10 @@ class ReturnOrderController extends Controller
     // view all return (Admin)
     public function getAll()
     {
-        $returns = ReturnOrder::with('items.orderItem')->get();
+        $returns = ReturnOrder::with([
+            'items.orderItem',
+            'images'
+        ])->get();
 
         return response()->json([
             'message' => 'Retrieved return successfully',
@@ -30,7 +33,11 @@ class ReturnOrderController extends Controller
     public function index()
     {
         $returns = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->get();
-
+        if ($returns->isEmpty()) {
+            return response()->json([
+                'message' => 'No return orders found for this user.',
+            ]);
+        }
         return response()->json([
             'message' => 'Return orders retrieved successfully',
             'data' => $returns
@@ -38,7 +45,13 @@ class ReturnOrderController extends Controller
     }
     public function show($id)
     {
-        $return = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->findOrFail($id);
+        $return = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->find($id);
+
+        if (!$return) {
+            return response()->json([
+                'message' => 'Return order not found.'
+            ], 404);
+        }
 
         return response()->json([
             'message' => 'Return order retrieved successfully',
@@ -58,8 +71,15 @@ class ReturnOrderController extends Controller
 
         $order = Order::where('id', $request->order_id)
             ->where('user_id', Auth::id())
-            ->firstOrFail();
+            ->first();
 
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found for this user',
+                'auth_id' => Auth::id(),
+                'order_id' => $request->order_id
+            ], 404);
+        }
         // Only delivered orders
         if ($order->status !== 'delivered') {
             return response()->json([
@@ -78,7 +98,7 @@ class ReturnOrderController extends Controller
         // 7 days return window
         if ($deliveryDate->copy()->addDays(7)->isPast()) {
             return response()->json([
-                'message' => 'Return request period has expired.'
+                'message' => 'Return request period has expired. Only returns within 7 days of delivery are accepted.'
             ], 400);
         }
 
@@ -94,7 +114,7 @@ class ReturnOrderController extends Controller
             'order_id' => $order->id,
             'reason' => $request->reason,
             'note' => $request->note,
-            'status' => 'pending'
+            'status' => 'requested'
         ]);
         foreach ($request->items as $item) {
             ReturnItem::create([
@@ -132,9 +152,9 @@ class ReturnOrderController extends Controller
     {
         $return = ReturnOrder::with('items.orderItem')->findOrFail($id);
 
-        if ($return->status !== 'pending') {
+        if ($return->status !== 'requested') {
             return response()->json([
-                'message' => 'Return request is not pending'
+                'message' => 'Return request is not requested'
             ], 400);
         }
 
@@ -184,7 +204,7 @@ class ReturnOrderController extends Controller
     {
         $return = ReturnOrder::findOrFail($id);
 
-        if ($return->status !== 'pending') {
+        if ($return->status !== 'requested') {
             return response()->json(['message' => 'Invalid status'], 400);
         }
 
