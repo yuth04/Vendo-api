@@ -24,7 +24,7 @@ class PosController extends Controller
                 // 'total' => '$' . number_format($order->total_price, 0),
                 'items_count' => $order->items->count(),
                 'status' => $order->status,
-                'payment'=>$order->payment->status
+                'payment' => $order->payment->status
 
             ];
         });
@@ -32,5 +32,45 @@ class PosController extends Controller
             'message' => 'Retrieved order history successfully',
             'data' => $data
         ], 200);
+    }
+    // Order Details
+    public function orderDetails($id)
+    {
+        $order = Order::with([
+            'user',
+            'items.product',
+            'payment',
+            'address'
+        ])->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Retrieved order details successfully',
+            'data' => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'date' => $order->created_at->format('Y-m-d H:i:s'),
+                'status' => $order->status,
+                'payment_status' => optional($order->payment)->status,
+                'payment_method' => optional($order->payment)->payment_method,
+                'shipping_fee'=>$order->shipping_fee,
+                'customer' => [
+                    'first_name' => $order->user->first_name,
+                    'last_name' => $order->user->last_name,
+                    'email' => $order->user->email,
+                ],
+                'shipping_address' => $order->address,
+                'items' => $order->items->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'productName' => $item->productName,
+                        'price' => $item->price,
+                        'quantity' => $item->quantity,
+                        'subtotal' => $item->price * $item->quantity,
+                        'size' => $item->size,
+                        'color' => $item->color,
+                    ];
+                }),
+            ]
+        ]);
     }
 }
