@@ -14,6 +14,7 @@ class PosController extends Controller
         $orders = Order::with(['user', 'items'])->latest()->get();
         $data = $orders->map(function ($order) {
             return [
+                'id' => $order->id,
                 'order_number' => $order->order_number,
                 'data' => $order->created_at->format('Y-m-d'),
                 'first_name' => $order->user->first_name,
