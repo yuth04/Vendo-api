@@ -62,12 +62,13 @@ class PosController extends Controller
                 'items' => $order->items->map(function ($item) {
                     return [
                         'id' => $item->id,
-                        'productName' => $item->productName,
+                        'product_name' => $item->product_name,
                         'price' => $item->price,
                         'quantity' => $item->quantity,
                         'subtotal' => $item->price * $item->quantity,
                         'size' => $item->size,
                         'color' => $item->color,
+                        'image' => $item->product->image ?? null,
                     ];
                 }),
             ]
