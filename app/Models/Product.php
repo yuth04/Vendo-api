@@ -54,5 +54,8 @@ class Product extends Model
                 $q->whereNull('end_date')->orWhere('end_date', '>=', $now);
             });
     }
-
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 }

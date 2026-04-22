@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Http\Controllers\api\v1\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Order;
+use Illuminate\Http\Request;
+
+class PosController extends Controller
+{
+    // Order History
+    public function orderHistory()
+    {
+        $orders = Order::with(['user', 'items'])->latest()->get();
+        $data = $orders->map(function ($order) {
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'data' => $order->created_at->format('Y-m-d'),
+                'first_name' => $order->user->first_name,
+                'last_name' => $order->user->last_name,
+                'email' => $order->user->email,
+                'total_price' => $order->total_price,
+                // 'total' => '$' . number_format($order->total_price, 0),
+                'items_count' => $order->items->count(),
+                'status' => $order->status,
+                'payment' => $order->payment->status
+
+            ];
+        });
+        return response()->json([
+            'message' => 'Retrieved order history successfully',
+            'data' => $data
+        ], 200);
+    }
+    // Order Details
+    public function orderDetails($id)
+    {
+        $order = Order::with([
+            'user',
+            'items.product',
+            'payment',
+            'address'
+        ])->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Retrieved order details successfully',
+            'data' => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'date' => $order->created_at->format('Y-m-d H:i:s'),
+                'status' => $order->status,
+                'payment_status' => optional($order->payment)->status,
+                'payment_method' => optional($order->payment)->payment_method,
+                'shipping_fee'=>$order->shipping_fee,
+                'customer' => [
+                    'first_name' => $order->user->first_name,
+                    'last_name' => $order->user->last_name,
+                    'email' => $order->user->email,
+                ],
+                'shipping_address' => $order->address,
+                'items' => $order->items->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_name' => $item->product_name,
+                        'price' => $item->price,
+                        'quantity' => $item->quantity,
+                        'subtotal' => $item->price * $item->quantity,
+                        'size' => $item->size,
+                        'color' => $item->color,
+                        'image' => $item->product->image ?? null,
+                    ];
+                }),
+            ]
+        ]);
+    }
+}

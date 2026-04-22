@@ -2,31 +2,36 @@
 
 
 
-use App\Http\Controllers\api\v1\AddressController;
-use App\Http\Controllers\api\v1\admin\SettingController;
-use App\Http\Controllers\api\v1\AuthController;
+use App\Http\Controllers\api\v1\Customer\AddressController;
+use App\Http\Controllers\api\v1\Admin\DashboardController;
+use App\Http\Controllers\api\v1\Admin\PosController;
+use App\Http\Controllers\api\v1\Admin\SettingController;
+use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
-use App\Http\Controllers\api\v1\CarouselController;
-use App\Http\Controllers\api\v1\CartController;
+use App\Http\Controllers\api\v1\Export\ExportController;
+use App\Http\Controllers\api\v1\Marketing\DiscountController;
+use App\Http\Controllers\api\v1\Marketing\CarouselController;
+use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
-use App\Http\Controllers\api\v1\DiscountCategoryController;
-use App\Http\Controllers\api\v1\DiscountController;
-use App\Http\Controllers\api\v1\GoogleAuthController;
-use App\Http\Controllers\api\v1\OrderController;
+use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
+use App\Http\Controllers\api\v1\Marketing\DiscountCategoryController;
+use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
-use App\Http\Controllers\api\v1\PaymentController;
+use App\Http\Controllers\api\v1\Orders\PaymentController;
 use App\Http\Controllers\api\v1\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
-use App\Http\Controllers\api\v1\ProfileController;
-use App\Http\Controllers\api\v1\ReturnOrderController;
+use App\Http\Controllers\api\v1\Customer\ProfileController;
+use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
-use App\Http\Controllers\api\v1\UpdateStatusController;
-use App\Http\Controllers\api\v1\UserController;
-use App\Http\Controllers\api\v1\WishlistController;
+use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
+use App\Http\Controllers\api\v1\Customer\UserController;
+use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('/orders/export', [ExportController::class, 'exportOrderHistory']);
+    Route::get('/products/export', [ExportController::class, 'exportProducts']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -95,9 +100,9 @@ Route::prefix('v1')->group(function () {
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum'])->group(function () {
         // Return Order
-        Route::post('/returns', [ReturnOrderController::class, 'store']);
-        Route::get('/returns', [ReturnOrderController::class, 'index']);
-        Route::get('/returns/{id}', [ReturnOrderController::class, 'show']);
+        Route::post('/return-orders', [ReturnOrderController::class, 'store']);
+        Route::get('/return-orders', [ReturnOrderController::class, 'index']);
+        Route::get('/return-orders/{id}', [ReturnOrderController::class, 'show']);
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
@@ -144,17 +149,21 @@ Route::prefix('v1')->group(function () {
 
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
-            //  Update Order Status
+            //  Updater Status
             Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
-            Route::put('/orders/return/{id}', [ReturnOrderController::class, 'updateStatus']);
+            Route::put('/orders/payment/{id}', [UpdateStatusController::class, 'updatePaymentStatus']);
+            Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
+            // Returns
+            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
 
-            //    Filter orders by status
+            // Orders
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
+            Route::get('/order-details/{id}',[PosController::class,'orderDetails']);
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
@@ -200,6 +209,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
@@ -214,6 +224,18 @@ Route::prefix('v1')->group(function () {
             Route::put('/settings/change-name', [SettingController::class, 'changeName']);
             Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
             Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
+
+            // Dashboard Stats
+            Route::prefix('/dashboard')->group(function () {
+                Route::get('/', [DashboardController::class, 'index']);
+                Route::get('/stats', [DashboardController::class, 'stats']);
+                Route::get('/order-stats', [DashboardController::class, 'orderStat']);
+                Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
+                // Stocks
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+            });
         });
 
     });

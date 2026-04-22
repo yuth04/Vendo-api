@@ -16,28 +16,25 @@ class ReturnOrder extends Model
         'refund_status',
         'approved_at',
         'rejected_at',
-        'completed_at'
+        'completed_at',
+        'type'
     ];
         protected $casts = [
-        'approved_at' => 'datetime:Y-m-d H:i:s',
-        'rejected_at' => 'datetime:Y-m-d H:i:s',
-        'completed_at' => 'datetime:Y-m-d H:i:s',   
+        'approved_at' => 'datetime:d-m-Y',
+        'rejected_at' => 'datetime:d-m-Y',
+        'completed_at' => 'datetime:d-m-Y',   
         'created_at' => 'datetime:d-m-Y',
         'updated_at' => 'datetime:d-m-Y',
     ];
-    // protected function serializeDate(\DateTimeInterface $date)
-    // {
-    //     return $date->format('Y-m-d H:i:s');
-    // }
 
     protected $attributes = [
-        'status' => 'pending',
+        'status' => 'requested',
         'refund_status' => 'pending',
     ];
 
 
     // ✅ Status constants
-    const STATUS_PENDING = 'pending';
+    const STATUS_REQUESTED = 'requested';
     const STATUS_APPROVED = 'approved';
     const STATUS_REJECTED = 'rejected';
     const STATUS_PROCESSING = 'processing';
@@ -56,9 +53,9 @@ class ReturnOrder extends Model
                 $next = $returnOrder->status;
 
                 $allowed = [
-                    self::STATUS_PENDING => [self::STATUS_APPROVED, self::STATUS_REJECTED],
-                    self::STATUS_APPROVED => [self::STATUS_PROCESSING],
-                    self::STATUS_PROCESSING => [self::STATUS_COMPLETED],
+                    self::STATUS_REQUESTED => [self::STATUS_APPROVED, self::STATUS_REJECTED],
+                    self::STATUS_APPROVED => [self::STATUS_COMPLETED],
+        
                 ];
 
                 if (isset($allowed[$current]) && !in_array($next, $allowed[$current])) {

@@ -18,7 +18,8 @@ class Order extends Model
         'shipped_at',
         'cancelled_at',
         'returned_at',
-        'shipping_fee'
+        'shipping_fee',
+        'completed_at'
 
     ];
     protected $casts = [
@@ -26,6 +27,7 @@ class Order extends Model
         'shipped_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'returned_at' => 'datetime',
+        'completed_at' => 'datetime',
         'created_at'=>'datetime',
         'updated_at'=>'datetime'
     ];
@@ -35,9 +37,13 @@ class Order extends Model
     }
     protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';
-    const STATUS_COMPLETED = 'paid';
+    const STATUS_PAID = 'paid';
     const STATUS_DELIVERED = 'delivered';
     const STATUS_CANCELLED = 'cancelled';
+    const STATUS_RETURNED = 'returned';
+    const STATUS_CONFIRMED = 'confirmed';
+    const STATUS_SHIPPING = 'shipping';
+    const STATUS_COMPLETED = 'completed';
 
     public function user()
     {

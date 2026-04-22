@@ -1,47 +1,53 @@
 <?php
 
-namespace App\Http\Controllers\api\v1;
+namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use ImageKit\ImageKit;
 
-class ProfileController extends Controller
+class SettingController extends Controller
 {
-    public function getProfileImage(Request $request)
-    {
-        $user = $request->user();
-
-        if (!$user->image) {
-            return response()->json([
-                'message' => 'No profile image found',
-                'image' => null
-            ], 404);
-        }
-
-        return response()->json([
-            'message' => 'Profile image retrieved successfully',
-            'image' => $user->image
-        ], 200);
-    }
-    public function updateName(Request $request)
+    // Change Name
+    public function changeName(Request $request)
     {
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
         ]);
         $user = auth()->user();
-
         $user->update([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
         ]);
         return response()->json([
-            'message' => 'Name updated successfully',
-            'data' => $user,
+            'message' => 'Name changed successfully',
+            'user' => $user,
         ], 200);
     }
-    public function uploadProfileImage(Request $request)
+    // Change Password
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|string|min:8',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+        $user = auth()->user();
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Current password is incorrect',
+            ], 400);
+        }
+        $user->update([
+            'password' => Hash::make($request->new_password),
+        ]);
+        return response()->json([
+            'message' => 'Password changed successfully',
+        ], 200);
+    }
+    // change profile picture
+    public function changeProfileImage(Request $request)
     {
         $request->validate([
             'image' => 'required|image|max:5120',
@@ -93,5 +99,4 @@ class ProfileController extends Controller
             ], 500);
         }
     }
-
 }
