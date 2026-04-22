@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\V1;
+namespace App\Http\Controllers\Api\v1\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Mail\AdminOrderPlaced;
