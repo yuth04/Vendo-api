@@ -7,6 +7,7 @@ use App\Mail\OrderConfirmedMail;
 use App\Mail\OrderDeliveredMail;
 use App\Mail\OrderShippedMail;
 use App\Models\Order;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -160,39 +161,82 @@ class UpdateStatusController extends Controller
         ]);
     }
     // Payment status update (Admin only)
+    // public function updatePaymentStatus($id, Request $request)
+    // {
+    //     $request->validate([
+    //         'status' => 'required|in:paid,unpaid,refunded',
+    //     ]);
+    //     if (Auth::user()->role !== "admin") {
+    //         return response()->json(['message' => 'Unauthorized'], 403);
+    //     }
+    //     $order = Order::findOrFail($id);
+    //     $payment = $order->payment;
+    //     if (!$payment) {
+    //         return response()->json([
+    //             'message' => 'Payment not found'
+    //         ], 404);
+    //     }
+    //     if ($payment->status == $request->status) {
+    //         return response()->json([
+    //             'message' => 'Payment is already marked as ' . $request->status
+    //         ], 400);
+    //     }
+
+    //     if ($order->status !== 'delivered') {
+    //         return response()->json([
+    //             'message' => 'Only delivered orders can be marked as paid'
+    //         ], 400);
+    //     }
+    //     $payment->update([
+    //         'status' => $request->status,
+    //         'paid_at' => now(),
+    //         'transaction_id' => 'COD-' . $order->order_number,
+    //     ]);
+    //     return response()->json([
+    //         'message' => 'Payment status updated to ' . $request->status . ' successfully',
+    //         'payment' => $payment
+    //     ]);
+    // }
     public function updatePaymentStatus($id, Request $request)
     {
         $request->validate([
             'status' => 'required|in:paid,unpaid,refunded',
         ]);
+
         if (Auth::user()->role !== "admin") {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        $order = Order::findOrFail($id);
-        $payment = $order->payment;
-        if (!$payment) {
-            return response()->json([
-                'message' => 'Payment not found'
-            ], 404);
-        }
+
+        $payment = Payment::with('order')->findOrFail($id);
+
         if ($payment->status == $request->status) {
             return response()->json([
                 'message' => 'Payment is already marked as ' . $request->status
             ], 400);
         }
-   
+
+        $order = $payment->order;
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found for this payment'
+            ], 404);
+        }
+
         if ($order->status !== 'delivered') {
             return response()->json([
-                'message' => 'Only delivered orders can be marked as paid'
+                'message' => 'Only delivered orders can update payment status'
             ], 400);
         }
+
         $payment->update([
             'status' => $request->status,
             'paid_at' => now(),
-            'transaction_id' => 'COD-' . $order->order_number,
+            'transaction_id' => 'PAY-' . $order->order_number,
         ]);
+
         return response()->json([
-            'message' => 'Payment status updated to ' . $request->status . ' successfully',
+            'message' => 'Payment status updated successfully',
             'payment' => $payment
         ]);
     }
