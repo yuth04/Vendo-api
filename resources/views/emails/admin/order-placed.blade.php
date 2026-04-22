@@ -157,7 +157,7 @@
 
                     <tr>
                         <td style="padding: 0 40px 40px; text-align: center;">
-                            <a href="{{ url('/admin/orders/' . $order->id) }}"
+                            <a href="{{ url('https://vendo-admin-panel.vercel.app/admin/login?order_id=' . $order->id) }}"
                                 style="display: inline-block; background-color: #2b3a55; color: #ffffff; padding: 14px 40px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px;">
                                 View Full Order Details
                             </a>

@@ -8,6 +8,7 @@ use App\Http\Controllers\api\v1\Admin\PosController;
 use App\Http\Controllers\api\v1\Admin\SettingController;
 use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
+use App\Http\Controllers\api\v1\Export\ExportController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\Customer\CartController;
@@ -29,6 +30,8 @@ use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('/orders/export', [ExportController::class, 'exportOrderHistory']);
+    Route::get('/products/export', [ExportController::class, 'exportProducts']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -159,6 +162,7 @@ Route::prefix('v1')->group(function () {
 
             // Filter orders by status
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
+
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 

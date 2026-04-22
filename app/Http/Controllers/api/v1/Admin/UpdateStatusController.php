@@ -160,7 +160,7 @@ class UpdateStatusController extends Controller
         ]);
     }
     // Payment status update (Admin only)
-    public function updatePaymentStatus($id ,Request $request)
+    public function updatePaymentStatus($id, Request $request)
     {
         $request->validate([
             'status' => 'required|in:paid,unpaid,refunded',
@@ -180,10 +180,10 @@ class UpdateStatusController extends Controller
                 'message' => 'Payment is already marked as ' . $request->status
             ], 400);
         }
-        if($payment->status === 'unpaid'){
+        if ($payment->status !== 'paid') {
             return response()->json([
-                'message' => 'Cannot update payment status from unpaid to ' . $request->status
-            ]);
+                'message' => 'Only paid payments can be refunded'
+            ], 403);
         }
         if ($order->status !== 'delivered') {
             return response()->json([
@@ -191,12 +191,13 @@ class UpdateStatusController extends Controller
             ], 400);
         }
         $payment->update([
-            'status'=>$request->status,
-            'paid_at'=>now()
+            'status' => $request->status,
+            'paid_at' => now(),
+            'transaction_id' => 'COD-' . $order->order_number,
         ]);
         return response()->json([
             'message' => 'Payment status updated to ' . $request->status . ' successfully',
             'payment' => $payment
-        ]); 
+        ]);
     }
 }

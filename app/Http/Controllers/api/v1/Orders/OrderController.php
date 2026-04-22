@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\v1\Orders;
 
+use App\Exports\OrderHistoryExport;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminOrderPlaced;
 use App\Mail\OrderPlaced;
@@ -9,9 +10,7 @@ use App\Models\Address;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\ProductVariant;
-use App\Models\User;
 use App\Services\BakongService;
-use App\Services\DiscountService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -362,4 +361,6 @@ class OrderController extends Controller
 
         return $pdf->stream('Vendo-Receipt-' . $order->order_number . '.pdf');
     }
+    // Export order history to Excel
+
 }
