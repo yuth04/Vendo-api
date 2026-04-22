@@ -38,11 +38,15 @@ class PosController extends Controller
     {
         $order = Order::with([
             'user',
-            'items.product',
+            'items.variant.product',
             'payment',
-            'address'
-        ])->findOrFail($id);
-
+            'address',
+        ])->find($id);
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found'
+            ], 404);
+        }
         return response()->json([
             'message' => 'Retrieved order details successfully',
             'data' => [
@@ -52,7 +56,7 @@ class PosController extends Controller
                 'status' => $order->status,
                 'payment_status' => optional($order->payment)->status,
                 'payment_method' => optional($order->payment)->payment_method,
-                'shipping_fee'=>$order->shipping_fee,
+                'shipping_fee' => $order->shipping_fee,
                 'customer' => [
                     'first_name' => $order->user->first_name,
                     'last_name' => $order->user->last_name,
@@ -68,7 +72,9 @@ class PosController extends Controller
                         'subtotal' => $item->price * $item->quantity,
                         'size' => $item->size,
                         'color' => $item->color,
-                        'image' => $item->product->image ?? null,
+                        'product_image' => $item->product_image
+                            ?? $item->variant?->product?->image
+                            ?? null,
                     ];
                 }),
             ]

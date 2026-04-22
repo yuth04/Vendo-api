@@ -149,6 +149,7 @@ class OrderController extends Controller
             $order->items()->create([
                 'product_variant_id' => $variant->id,
                 'product_name' => $variant->product->productName,
+                'product_image' => $variant->product->image,
                 'price' => round($price, 2),
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,

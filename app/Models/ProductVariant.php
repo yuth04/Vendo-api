@@ -13,6 +13,7 @@ class ProductVariant extends Model
         'created_at' => 'datetime:d-m-Y',
         'updated_at' => 'datetime:d-m-Y',
     ];
+    
     public function product()
     {
         return $this->belongsTo(Product::class);
