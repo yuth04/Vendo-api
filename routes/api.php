@@ -161,9 +161,9 @@ Route::prefix('v1')->group(function () {
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
 
-            // Filter orders by status
+            // Orders
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
-
+            Route::get('/order-details/{id}',[PosController::class,'orderDetails']);
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
