@@ -71,6 +71,13 @@
                                         <div style="font-size: 15px; color: #1e293b; font-weight: 700;">
                                             #{{ $returnOrder->order_id }}</div>
                                     </td>
+                                           <td align="right" class="mobile-stack">
+                                        <div
+                                            style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                                            Refund Type</div>
+                                        <div style="font-size: 15px; color: #1e293b; font-weight: 700;">
+                                            {{ $returnOrder->type }}</div>
+                                    </td>
                                 </tr>
                             </table>
                         </td>
@@ -101,7 +108,7 @@
                                         <tr>
                                             <td style="padding: 16px; border-bottom: 1px solid #f1f5f9;">
                                                 <div style="color: #1e293b; font-weight: 700; font-size: 14px;">
-                                                    {{ $item->orderItem->product->name ?? 'Product Missing' }}
+                                                    {{ $item->orderItem->product_name ?? 'Product Missing' }}
                                                 </div>
                                                 <div style="color: #94a3b8; font-size: 12px; margin-top: 2px;">
                                                     @if(isset($item->orderItem->color) || isset($item->orderItem->size))
