@@ -24,7 +24,7 @@ class DashboardController extends Controller
             'data' => [
                 'total_orders' => Order::count(),
                 'total_revenue' => Order::where('status', 'delivered')->sum('total_price'),
-                'total_customers' => Order::distinct('id')->count('id'),
+                'total_customers' => User::count(),
                 'total_products' => Product::count(),
                 'total_brands' => Brand::count(),
 
