@@ -218,15 +218,28 @@ class UpdateStatusController extends Controller
             ], 400);
         }
 
-        if ($order->status !== 'delivered' && $order->status !== 'completed') {
+        // Only restrict when marking as PAID
+        if (
+            $request->status === 'paid' &&
+            !in_array($order->status, ['delivered', 'completed'])
+        ) {
             return response()->json([
                 'message' => 'Only delivered or completed orders can be marked as paid'
             ], 400);
         }
+        // Refund only if already paid
+        if ($request->status === 'refunded' && $payment->status !== 'paid') {
+            return response()->json([
+                'message' => 'Only paid orders can be refunded'
+            ], 400);
+        }
         $payment->update([
             'status' => $request->status,
-            'paid_at' => now(),
-            'transaction_id' => 'COD-' . $order->order_number,
+            'paid_at' => $request->status === 'paid' ? now() : $payment->paid_at,
+            'refunded_at' => $request->status === 'refunded' ? now() : $payment->refunded_at,
+            'transaction_id' => $payment->method === 'Cash on Delivery'
+                ? 'COD-' . $order->order_number
+                : $payment->transaction_id,
         ]);
         return response()->json([
             'message' => 'Payment status updated to ' . $request->status . ' successfully',
@@ -235,46 +248,5 @@ class UpdateStatusController extends Controller
     }
 
 
-    // public function updatePaymentStatus($id, Request $request){
-    //     $request->validate([
-    //         'status' => 'required|in:paid,unpaid,refunded',
-    //     ]);
 
-    //     if (Auth::user()->role !== "admin") {
-    //         return response()->json(['message' => 'Unauthorized'], 403);
-    //     }
-
-    //     $payment = Payment::with('order')->findOrFail($id);
-
-    //     if ($payment->status == $request->status) {
-    //         return response()->json([
-    //             'message' => 'Payment is already marked as ' . $request->status
-    //         ], 400);
-    //     }
-
-    //     $order = $payment->order;
-
-    //     if (!$order) {
-    //         return response()->json([
-    //             'message' => 'Order not found for this payment'
-    //         ], 404);
-    //     }
-
-    //     if ($order->status !== 'delivered') {
-    //         return response()->json([
-    //             'message' => 'Only delivered orders can update payment status'
-    //         ], 400);
-    //     }
-
-    //     $payment->update([
-    //         'status' => $request->status,
-    //         'paid_at' => now(),
-    //         'transaction_id' => 'PAY-' . $order->order_number,
-    //     ]);
-
-    //     return response()->json([
-    //         'message' => 'Payment status updated successfully',
-    //         'payment' => $payment
-    //     ]);
-    // }
 }
