@@ -38,8 +38,10 @@ class DashboardController extends Controller
         return response()->json([
             'message' => 'Order Status Distribution',
             'data' => [
+                'total_orders' => Order::count(),
                 'pending' => Order::where('status', 'pending')->count(),
                 'confirmed' => Order::where('status', 'confirmed')->count(),
+                'completed' => Order::where('status', 'completed')->count(),
                 'shipped' => Order::where('status', 'shipping')->count(),
                 'delivered' => Order::where('status', 'delivered')->count(),
                 'cancelled' => Order::where('status', 'cancelled')->count(),
