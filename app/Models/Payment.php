@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    protected $fillable = ['order_id', 'payment_method', 'amount', 'transaction_id', 'payment_reference', 'status', 'paid_at'];
+    protected $fillable = ['order_id', 'payment_method', 'amount', 'transaction_id', 'payment_reference', 'status', 'paid_at', 'refunded_at'];
     protected $casts = [
-        'paid_at' => 'datetime',  
+        'paid_at' => 'datetime',
+        'refunded_at' => 'datetime',
         'created_at' => 'datetime:d-m-Y',
         'updated_at' => 'datetime:d-m-Y',
     ];
