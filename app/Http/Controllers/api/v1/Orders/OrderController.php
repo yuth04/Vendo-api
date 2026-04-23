@@ -353,14 +353,16 @@ class OrderController extends Controller
         if (!$request->hasValidSignature()) {
             abort(403, 'The download link has expired.');
         }
-
+        if (auth()->id() !== $order->user_id) {
+            abort(403, 'Unauthorized access to this invoice.');
+        }
         $order->load(['items.variant.product', 'user', 'address', 'payment']);
 
         $pdf = Pdf::loadView('invoices.receipt', [
             'order' => $order,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->stream('Vendo-Receipt-' . $order->order_number . '.pdf');
+        return $pdf->download('Vendo-Receipt-' . $order->order_number . '.pdf');
     }
     // Export order history to Excel
 
