@@ -86,13 +86,15 @@ class DashboardController extends Controller
     //         'data' => $products
     //     ]);
     // }
-    public function mostSoldProducts()
-    {
+    public function mostSoldProducts(){
         $topProducts = DB::table('order_items')
             ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->where('orders.status', 'completed') 
+            ->join('payments', 'orders.id', '=', 'payments.order_id')
+            ->where('orders.status', 'completed')
+            ->where('payments.status', 'paid')
+
             ->select(
                 'products.id',
                 'products.productName',
@@ -100,7 +102,7 @@ class DashboardController extends Controller
             )
             ->groupBy('products.id', 'products.productName')
             ->orderByDesc('total_sold')
-            ->limit(5)
+            ->take(2)
             ->get();
 
         return response()->json([

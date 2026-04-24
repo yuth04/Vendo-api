@@ -23,8 +23,8 @@ class ReturnOrderController extends Controller
     public function getAll()
     {
         $returns = ReturnOrder::with([
-            'items.orderItem',
-            'images'
+            'items.orderItem'
+          
         ])->get();
 
         return response()->json([
@@ -49,8 +49,7 @@ class ReturnOrderController extends Controller
     public function index()
     {
         $returns = ReturnOrder::with([
-            'items.orderItem.productVariant.product',
-            'images'
+            'items.orderItem.productVariant.product'
         ])
             ->where('user_id', Auth::id())
             ->latest()
@@ -67,7 +66,7 @@ class ReturnOrderController extends Controller
                 'refund_status' => $return->refund_status,
                 'type' => $return->type,
                 'created_at' => $return->created_at->format('Y-m-d H:i:s'),
-
+                'image'=> $return->image,
                 'items' => $return->items->map(function ($item) {
                     return [
                         'return_item_id' => $item->id,
@@ -86,11 +85,7 @@ class ReturnOrderController extends Controller
                     ];
                 }),
 
-                'return_images' => $return->images->map(function ($img) {
-                    return [
-                        'url' => $img->image_path
-                    ];
-                }),
+            
             ];
         });
 
