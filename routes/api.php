@@ -163,7 +163,11 @@ Route::prefix('v1')->group(function () {
 
             // Orders
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
-            Route::get('/order-details/{id}',[PosController::class,'orderDetails']);
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
+            // Returns
+            Route::get('/returns', [PosController::class, 'returnHistory']);
+            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
@@ -209,7 +213,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
-            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);

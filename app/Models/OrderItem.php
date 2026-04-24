@@ -15,7 +15,7 @@ class OrderItem extends Model
         'quantity',
         'size',
         'color',
-        
+
     ];
     protected $hidden = ['created_at', 'updated_at'];
     protected $casts = [
@@ -36,5 +36,8 @@ class OrderItem extends Model
     {
         return $this->belongsTo(Product::class, 'product_id');
     }
-    
+    public function productVariant()
+    {
+        return $this->belongsTo(ProductVariant::class);
+    }
 }
