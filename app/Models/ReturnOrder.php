@@ -31,7 +31,13 @@ class ReturnOrder extends Model
         'status' => 'requested',
         'refund_status' => 'pending',
     ];
-
+    protected $hidden = [
+        'approved_at',
+        'rejected_at',
+        'completed_at',
+        'updated_at',
+        'user_id'
+    ];
 
     // ✅ Status constants
     const STATUS_REQUESTED = 'requested';
@@ -115,9 +121,6 @@ class ReturnOrder extends Model
         return $this->hasMany(ReturnItem::class);
     }
 
-    public function images()
-    {
-        return $this->hasMany(ReturnImage::class);
-    }
+
 
 }
