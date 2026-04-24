@@ -17,7 +17,8 @@ class ReturnOrder extends Model
         'approved_at',
         'rejected_at',
         'completed_at',
-        'type'
+        'type',
+        'image'
     ];
         protected $casts = [
         'approved_at' => 'datetime:d-m-Y',
