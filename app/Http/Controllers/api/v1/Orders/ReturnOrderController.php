@@ -74,7 +74,7 @@ class ReturnOrderController extends Controller
                         'reason' => $item->reason,
 
                         'product' => [
-
+                            'product_id' => $item->orderItem->productVariant->product->id,
                             'name' => $item->orderItem->product_name,
                             'price' => $item->orderItem->price,
                             'size' => $item->orderItem->size,
