@@ -14,7 +14,7 @@ class PosController extends Controller
         $orders = Order::with(['user', 'items'])->latest()->get();
         $data = $orders->map(function ($order) {
             return [
-                'order_id' => $order->id,
+                'id' => $order->id,
                 'order_number' => $order->order_number,
                 'date' => $order->created_at->format('Y-m-d'),
                 'first_name' => $order->user->first_name,
@@ -22,7 +22,6 @@ class PosController extends Controller
                 'email' => $order->user->email,
                 'avatar'=> $order->user->image,
                 'total_price' => $order->total_price,
-                // 'total' => '$' . number_format($order->total_price, 0),
                 'items_count' => $order->items->count(),
                 'status' => $order->status,
                 'payment' => $order->payment->status
@@ -51,7 +50,7 @@ class PosController extends Controller
         return response()->json([
             'message' => 'Retrieved order details successfully',
             'data' => [
-                'order_id' => $order->id,
+                'id' => $order->id,
                 'order_number' => $order->order_number,
                 'date' => $order->created_at->format('Y-m-d H:i:s'),
                 'status' => $order->status,
@@ -67,7 +66,7 @@ class PosController extends Controller
                 'shipping_address' => $order->address,
                 'items' => $order->items->map(function ($item) {
                     return [
-                        'order_item_id' => $item->id,
+                        'id' => $item->id,
                         'product_name' => $item->product_name,
                         'price' => $item->price,
                         'quantity' => $item->quantity,
