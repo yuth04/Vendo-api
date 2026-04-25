@@ -48,12 +48,12 @@ class ReturnOrderController extends Controller
 
     public function index()
     {
-        $returns = ReturnOrder::with([
-            'items.orderItem.productVariant.product'
-        ])
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
+        // $returns = ReturnOrder::with([
+        //     'items.orderItem.productVariant.product'
+        // ])
+        //     ->where('user_id', Auth::id())
+        //     ->latest()
+        //     ->get();
 
         // $data = $returns->map(function ($return) {
         //     return [
