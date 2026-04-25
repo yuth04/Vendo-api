@@ -67,13 +67,13 @@ class ReturnOrderController extends Controller
                 // 'type' => $return->type,
                 'shipping_fee' => $return->order->shipping_fee ?? 'N/A',
                 'total_price' => $return->order->total_price,
-                'created_at' => $return->created_at->format('Y-m-d'),
+                'created_at' => $return->created_at->format('d-m-Y H:i:s'),
                 'image' => $return->image,
                 'payment' => [
                     'payment_method' => optional($return->order->payment)->payment_method ?? 'N/A',
                     'payment_status' => optional($return->order->payment)->status ?? 'N/A',
                     'reference' => $return->order->payment->payment_reference ?? 'N/A',
-                    'paid_at' => optional($return->order->payment)->paid_at ? $return->order->payment->paid_at->format('d-m-Y') : 'N/A',
+                    'paid_at' => optional($return->order->payment)->paid_at ? $return->order->payment->paid_at->format('d-m-Y H:i:s') : 'N/A',
                 ],
                 'customer' => [
                     'first_name' => $return->user->first_name,

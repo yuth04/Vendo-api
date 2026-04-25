@@ -12,7 +12,7 @@ class PosController extends Controller
     // Order History
     public function orderHistory()
     {
-        $orders = Order::with(['user', 'items'])->orderBy('id', 'asc')->latest()->get();
+        $orders = Order::with(['user', 'items'])->latest()->get();
         $data = $orders->map(function ($order) {
             return [
                 'id' => $order->id,
@@ -91,7 +91,7 @@ class PosController extends Controller
                 'id' => $returnOrder->id,
                 'order_number' => $returnOrder->order->order_number,
                 'products' => $returnOrder->items->count(),
-                'date' => $returnOrder->created_at->format('Y-m-d'),
+                'date' => $returnOrder->created_at->format('d-m-Y H:i:s'),
                 'first_name' => $returnOrder->user->first_name,
                 'last_name' => $returnOrder->user->last_name,
                 'email' => $returnOrder->user->email,
