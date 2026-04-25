@@ -88,7 +88,7 @@ class ReturnOrderController extends Controller
         //     ];
         // });
 
-        $returns = ReturnOrder::with(['user', 'items'])->orderBy('id', 'asc')->latest()->get();
+        $returns = ReturnOrder::with(['user', 'items'])->where('user_id',Auth::id())->orderBy('id', 'asc')->latest()->get();
         $data = $returns->map(function ($returnOrder) {
             return [
                 'id' => $returnOrder->id,
