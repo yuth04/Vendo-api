@@ -21,11 +21,11 @@ class ReturnOrder extends Model
         'image'
     ];
         protected $casts = [
-        'approved_at' => 'datetime:d-m-Y',
-        'rejected_at' => 'datetime:d-m-Y',
-        'completed_at' => 'datetime:d-m-Y',   
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'approved_at' => 'datetime:d-m-Y H:i:s',
+        'rejected_at' => 'datetime:d-m-Y H:i:s',
+        'completed_at' => 'datetime:d-m-Y H:i:s',   
+        'created_at' => 'datetime:d-m-Y H:i:s',
+        'updated_at' => 'datetime:d-m-Y H:i:s',
     ];
 
     protected $attributes = [

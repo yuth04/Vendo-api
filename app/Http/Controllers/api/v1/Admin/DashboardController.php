@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ReturnOrder;
 use App\Models\User;
 use App\Notifications\LowStockNotification;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Number;
@@ -17,19 +19,120 @@ use Notification;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $filter = $request->get('filter', 'today');
+        switch ($filter) {
+            case 'today':
+                $start = Carbon::today();
+                $end = Carbon::today()->endOfDay();
+                break;
+
+            case 'week':
+                $start = Carbon::now()->startOfWeek();
+                $end = Carbon::now()->endOfWeek();
+                break;
+
+            case 'month':
+                $start = Carbon::now()->startOfMonth();
+                $end = Carbon::now()->endOfMonth();
+                break;
+
+            case 'year':
+                $start = Carbon::now()->startOfYear();
+                $end = Carbon::now()->endOfYear();
+                break;
+
+            default:
+                $start = Carbon::today();
+                $end = Carbon::today()->endOfDay();
+        }
+        $ordersQuery = Order::whereBetween('created_at', [$start, $end]);
+        $totalOrders = (clone $ordersQuery)->count();
+
+        $totalRevenue = DB::table('payments')
+            ->where('status', 'paid')
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('amount');
+        $statusCounts = [
+            'Pending' => (clone $ordersQuery)->where('status', 'pending')->count(),
+            'Confirmed' => (clone $ordersQuery)->where('status', 'confirmed')->count(),
+            'Shipping' => (clone $ordersQuery)->where('status', 'shipping')->count(),
+            'Delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
+            'Cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
+        ];
+        $chartData = [
+            'total' => array_sum($statusCounts),
+            'labels' => array_keys($statusCounts),
+            'series' => array_values($statusCounts),
+        ];
+        $revenueTrend = DB::table('payments')
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('SUM(amount) as revenue')
+            )
+
+            ->where('status', 'paid')
+            ->whereBetween('created_at', [$start, $end])
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy('date')
+            ->get();
+        $formattedTrend = $revenueTrend->map(function ($item) {
+            return [
+                'date' => Carbon::parse($item->date)->format('M d'), // Apr 22
+                'revenue' => (float) $item->revenue
+            ];
+        });
         return response()->json([
             'message' => 'Welcome to the Dashboard API',
+            'filter' => $filter,
+            'date_range' => [
+                'start' => $start->toDateTimeString(),
+                'end' => $end->toDateTimeString(),
+            ],
             'data' => [
-                'total_orders' => Order::count(),
-                'total_revenue' => Order::where('status', 'delivered')->sum('total_price'),
+                // 'total_orders' => Order::count(),
+                'total_revenue' => $totalRevenue,
+                'active_orders' => (clone $ordersQuery)->where('status', '!=', 'completed')->count(),
                 'total_customers' => User::count(),
                 'total_products' => Product::count(),
                 'total_brands' => Brand::count(),
-
-                'recent_orders' => Order::latest()->take(5)->get()
+                'order_statistics' => [
+                    'total_orders' => $totalOrders,
+                    'pending' => (clone $ordersQuery)->where('status', 'pending')->count(),
+                    'confirmed' => (clone $ordersQuery)->where('status', 'confirmed')->count(),
+                    'completed' => (clone $ordersQuery)->where('status', 'completed')->count(),
+                    'shipped' => (clone $ordersQuery)->where('status', 'shipping')->count(),
+                    'delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
+                    'cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
+                    'returned' => ReturnOrder::where('status', 'completed')->count(),
+                ],
+                'revenue_trend' => $formattedTrend,
+                'top_customers' => User::select('id', 'first_name', 'last_name', 'email')
+                    ->withCount('orders')
+                    ->orderByDesc('orders_count')
+                    ->take(5)
+                    ->get(),
+                'top_sold_products' => DB::table('order_items')
+                    ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
+                    ->join('products', 'product_variants.product_id', '=', 'products.id')
+                    ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                    ->join('payments', 'orders.id', '=', 'payments.order_id')
+                    ->where('payments.status', 'paid')
+                    ->whereBetween('orders.created_at', [$start, $end])
+                    ->select(
+                        'products.id',
+                        'products.productName',
+                        DB::raw('SUM(order_items.quantity) as total_sold')
+                    )
+                    ->groupBy('products.id', 'products.productName')
+                    ->orderByDesc('total_sold')
+                    ->take(5)
+                    ->get(),
+                'order_carts' => $chartData,
+                'recent_orders' => Order::latest()->take(5)->get(),
             ]
+
         ]);
 
     }
@@ -65,28 +168,8 @@ class DashboardController extends Controller
         ]);
     }
     // most sold products
-    // public function mostSoldProducts()
-    // {
-    //     $products = DB::table('products')
-    //         ->join('product_variants', 'products.id', '=', 'product_variants.product_id')
-    //         ->join('order_items', 'product_variants.id', '=', 'order_items.product_variant_id')
-    //         ->select(
-    //             'products.id',
-    //             'products.productName',
-    //             DB::raw('SUM(order_items.quantity) as total_sold'),
-    //             DB::raw('SUM(order_items.quantity * order_items.price) as revenue')
-    //         )
-    //         ->groupBy('products.id', 'products.productName')
-    //         ->orderByDesc('total_sold')
-    //         ->limit(5)
-    //         ->get();
-
-    //     return response()->json([
-    //         'message' => 'Most Sold Products',
-    //         'data' => $products
-    //     ]);
-    // }
-    public function mostSoldProducts(){
+    public function mostSoldProducts()
+    {
         $topProducts = DB::table('order_items')
             ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
@@ -102,7 +185,7 @@ class DashboardController extends Controller
             )
             ->groupBy('products.id', 'products.productName')
             ->orderByDesc('total_sold')
-            ->take(2)
+            ->take(5)
             ->get();
 
         return response()->json([
