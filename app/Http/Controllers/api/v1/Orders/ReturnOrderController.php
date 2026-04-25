@@ -24,7 +24,7 @@ class ReturnOrderController extends Controller
     {
         $returns = ReturnOrder::with([
             'items.orderItem'
-          
+
         ])->get();
 
         return response()->json([
@@ -55,40 +55,56 @@ class ReturnOrderController extends Controller
             ->latest()
             ->get();
 
-        $data = $returns->map(function ($return) {
+        // $data = $returns->map(function ($return) {
+        //     return [
+        //         'return_id' => $return->id,
+        //         'order_id' => $return->order_id,
+        //         'order_number' => $return->order->order_number,
+        //         'reason' => $return->reason,
+        //         'note' => $return->note,
+        //         'status' => $return->status,
+        //         'refund_status' => $return->refund_status,
+        //         // 'type' => $return->type,
+        //         'total_price' => $return->order->total_price,
+        //         'created_at' => $return->created_at->format('Y-m-d'),
+        //         'image'=> $return->image,
+        //         'items' => $return->items->map(function ($item) {
+        //             return [
+        //                 'return_item_id' => $item->id,
+        //                 'quantity' => $item->quantity,
+        //                 'product' => [
+        //                     'product_id' => $item->orderItem->productVariant->product->id,
+        //                     'name' => $item->orderItem->product_name,
+        //                     'price' => $item->orderItem->price,
+        //                     'size' => $item->orderItem->size,
+        //                     'color' => $item->orderItem->color,
+        //                     'image' => $item->orderItem->product_image,
+
+        //                 ]
+        //             ];
+        //         }),
+
+
+        //     ];
+        // });
+
+        $returns = ReturnOrder::with(['user', 'items'])->orderBy('id', 'asc')->latest()->get();
+        $data = $returns->map(function ($returnOrder) {
             return [
-                'return_id' => $return->id,
-                'order_id' => $return->order_id,
-                'order_number' => $return->order->order_number,
-                'reason' => $return->reason,
-                'note' => $return->note,
-                'status' => $return->status,
-                'refund_status' => $return->refund_status,
-                'type' => $return->type,
-                'created_at' => $return->created_at->format('Y-m-d H:i:s'),
-                'image'=> $return->image,
-                'items' => $return->items->map(function ($item) {
-                    return [
-                        'return_item_id' => $item->id,
-                        'quantity' => $item->quantity,
-                        'reason' => $item->reason,
+                'id' => $returnOrder->id,
+                'order_number' => $returnOrder->order->order_number,
+                'products' => $returnOrder->items->count(),
+                'date' => $returnOrder->created_at->format('Y-m-d'),
+                'first_name' => $returnOrder->user->first_name,
+                'last_name' => $returnOrder->user->last_name,
+                'email' => $returnOrder->user->email,
+                'avatar' => $returnOrder->user->image,
+                'status' => $returnOrder->status ?? 'N/A',
+                'payment' => $returnOrder->order->payment->status ?? 'N/A',
+                'total_price' => $returnOrder->order->total_price,
 
-                        'product' => [
-                            'product_id' => $item->orderItem->productVariant->product->id,
-                            'name' => $item->orderItem->product_name,
-                            'price' => $item->orderItem->price,
-                            'size' => $item->orderItem->size,
-                            'color' => $item->orderItem->color,
-                            'image' => $item->orderItem->product_image,
-
-                        ]
-                    ];
-                }),
-
-            
             ];
         });
-
         return response()->json([
             'message' => $data->isEmpty()
                 ? 'No return orders found'
@@ -98,17 +114,46 @@ class ReturnOrderController extends Controller
     }
     public function show($id)
     {
-        $return = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->find($id);
+        $returnOrder = ReturnOrder::with('user', 'items')->where('user_id', Auth::id())->orderBy('id', 'asc')->find($id);
 
-        if (!$return) {
+        if (!$returnOrder) {
             return response()->json([
                 'message' => 'Return order not found.'
             ], 404);
         }
 
         return response()->json([
-            'message' => 'Return order retrieved successfully',
-            'data' => $return
+            'message' => 'Retrieved return order details successfully',
+            'data' => [
+                'id' => $returnOrder->id,
+                'order_number' => $returnOrder->order->order_number,
+                'date' => $returnOrder->created_at->format('Y-m-d H:i:s'),
+                'status' => $returnOrder->status ?? 'N/A',
+                'payment_status' => optional($returnOrder->order->payment)->status ?? 'N/A',
+                'payment_method' => optional($returnOrder->order->payment)->payment_method ?? 'N/A',
+                'shipping_fee' => $returnOrder->order->shipping_fee ?? 'N/A',
+                'total_price' => $returnOrder->order->total_price,
+                'customer' => [
+                    'first_name' => $returnOrder->user->first_name,
+                    'last_name' => $returnOrder->user->last_name,
+                    'email' => $returnOrder->user->email,
+                    'avatar' => $returnOrder->user->image,
+                ],
+                'shipping_address' => $returnOrder->order->address,
+                'items' => $returnOrder->items->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_name' => $item->orderItem->product_name,
+                        'price' => $item->orderItem->price,
+                        'quantity' => $item->orderItem->quantity,
+                        'subtotal' => $item->orderItem->price * $item->quantity,
+                        'size' => $item->orderItem->size,
+                        'color' => $item->orderItem->color,
+                        'product_image' => $item->orderItem->product_image
+                            ?? null,
+                    ];
+                }),
+            ]
         ]);
     }
     public function store(Request $request)
