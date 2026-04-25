@@ -37,7 +37,8 @@ class ReturnOrder extends Model
         'rejected_at',
         'completed_at',
         'updated_at',
-        'user_id'
+        'user_id',
+        'type'
     ];
 
     // ✅ Status constants

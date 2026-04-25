@@ -289,7 +289,11 @@ class ReturnOrderController extends Controller
     public function approve($id)
     {
         $return = ReturnOrder::with('items.orderItem')->findOrFail($id);
-
+        if($return->status === 'approved') {
+            return response()->json([
+                'message' => 'Return request is already approved'
+            ], 400);
+        }
         if ($return->status !== 'requested') {
             return response()->json([
                 'message' => 'Return request is not requested'
@@ -323,7 +327,6 @@ class ReturnOrderController extends Controller
 
             return response()->json([
                 'message' => 'Return approved successfully',
-                'refund_amount' => $refund,
                 'data' => $return
             ]);
 
@@ -343,7 +346,7 @@ class ReturnOrderController extends Controller
         $return = ReturnOrder::findOrFail($id);
 
         if ($return->status !== 'requested') {
-            return response()->json(['message' => 'Invalid status'], 400);
+            return response()->json(['message' => 'Only requested returns can be rejected'], 400);
         }
 
         $return->update([
@@ -353,46 +356,55 @@ class ReturnOrderController extends Controller
 
         return response()->json(['message' => 'Rejected']);
     }
-
     public function complete($id)
     {
-        $return = ReturnOrder::with('items.orderItem.variant')->findOrFail($id);
-        if ($return->status !== 'approved') {
-            return response()->json(['message' => 'Not approved'], 400);
-        }
+        $return = ReturnOrder::with([
+            'items.orderItem.variant',
+            'items.orderItem.product',
+            'user'
+        ])->findOrFail($id);
 
         if ($return->status === 'completed') {
             return response()->json(['message' => 'Already completed'], 400);
+        }
+
+        if ($return->status !== 'approved') {
+            return response()->json(['message' => 'Not approved'], 400);
         }
 
         DB::beginTransaction();
 
         try {
             foreach ($return->items as $item) {
-
-                $variant = optional($item->orderItem)->variant;
-
-                if (!$variant) {
-                    continue; //
+                if (!$item->orderItem || !$item->orderItem->variant) {
+                    continue;
                 }
 
-                // ✅ restock safely
+                $variant = $item->orderItem->variant;
                 $variant->increment('stock', $item->quantity);
             }
 
             $return->update([
                 'status' => 'completed',
                 'completed_at' => now(),
-                'refund_status' => 'processed',
+                'refund_status' => 'refunded',
             ]);
 
             DB::commit();
-            if ($return->user && $return->user->email) {
-                Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
-            }
+
+            DB::afterCommit(function () use ($return) {
+                if ($return->user && $return->user->email) {
+                    Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
+                }
+            });
+
             return response()->json([
                 'message' => 'Return completed successfully',
-                'data' => $return
+                'data' => $return->fresh([
+                    'items.orderItem.variant',
+                    'items.orderItem.product',
+                    // 'user'
+                ])
             ]);
 
         } catch (\Exception $e) {
@@ -404,6 +416,56 @@ class ReturnOrderController extends Controller
             ], 500);
         }
     }
+    // public function complete($id)
+    // {
+    //     $return = ReturnOrder::with('items.orderItem.variant')->findOrFail($id);
+    //     if ($return->status !== 'approved') {
+    //         return response()->json(['message' => 'Not approved'], 400);
+    //     }
+
+    //     if ($return->status === 'completed') {
+    //         return response()->json(['message' => 'Already completed'], 400);
+    //     }
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         foreach ($return->items as $item) {
+
+    //             $variant = optional($item->orderItem)->variant;
+
+    //             if (!$variant) {
+    //                 continue; //
+    //             }
+
+    //             // ✅ restock safely
+    //             $variant->increment('stock', $item->quantity);
+    //         }
+
+    //         $return->update([
+    //             'status' => 'completed',
+    //             'completed_at' => now(),
+    //             'refund_status' => 'processed',
+    //         ]);
+
+    //         DB::commit();
+    //         if ($return->user && $return->user->email) {
+    //             Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
+    //         }
+    //         return response()->json([
+    //             'message' => 'Return completed successfully',
+    //             'data' => $return
+    //         ]);
+
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         return response()->json([
+    //             'message' => 'Failed to complete return',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
     // 
 
 }

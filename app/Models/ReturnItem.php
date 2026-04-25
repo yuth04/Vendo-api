@@ -16,6 +16,9 @@ class ReturnItem extends Model
         'created_at' => 'datetime:d-m-Y',
         'updated_at' => 'datetime:d-m-Y',
     ];
+    protected $hidden =[
+        'reason'
+    ];
     public function returnOrder()
     {
         return $this->belongsTo(ReturnOrder::class);
