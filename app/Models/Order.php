@@ -35,7 +35,7 @@ class Order extends Model
     {
         return $date->format('d-m-Y h:i:s A');
     }
-    protected $hidden = ['created_at', 'updated_at'];
+    protected $hidden = [ 'updated_at'];
     const STATUS_PENDING = 'pending';
     const STATUS_PAID = 'paid';
     const STATUS_DELIVERED = 'delivered';
