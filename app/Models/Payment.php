@@ -10,8 +10,8 @@ class Payment extends Model
     protected $casts = [
         'paid_at' => 'datetime',
         'refunded_at' => 'datetime',
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
     ];
         protected function serializeDate(\DateTimeInterface $date)
     {

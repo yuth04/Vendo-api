@@ -17,7 +17,7 @@ class PosController extends Controller
             return [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
-                'date' => $order->created_at->format('Y-m-d'),
+                'date' => $order->created_at->format('d-m-Y h:i:s A'),
                 'first_name' => $order->user->first_name,
                 'last_name' => $order->user->last_name,
                 'email' => $order->user->email,
@@ -53,7 +53,7 @@ class PosController extends Controller
             'data' => [
                 'id' => $order->id,
                 'order_number' => $order->order_number,
-                'date' => $order->created_at->format('Y-m-d H:i:s'),
+                'date' => $order->created_at->format('d-m-Y h:i:s A'),
                 'status' => $order->status,
                 'payment_status' => optional($order->payment)->status,
                 'payment_method' => optional($order->payment)->payment_method,
@@ -91,7 +91,7 @@ class PosController extends Controller
                 'id' => $returnOrder->id,
                 'order_number' => $returnOrder->order->order_number,
                 'products' => $returnOrder->items->count(),
-                'date' => $returnOrder->created_at->format('d-m-Y H:i:s'),
+                'date' => $returnOrder->created_at->format('d-m-Y h:i:s A'),
                 'first_name' => $returnOrder->user->first_name,
                 'last_name' => $returnOrder->user->last_name,
                 'email' => $returnOrder->user->email,
@@ -130,7 +130,7 @@ class PosController extends Controller
             'data' => [
                 'id' => $returnOrder->id,
                 'order_number' => $returnOrder->order->order_number,
-                'date' => $returnOrder->created_at->format('Y-m-d H:i:s'),
+                'date' => $returnOrder->created_at->format('d-m-Y h:i:s A'),
                 'reason' => $returnOrder->reason,
                 'note' => $returnOrder->note,
                 'status' => $returnOrder->status ?? 'N/A',

@@ -33,7 +33,7 @@ class Order extends Model
     ];
     protected function serializeDate(\DateTimeInterface $date)
     {
-        return $date->format('Y-m-d H:i:s');
+        return $date->format('d-m-Y h:i:s A');
     }
     protected $hidden = ['created_at', 'updated_at'];
     const STATUS_PENDING = 'pending';
