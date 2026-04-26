@@ -109,12 +109,12 @@ class DashboardController extends Controller
             ->orderBy('hour')
             ->get();
         // Map it to ensure it looks clean for your frontend chart
-        $formattedDistribution = $orderDistribution->map(function ($item) {
-            return [
-                'hour' => Carbon::createFromTime($item->hour)->format('g A'),
-                'count' => $item->count
-            ];
-        });
+        // $formattedDistribution = $orderDistribution->map(function ($item) {
+        //     return [
+        //         'hour' => Carbon::createFromTime($item->hour)->format('g A'),
+        //         'count' => $item->count
+        //     ];
+        // });
         $hours = collect(range(0, 23))->map(function ($hour) use ($orderDistribution) {
             $found = $orderDistribution->firstWhere('hour', $hour);
 

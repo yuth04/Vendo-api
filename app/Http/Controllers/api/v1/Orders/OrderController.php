@@ -318,8 +318,7 @@ class OrderController extends Controller
                 'method' => $order->payment->payment_method ?? null,
                 'status' => $order->payment->status ?? null,
                 'reference' => $order->payment->payment_reference ?? null,
-                'paid_at' => $order->payment->paid_at->format('d-m-Y h:i:s A') ?? null,
-                // 'time'=>$order->payment->paid_at->format('h:i:s A') ?? null,
+                'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
             ],
             'address' => [
                 'first_name' => $order->address->first_name ?? null,
