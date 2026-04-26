@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ReturnOrder;
 use App\Models\User;
 use App\Notifications\LowStockNotification;
@@ -122,6 +123,8 @@ class DashboardController extends Controller
                 'customer_count' => $found ? $found->count : 0
             ];
         });
+        // Stock alert data
+        $lowStockProducts = ProductVariant::where('stock', '<=', 5)->get();
         return response()->json([
             'message' => 'Welcome to the Dashboard API',
             'filter' => $filter,
@@ -172,6 +175,7 @@ class DashboardController extends Controller
                     ->get(),
                 // 'order_distribution' => $formattedDistribution,
                 'order_carts' => $chartData,
+                'inventory_alerts'=> $lowStockProducts,
                 'recent_orders' => Order::latest()->take(5)->get()->map(function ($order) {
                     return [
                         'id' => $order->id,

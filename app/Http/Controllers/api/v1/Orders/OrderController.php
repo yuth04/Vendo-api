@@ -313,11 +313,13 @@ class OrderController extends Controller
             'sub_total_price' => round((float) $order->total_price - $shipping, 2),
             'shipping_fee' => $shipping,
             'total_price' => (float) $order->total_price,
+             'created_at' => $order->created_at->format('d-m-Y h:i:s A'),
             'payment' => [
                 'method' => $order->payment->payment_method ?? null,
                 'status' => $order->payment->status ?? null,
                 'reference' => $order->payment->payment_reference ?? null,
-                'paid_at' => $order->payment->paid_at ?? null,
+                'paid_at' => $order->payment->paid_at->format('d-m-Y h:i:s A') ?? null,
+                // 'time'=>$order->payment->paid_at->format('h:i:s A') ?? null,
             ],
             'address' => [
                 'first_name' => $order->address->first_name ?? null,
