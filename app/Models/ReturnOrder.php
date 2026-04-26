@@ -17,7 +17,6 @@ class ReturnOrder extends Model
         'approved_at',
         'rejected_at',
         'completed_at',
-        'type',
         'image'
     ];
         protected $casts = [
@@ -38,7 +37,6 @@ class ReturnOrder extends Model
         'completed_at',
         'updated_at',
         'user_id',
-        'type'
     ];
 
     // ✅ Status constants
