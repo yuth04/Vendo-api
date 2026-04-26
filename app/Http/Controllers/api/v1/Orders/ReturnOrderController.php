@@ -254,7 +254,8 @@ class ReturnOrderController extends Controller
             ReturnItem::create([
                 'return_order_id' => $returnOrder->id,
                 'order_item_id' => $request->order_item_id,
-                'quantity' => $request->quantity
+                'quantity' => $request->quantity,
+                'reason' => $request->reason,
             ]);
 
             DB::commit();

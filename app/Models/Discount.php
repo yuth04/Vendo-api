@@ -19,8 +19,8 @@ class Discount extends Model
     ];
     protected $hidden = ['created_at', 'updated_at', 'discount_price', 'product_id'];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
     ];
     public function products()
     {
