@@ -231,7 +231,7 @@ Route::prefix('v1')->group(function () {
 
             // Dashboard Stats
             Route::prefix('/dashboard')->group(function () {
-                Route::get('/', [DashboardController::class, 'index']);
+                Route::get('/', [DashboardController::class, 'dashboard']);
                 Route::get('/stats', [DashboardController::class, 'stats']);
                 Route::get('/order-stats', [DashboardController::class, 'orderStat']);
                 Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);

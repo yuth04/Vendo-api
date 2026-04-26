@@ -156,7 +156,6 @@ class ReturnOrderController extends Controller
         $request->validate([
             'order_id' => 'required|exists:orders,id',
             'reason' => 'required|string',
-            'type' => 'required|in:refund,exchange',
             'note' => 'nullable|string',
             'order_item_id' => 'required|exists:order_items,id',
             'quantity' => 'required|integer|min:1',
@@ -246,7 +245,6 @@ class ReturnOrderController extends Controller
             $returnOrder = ReturnOrder::create([
                 'user_id' => Auth::id(),
                 'order_id' => $order->id,
-                'type' => $request->type,
                 'reason' => $request->reason,
                 'note' => $request->note,
                 'status' => 'requested',

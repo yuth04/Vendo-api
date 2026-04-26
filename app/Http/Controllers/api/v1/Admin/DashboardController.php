@@ -19,7 +19,7 @@ use Notification;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function dashboard(Request $request)
     {
         $filter = $request->get('filter', 'today');
         switch ($filter) {
@@ -91,7 +91,6 @@ class DashboardController extends Controller
                 'end' => $end->toDateTimeString(),
             ],
             'data' => [
-                // 'total_orders' => Order::count(),
                 'total_revenue' => $totalRevenue,
                 'active_orders' => (clone $ordersQuery)->where('status', '!=', 'completed')->count(),
                 'total_customers' => User::count(),
