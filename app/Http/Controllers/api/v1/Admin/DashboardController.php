@@ -22,30 +22,44 @@ class DashboardController extends Controller
     public function dashboard(Request $request)
     {
         $filter = $request->get('filter', 'today');
-        switch ($filter) {
-            case 'today':
-                $start = Carbon::today();
-                $end = Carbon::today()->endOfDay();
-                break;
 
-            case 'week':
-                $start = Carbon::now()->startOfWeek();
-                $end = Carbon::now()->endOfWeek();
-                break;
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            // Custom date range
+            $start = Carbon::parse($request->start_date)->startOfDay();
+            $end = Carbon::parse($request->end_date)->endOfDay();
 
-            case 'month':
-                $start = Carbon::now()->startOfMonth();
-                $end = Carbon::now()->endOfMonth();
-                break;
+        } elseif ($request->filled('date')) {
+            // Single date
+            $start = Carbon::parse($request->date)->startOfDay();
+            $end = Carbon::parse($request->date)->endOfDay();
 
-            case 'year':
-                $start = Carbon::now()->startOfYear();
-                $end = Carbon::now()->endOfYear();
-                break;
+        } else {
+            // Default filters
+            switch ($filter) {
+                case 'today':
+                    $start = Carbon::today();
+                    $end = Carbon::today()->endOfDay();
+                    break;
 
-            default:
-                $start = Carbon::today();
-                $end = Carbon::today()->endOfDay();
+                case 'week':
+                    $start = Carbon::now()->startOfWeek();
+                    $end = Carbon::now()->endOfWeek();
+                    break;
+
+                case 'month':
+                    $start = Carbon::now()->startOfMonth();
+                    $end = Carbon::now()->endOfMonth();
+                    break;
+
+                case 'year':
+                    $start = Carbon::now()->startOfYear();
+                    $end = Carbon::now()->endOfYear();
+                    break;
+
+                default:
+                    $start = Carbon::today();
+                    $end = Carbon::today()->endOfDay();
+            }
         }
         $ordersQuery = Order::whereBetween('created_at', [$start, $end]);
         $totalOrders = (clone $ordersQuery)->count();
@@ -83,6 +97,31 @@ class DashboardController extends Controller
                 'revenue' => (float) $item->revenue
             ];
         });
+        // Query order distribution by hour
+        $orderDistribution = Order::whereBetween('created_at', [$start, $end])
+            ->select(
+                DB::raw('EXTRACT(HOUR FROM created_at) as hour'),
+                // DB::raw('count(*) as count')
+                DB::raw("COUNT(DISTINCT user_id) as count")
+            )
+            ->groupBy('hour')
+            ->orderBy('hour')
+            ->get();
+        // Map it to ensure it looks clean for your frontend chart
+        $formattedDistribution = $orderDistribution->map(function ($item) {
+            return [
+                'hour' => Carbon::createFromTime($item->hour)->format('g A'),
+                'count' => $item->count
+            ];
+        });
+        $hours = collect(range(0, 23))->map(function ($hour) use ($orderDistribution) {
+            $found = $orderDistribution->firstWhere('hour', $hour);
+
+            return [
+                'hour' => Carbon::createFromTime($hour)->format('g A'),
+                'customer_count' => $found ? $found->count : 0
+            ];
+        });
         return response()->json([
             'message' => 'Welcome to the Dashboard API',
             'filter' => $filter,
@@ -107,11 +146,14 @@ class DashboardController extends Controller
                     'returned' => ReturnOrder::where('status', 'completed')->count(),
                 ],
                 'revenue_trend' => $formattedTrend,
-                'top_customers' => User::select('id', 'first_name', 'last_name', 'email')
+                'top_customers' => User::select('id', 'first_name', 'last_name', 'email', 'image')
                     ->withCount('orders')
                     ->orderByDesc('orders_count')
                     ->take(5)
                     ->get(),
+                'customer_stats' => [
+                    'order_distribution_by_hour' => $hours
+                ],
                 'top_sold_products' => DB::table('order_items')
                     ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
                     ->join('products', 'product_variants.product_id', '=', 'products.id')
@@ -128,8 +170,20 @@ class DashboardController extends Controller
                     ->orderByDesc('total_sold')
                     ->take(5)
                     ->get(),
+                // 'order_distribution' => $formattedDistribution,
                 'order_carts' => $chartData,
-                'recent_orders' => Order::latest()->take(5)->get(),
+                'recent_orders' => Order::latest()->take(5)->get()->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'order_number' => $order->order_number,
+
+                        'first_name' => $order->user->first_name,
+                        'last_name' => $order->user->last_name,
+                        'status' => $order->status,
+                        'total_price' => $order->total_price,
+                        'ordered_at' => $order->created_at->format('d-m-Y h:i:s A'),
+                    ];
+                })->values(),
             ]
 
         ]);
