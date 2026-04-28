@@ -13,7 +13,10 @@ class Payment extends Model
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
     ];
-    
+    // protected function serializeDate(\DateTimeInterface $date)
+    // {
+    //     return $date->format('Y-m-d H:i:s');
+    // }
     protected $hidden = ['created_at', 'updated_at'];
     public function order()
     {

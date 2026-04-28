@@ -124,6 +124,7 @@ class OrderController extends Controller
             'order_number' => 'ODR-' . strtoupper(Str::random(10)),
             'status' => 'pending',
             'total_price' => 0,
+
         ]);
     }
 
@@ -313,7 +314,8 @@ class OrderController extends Controller
             'sub_total_price' => round((float) $order->total_price - $shipping, 2),
             'shipping_fee' => $shipping,
             'total_price' => (float) $order->total_price,
-             'created_at' => $order->created_at->format('d-m-Y h:i:s A'),
+            'created_at' => $order->created_at->format('d-m-Y'),
+            'time' => $order->created_at->format('h:i:s A'),
             'payment' => [
                 'method' => $order->payment->payment_method ?? null,
                 'status' => $order->payment->status ?? null,
