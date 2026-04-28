@@ -2,6 +2,7 @@
 
 
 
+use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -18,7 +19,7 @@ use App\Http\Controllers\api\v1\Marketing\DiscountCategoryController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
-use App\Http\Controllers\api\v1\PermissionController;
+use App\Http\Controllers\api\v1\Admin\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
@@ -213,7 +214,6 @@ Route::prefix('v1')->group(function () {
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
-
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
@@ -240,6 +240,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('/stocks', [DashboardController::class, 'stock']);
                 Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
             });
+            // Notificatons
+            Route::get('/notifications', [NotificationController::class, 'notifications']);
+            Route::post('/notifications/seen/{id}', [NotificationController::class, 'markAsSeen']);
+
         });
 
     });

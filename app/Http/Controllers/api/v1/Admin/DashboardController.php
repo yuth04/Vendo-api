@@ -69,6 +69,7 @@ class DashboardController extends Controller
         }
 
         $ordersQuery = Order::whereBetween('created_at', [$start, $end]);
+        $returnQuery = ReturnOrder::whereBetween('created_at', [$start, $end]);
         $totalOrders = (clone $ordersQuery)->count();
 
         $totalRevenue = DB::table('payments')
@@ -81,8 +82,8 @@ class DashboardController extends Controller
             'Confirmed' => (clone $ordersQuery)->where('status', 'confirmed')->count(),
             'Shipping' => (clone $ordersQuery)->where('status', 'shipping')->count(),
             'Delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
-            'Completed'=>(clone $ordersQuery)->where('status', 'completed')->count(),
-            'Cancelled' => (clone $ordersQuery)->where('status', 'canscelled')->count(),
+            'Completed' => (clone $ordersQuery)->where('status', 'completed')->count(),
+            'Cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
         ];
         $chartData = [
             'total' => array_sum($statusCounts),
@@ -124,7 +125,7 @@ class DashboardController extends Controller
                 'customer_count' => $found ? $found->count : 0
             ];
         });
-        
+
         // Stock alert data
         $lowStockProducts = ProductVariant::where('stock', '<=', 5)->get();
         return response()->json([
@@ -137,7 +138,7 @@ class DashboardController extends Controller
             'data' => [
                 'total_revenue' => $totalRevenue,
                 'active_orders' => (clone $ordersQuery)->where('status', '!=', 'completed')->count(),
-                'total_customers' => User::count(), 
+                'total_customers' => User::count(),
                 'total_products' => Product::count(),
                 'total_brands' => Brand::count(),
                 'order_statistics' => [
@@ -148,7 +149,7 @@ class DashboardController extends Controller
                     'shipped' => (clone $ordersQuery)->where('status', 'shipping')->count(),
                     'delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
                     'cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
-                    'returned' => (clone $ordersQuery)->where('status', 'completed')->count(),
+                    'returned' => (clone $returnQuery)->where('status', 'completed')->count(),
                 ],
                 'revenue_trend' => $formattedTrend,
                 'top_customers' => User::select('id', 'first_name', 'last_name', 'email', 'image')
@@ -196,7 +197,8 @@ class DashboardController extends Controller
                         'last_name' => $order->user->last_name,
                         'status' => $order->status,
                         'total_price' => $order->total_price,
-                        'ordered_at' => $order->created_at->format('d-m-Y h:i:s A'),
+                        'ordered_date' => $order->created_at->format('d-m-Y'),
+                        'time' => $order->created_at->format(' h:i:s A')
                     ];
                 })->values(),
             ]
