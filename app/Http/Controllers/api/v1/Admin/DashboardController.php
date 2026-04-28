@@ -66,7 +66,7 @@ class DashboardController extends Controller
         $totalOrders = (clone $ordersQuery)->count();
 
         $totalRevenue = DB::table('payments')
-            ->where('status', 'paid')
+            ->whereIn('status', ['paid','pending' ])
             ->whereBetween('created_at', [$start, $end])
             ->sum('amount');
         $statusCounts = [
@@ -86,8 +86,7 @@ class DashboardController extends Controller
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('SUM(amount) as revenue')
             )
-
-            ->where('status', 'paid')
+            ->whereIn('status', ['paid', 'pending'])
             ->whereBetween('created_at', [$start, $end])
             ->groupBy(DB::raw('DATE(created_at)'))
             ->orderBy('date')
