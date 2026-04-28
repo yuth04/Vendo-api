@@ -11,7 +11,7 @@ class BrandController extends Controller
 {
     public function index()
     {
-        $brand = Brand::with(['products'])->get();
+        $brand = Brand::with(['products'])->where('status','active')->get();
         return response()->json([
             'message' => "get brands successfully",
             'brands' => $brand
@@ -20,7 +20,7 @@ class BrandController extends Controller
     // show by id
     public function showById($id)
     {
-        $brand = Brand::with('products')->find($id);
+        $brand = Brand::with('products')->where('status','active')->find($id);
 
         if (!$brand) {
             return response()->json([
@@ -36,7 +36,7 @@ class BrandController extends Controller
     // show by Slug
     public function showBySlug($slug)
     {
-        $brand = Brand::with(['products'])->where('slug', $slug)->first();
+        $brand = Brand::with(['products'])->where('status','active')->where('slug', $slug)->first();
 
         if (!$brand) {
             return response()->json([

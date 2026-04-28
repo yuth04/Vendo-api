@@ -41,7 +41,7 @@ class DiscountCategoryController extends Controller
     }
     public function index()
     {
-        $category = DiscountCategory::with('discounts.products')->orderBy('id','asc')->get();
+        $category = DiscountCategory::with('discounts.products')->where('is_active',true)->orderBy('id','asc')->get();
 
         if (!$category) {
             return response()->json([
@@ -61,6 +61,7 @@ class DiscountCategoryController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'banner_image' => 'nullable|image|max:5120',
+            'is_active'=>'nullable|boolean',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
@@ -102,6 +103,7 @@ class DiscountCategoryController extends Controller
             'image_file_id' => $imageFileId,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
+            'is_active'=>$request->is_active
         ]);
 
         return response()->json([
@@ -113,7 +115,7 @@ class DiscountCategoryController extends Controller
 
     public function show($id)
     {
-        $category = DiscountCategory::find($id);
+        $category = DiscountCategory::where('is_active',true)->find($id);
 
         if (!$category) {
             return response()->json([
@@ -141,6 +143,7 @@ class DiscountCategoryController extends Controller
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'banner_image' => 'nullable|image|max:5120',
+            'is_active'=>'nullable|boolean',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
@@ -200,6 +203,7 @@ class DiscountCategoryController extends Controller
             'slug' => $slug,
             'description' => $request->description ?? $discountCategory->description,
             'banner_image' => $imageUrl,
+            'is_active'=>$request->is_active,
             'image_file_id' => $imageFileId,
             'start_date' => $request->start_date ?? $discountCategory->start_date,
             'end_date' => $request->end_date ?? $discountCategory->end_date,

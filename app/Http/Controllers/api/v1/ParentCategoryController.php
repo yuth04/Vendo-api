@@ -11,6 +11,7 @@ class ParentCategoryController extends Controller
     public function index()
     {
         $baseCategories = ParentCategory::with(['categories.products'])
+        ->where('stats',true)
             ->orderBy('id', 'asc')
             ->get()
             ->map(function ($base) {
@@ -57,7 +58,7 @@ class ParentCategoryController extends Controller
     // search by id
     public function search($id)
     {
-        $parentCategories = ParentCategory::with(['categories.products'])->findOrFail($id);
+        $parentCategories = ParentCategory::with(['categories.products'])->where('status','active')->find($id);
         if (!$parentCategories) {
             return response()->json([
                 'message' => 'Search not found',

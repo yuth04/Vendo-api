@@ -17,6 +17,7 @@ class ProductController extends Controller
     {
 
         $products = Product::with(['category', 'brand', 'variants'])
+            ->where('status','active')
             ->orderBy('id', 'asc')
             ->get();
 
@@ -32,6 +33,7 @@ class ProductController extends Controller
     {
         $product = Product::with(['category', 'brand', 'variants'])
             ->whereRaw('slug ILIKE ?', [$slug])
+            ->where('status','active')
             ->first();
 
         if (!$product) {
@@ -48,7 +50,7 @@ class ProductController extends Controller
     public function searchById($id)
     {
         try {
-            $product = Product::with(['category', 'brand', 'variants'])->findOrFail($id);
+            $product = Product::with(['category', 'brand', 'variants'])->where('status','active')->findOrFail($id);
 
             return response()->json([
                 'message' => "search product successfully",
