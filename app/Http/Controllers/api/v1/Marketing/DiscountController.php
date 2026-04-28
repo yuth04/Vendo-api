@@ -63,6 +63,7 @@ class DiscountController extends Controller
             'type' => 'required|in:percent,fixed',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
+            'status'
         ]);
 
         // 1. Check for overlapping discounts for ANY of the products in the array
