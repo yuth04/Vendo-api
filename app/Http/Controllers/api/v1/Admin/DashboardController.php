@@ -81,7 +81,8 @@ class DashboardController extends Controller
             'Confirmed' => (clone $ordersQuery)->where('status', 'confirmed')->count(),
             'Shipping' => (clone $ordersQuery)->where('status', 'shipping')->count(),
             'Delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
-            'Cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
+            'Completed'=>(clone $ordersQuery)->where('status', 'completed')->count(),
+            'Cancelled' => (clone $ordersQuery)->where('status', 'canscelled')->count(),
         ];
         $chartData = [
             'total' => array_sum($statusCounts),
@@ -123,8 +124,7 @@ class DashboardController extends Controller
                 'customer_count' => $found ? $found->count : 0
             ];
         });
-        // New customer
-        $newCustomers = User::whereBetween('created_at', [$start, $end])->count();
+        
         // Stock alert data
         $lowStockProducts = ProductVariant::where('stock', '<=', 5)->get();
         return response()->json([
@@ -153,6 +153,7 @@ class DashboardController extends Controller
                 'revenue_trend' => $formattedTrend,
                 'top_customers' => User::select('id', 'first_name', 'last_name', 'email', 'image')
                     ->withCount('orders')
+                    ->whereHas('orders')
                     ->orderByDesc('orders_count')
                     ->take(5)
                     ->get(),
