@@ -102,9 +102,9 @@ class OrderController extends Controller
         if ($request->filled('address_id')) {
             return Address::where('id', $request->address_id)
                 ->where('user_id', $user->id)
-                ->firstOrFail();
+                ->first();
         }
-
+ 
         return Address::create([
             'user_id' => $user->id,
             'first_name' => $request->first_name,
