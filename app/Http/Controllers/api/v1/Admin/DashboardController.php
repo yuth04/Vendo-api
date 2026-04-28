@@ -42,9 +42,14 @@ class DashboardController extends Controller
                     $end = Carbon::today()->endOfDay();
                     break;
 
+                case 'yesterday':
+                    $start = Carbon::yesterday()->startOfDay();
+                    $end = Carbon::yesterday()->endOfDay();
+                    break;
+
                 case 'week':
-                    $start = Carbon::now()->startOfWeek();
-                    $end = Carbon::now()->endOfWeek();
+                    $start = Carbon::now()->subWeek()->startOfWeek(Carbon::MONDAY);
+                    $end = Carbon::now()->subWeek()->endOfWeek(Carbon::SUNDAY);
                     break;
 
                 case 'month':
