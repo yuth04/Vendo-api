@@ -175,11 +175,12 @@ Route::prefix('v1')->group(function () {
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
             // Discounts
-            Route::get('/discounts', [ProductPermissionController::class, 'discount']);
+
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
             Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
+            Route::get('discount-categories', [ProductPermissionController::class, 'discountCategory']);
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
@@ -187,12 +188,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
 
             // Carousels
+            Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'update']);
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
 
             // Products
-            Route::get('/products',[ProductPermissionController::class,'index']);
+            Route::get('/products', [ProductPermissionController::class, 'index']);
             Route::post('/products', [ProductController::class, 'store']);
             Route::post('/products/{id}', [ProductController::class, 'update']);
             Route::delete('/products/{id}', [ProductController::class, 'destroy']);
@@ -201,19 +203,21 @@ Route::prefix('v1')->group(function () {
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
             Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
             Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
-
             // Categories
+            Route::get('/categories', [ProductPermissionController::class, 'category']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::post('/categories/{id}', [CategoryController::class, 'update']);
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
             Route::post('/categories/upload-image/{id}', [CategoryController::class, 'uploadImageToCategory']);
 
             // Brands
+            Route::get('/brands', [ProductPermissionController::class, 'brand']);
             Route::post('/brands', [BrandController::class, 'store']);
             Route::post('/brands/{id}', [BrandController::class, 'update']);
             Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
 
             // Parent Categories
+            Route::get('/parent-categories', [ProductPermissionController::class, 'parentCategory']);
             Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
             Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
