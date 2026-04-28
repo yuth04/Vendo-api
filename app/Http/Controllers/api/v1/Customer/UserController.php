@@ -22,7 +22,7 @@ class UserController extends Controller
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
                     'email' => $user->email,
-
+                    'status'=> $user->status,
                     'orders' => $user->orders->map(function ($order) {
                         return [
                             'id' => $order->id,
@@ -80,14 +80,16 @@ class UserController extends Controller
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
             'role' => 'sometimes|string|in:admin,customer',
-            'image' => 'nullable|image|max:5120',
+            'status' => 'string|in:active,inactive',
+            'image' => 'nullable|image|max:5120'
+            
         ]);
-
         $data = $request->only([
             'first_name',
             'last_name',
             'email',
-            'role'
+            'role',
+            'status'
         ]);
 
         $imageKit = new ImageKit(
