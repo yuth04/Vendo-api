@@ -72,7 +72,8 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'brand_id' => 'required|exists:brands,id',
-            'image' => 'nullable|image|max:5120'
+            'image' => 'nullable|image|max:5120',
+            'status' => 'nullable|string|max:50'
         ]);
 
         // ✅ Generate slug
@@ -120,6 +121,7 @@ class ProductController extends Controller
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
+            'status' => $validated['status']
         ]);
 
         return response()->json([

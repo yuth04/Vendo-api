@@ -51,7 +51,7 @@ class ProductVariantController extends Controller
                 'size' => 'required|string|max:50',
                 'color' => 'required|string|max:50',
                 'stock' => 'required|integer|min:0',
-
+                'status' => 'nullable|string|max:50',
                 // ✅ MUST be exactly 4 images
                 'images' => 'required|array|size:4',
                 'images.*' => 'required|image|mimes:jpg,jpeg,png|max:2048',
@@ -62,6 +62,7 @@ class ProductVariantController extends Controller
                 'size' => $validated['size'],
                 'color' => $validated['color'],
                 'stock' => $validated['stock'],
+                'status' => $validated['status'],
             ]);
 
             foreach ($request->file('images') as $index => $image) {

@@ -65,10 +65,15 @@ class DashboardController extends Controller
         $ordersQuery = Order::whereBetween('created_at', [$start, $end]);
         $totalOrders = (clone $ordersQuery)->count();
 
+        // $totalRevenue = DB::table('payments')
+        //     ->where('status', 'paid')
+        //     ->whereBetween('created_at', [$start, $end])
+        //     ->sum('amount');
         $totalRevenue = DB::table('payments')
-            ->whereIn('status', ['paid','pending' ])
-            ->whereBetween('created_at', [$start, $end])
-            ->sum('amount');
+            ->join('orders', 'payments.order_id', '=', 'orders.id')
+            ->where('payments.status', 'paid')
+            ->whereBetween('orders.created_at', [$start, $end])
+            ->sum('payments.amount');
         $statusCounts = [
             'Pending' => (clone $ordersQuery)->where('status', 'pending')->count(),
             'Confirmed' => (clone $ordersQuery)->where('status', 'confirmed')->count(),
@@ -86,7 +91,8 @@ class DashboardController extends Controller
                 DB::raw('DATE(created_at) as date'),
                 DB::raw('SUM(amount) as revenue')
             )
-            ->whereIn('status', ['paid', 'pending'])
+
+            ->where('status', 'paid')
             ->whereBetween('created_at', [$start, $end])
             ->groupBy(DB::raw('DATE(created_at)'))
             ->orderBy('date')
@@ -145,7 +151,7 @@ class DashboardController extends Controller
                     'shipped' => (clone $ordersQuery)->where('status', 'shipping')->count(),
                     'delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
                     'cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
-                    'returned' => (clone $ordersQuery)->where('status', 'completed')->count(),
+                    'returned' => (clone $ordersQuery)->where('status', 'returned')->count(),
                 ],
                 'revenue_trend' => $formattedTrend,
                 'top_customers' => User::select('id', 'first_name', 'last_name', 'email', 'image')
@@ -174,7 +180,7 @@ class DashboardController extends Controller
                     ->get(),
                 // 'order_distribution' => $formattedDistribution,
                 'order_carts' => $chartData,
-                'inventory_alerts'=> $lowStockProducts->map(function($variant){
+                'inventory_alerts' => $lowStockProducts->map(function ($variant) {
                     return [
                         'variant_id' => $variant->id,
                         'product_id' => $variant->product_id,

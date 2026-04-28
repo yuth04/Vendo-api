@@ -15,7 +15,7 @@ class DiscountCategory extends Model
         'is_active',
         'image_file_id',
         'start_date',
-        'end_date',
+        'end_date'
 
     ];
 

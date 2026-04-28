@@ -16,7 +16,8 @@ class Product extends Model
         'brand_id',
         'image',
         'image_file_id',
-        'discount_id'
+        'discount_id',
+        'status',
     ];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
