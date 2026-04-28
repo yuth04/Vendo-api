@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 class ProductController extends Controller
 {
-
+    
     public function index(Request $request)
     {
 

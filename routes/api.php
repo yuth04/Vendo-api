@@ -2,7 +2,9 @@
 
 
 
+use App\Http\Controllers\api\v1\Admin\AdminProductController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
+use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -173,6 +175,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
             // Discounts
+            Route::get('/discounts', [ProductPermissionController::class, 'discount']);
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
@@ -189,10 +192,12 @@ Route::prefix('v1')->group(function () {
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
 
             // Products
+            Route::get('/products',[ProductPermissionController::class,'index']);
             Route::post('/products', [ProductController::class, 'store']);
             Route::post('/products/{id}', [ProductController::class, 'update']);
             Route::delete('/products/{id}', [ProductController::class, 'destroy']);
             // Product Variant images
+            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
             Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
             Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
