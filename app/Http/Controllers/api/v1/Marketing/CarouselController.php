@@ -22,7 +22,7 @@ class CarouselController extends Controller
     }
     public function index()
     {
-        $carousels = Carousel::where('status', 1)
+        $carousels = Carousel::where('status', true)
             ->orderBy('position')
             ->get();
 

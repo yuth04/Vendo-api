@@ -84,7 +84,13 @@ class AuthController extends Controller
                     'errors' => ['email' => 'Invalid email or password']
                 ], 401);
             }
+
             $user = Auth::user();
+            if ($user->status === 'inactive') {
+                return response()->json([
+                    'message' => 'Your account is inactive. Please contact admin.'
+                ], 403);
+            }
             // 2. Check verification
             if (!$user->is_verified) {
                 return response()->json([
