@@ -122,7 +122,8 @@ class ReturnOrderController extends Controller
             'data' => [
                 'id' => $returnOrder->id,
                 'order_number' => $returnOrder->order->order_number,
-                'date' => $returnOrder->created_at->format('Y-m-d H:i:s'),
+                'date' => $returnOrder->created_at->format('Y-m-d'),
+                'time' => $returnOrder->created_at->format('h:i:s A'),
                 'status' => $returnOrder->status ?? 'N/A',
                 'payment_status' => optional($returnOrder->order->payment)->status ?? 'N/A',
                 'payment_method' => optional($returnOrder->order->payment)->payment_method ?? 'N/A',

@@ -146,7 +146,7 @@ class DashboardController extends Controller
                     'shipped' => (clone $ordersQuery)->where('status', 'shipping')->count(),
                     'delivered' => (clone $ordersQuery)->where('status', 'delivered')->count(),
                     'cancelled' => (clone $ordersQuery)->where('status', 'cancelled')->count(),
-                    'returned' => ReturnOrder::where('status', 'completed')->count(),
+                    'returned' => (clone $ordersQuery)->where('status', 'completed')->count(),
                 ],
                 'revenue_trend' => $formattedTrend,
                 'top_customers' => User::select('id', 'first_name', 'last_name', 'email', 'image')
@@ -175,12 +175,20 @@ class DashboardController extends Controller
                     ->get(),
                 // 'order_distribution' => $formattedDistribution,
                 'order_carts' => $chartData,
-                'inventory_alerts'=> $lowStockProducts,
+                'inventory_alerts'=> $lowStockProducts->map(function($variant){
+                    return [
+                        'variant_id' => $variant->id,
+                        'product_id' => $variant->product_id,
+                        'product_name' => $variant->product->productName,
+                        'size' => $variant->size,
+                        'color' => $variant->color,
+                        'stock' => $variant->stock,
+                    ];
+                }),
                 'recent_orders' => Order::latest()->take(5)->get()->map(function ($order) {
                     return [
                         'id' => $order->id,
                         'order_number' => $order->order_number,
-
                         'first_name' => $order->user->first_name,
                         'last_name' => $order->user->last_name,
                         'status' => $order->status,
