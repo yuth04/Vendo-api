@@ -104,7 +104,7 @@ class OrderController extends Controller
                 ->where('user_id', $user->id)
                 ->first();
         }
- 
+
         return Address::create([
             'user_id' => $user->id,
             'first_name' => $request->first_name,
@@ -124,13 +124,15 @@ class OrderController extends Controller
             'order_number' => 'ODR-' . strtoupper(Str::random(10)),
             'status' => 'pending',
             'total_price' => 0,
+            'discount_amount' => 0,
+
 
         ]);
     }
-
     private function processOrderItems(Order $order, array $frontendItems)
     {
         $total = 0;
+        $totalDiscount = 0;
 
         foreach ($frontendItems as $item) {
             $variant = ProductVariant::with('product.discount')
@@ -142,8 +144,26 @@ class OrderController extends Controller
                 throw new \Exception("Insufficient stock for {$variant->product->productName}");
             }
 
-            $price = $variant->product->price;
-            $total += $price * $item['quantity'];
+            $originalPrice = (float) $variant->product->price;
+            $finalPrice = $originalPrice;
+
+            // Check if there is an active discount
+            $discount = $variant->product->discount;
+            if ($discount && $discount->is_active) { // Assuming you have an 'is_active' check
+                // Example: If discount is percentage based
+                if ($discount->type === 'percentage') {
+                    $discountValue = ($originalPrice * $discount->value) / 100;
+                    $finalPrice = $originalPrice - $discountValue;
+                } else {
+                    // Fixed amount discount
+                    $finalPrice = $originalPrice - $discount->value;
+                }
+
+                // Track total discount amount
+                $totalDiscount += ($originalPrice - $finalPrice) * $item['quantity'];
+            }
+
+            $total += $finalPrice * $item['quantity'];
 
             $variant->decrement('stock', $item['quantity']);
 
@@ -151,15 +171,51 @@ class OrderController extends Controller
                 'product_variant_id' => $variant->id,
                 'product_name' => $variant->product->productName,
                 'product_image' => $variant->product->image,
-                'price' => round($price, 2),
+                'price' => round($finalPrice, 2), // Save the price they actually paid
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
             ]);
         }
 
+        // Update the order with the calculated discount
+        $order->update(['discount_amount' => round($totalDiscount, 2)]);
+
         return $total;
     }
+    // private function processOrderItems(Order $order, array $frontendItems)
+    // {
+    //     $total = 0;
+
+    //     foreach ($frontendItems as $item) {
+    //         $variant = ProductVariant::with('product.discount')
+    //             ->where('id', $item['product_variant_id'])
+    //             ->lockForUpdate()
+    //             ->firstOrFail();
+
+    //         if ($variant->stock < $item['quantity']) {
+    //             throw new \Exception("Insufficient stock for {$variant->product->productName}");
+    //         }
+
+    //         $price = $variant->product->price;
+    //         $total += $price * $item['quantity'];
+
+    //         $variant->decrement('stock', $item['quantity']);
+
+    //         $order->items()->create([
+    //             'product_variant_id' => $variant->id,
+    //             'product_name' => $variant->product->productName,
+    //             'product_image' => $variant->product->image,
+    //             'price' => round($price, 2),
+    //             'quantity' => $item['quantity'],
+    //             'size' => $variant->size,
+    //             'color' => $variant->color,
+    //         ]);
+    //     }
+
+
+    //     return $total;
+    // }
 
     private function calculateShipping($province)
     {
@@ -314,6 +370,7 @@ class OrderController extends Controller
             'sub_total_price' => round((float) $order->total_price - $shipping, 2),
             'shipping_fee' => $shipping,
             'total_price' => (float) $order->total_price,
+            'save' => $order->discount_amount,
             'created_at' => $order->created_at->format('d-m-Y'),
             'time' => $order->created_at->format('h:i:s A'),
             'payment' => [

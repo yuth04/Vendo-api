@@ -4,6 +4,7 @@
 
 use App\Http\Controllers\api\v1\Admin\AdminProductController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
+use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
@@ -257,8 +258,17 @@ Route::prefix('v1')->group(function () {
             // Notificatons
             Route::get('/notifications', [NotificationController::class, 'notifications']);
             Route::post('/notifications/seen/{id}', [NotificationController::class, 'markAsSeen']);
+            // Product Damages
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
+            Route::post('/product-damages/{id}', [ProductDamageController::class, 'update']);
+            Route::delete('/product-damages/{id}', [ProductDamageController::class, 'destroy']);
 
-        });
+            // Sales report
+            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
+            // Products report
+            Route::get('/product-reports',[DashboardController::class,'productsReport']);
+            });
 
     });
 });
