@@ -8,6 +8,7 @@ use App\Mail\ReturnCompletedMail;
 use App\Mail\ReturnOrderRequestMail;
 use App\Mail\ReturnStatusUpdatedMail;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\ReturnImage;
 use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
@@ -15,14 +16,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use ImageKit\ImageKit;
 class ReturnOrderController extends Controller
 {
     // view all return (Admin)
     public function getAll()
     {
         $returns = ReturnOrder::with([
-            'items.orderItem',
-            'images'
+            'items.orderItem'
+
         ])->get();
 
         return response()->json([
@@ -30,32 +32,124 @@ class ReturnOrderController extends Controller
             'data' => $returns
         ]);
     }
+    // public function index()
+    // {
+    //     $returns = ReturnOrder::with('items.orderItem', 'images')->where('user_id', Auth::id())->get();
+    //     if ($returns->isEmpty()) {
+    //         return response()->json([
+    //             'message' => 'No return orders found for this user.',
+    //         ]);
+    //     }
+    //     return response()->json([
+    //         'message' => 'Return orders retrieved successfully',
+    //         'data' => $returns
+    //     ]);
+    // }
+
     public function index()
     {
-        $returns = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->get();
-        if ($returns->isEmpty()) {
-            return response()->json([
-                'message' => 'No return orders found for this user.',
-            ]);
-        }
+        $returns = ReturnOrder::with([
+            'items.orderItem.productVariant.product'
+        ])
+            ->where('user_id', Auth::id())
+            ->latest()
+            ->get();
+
+        $data = $returns->map(function ($return) {
+            return [
+                'return_id' => $return->id,
+                'order_id' => $return->order_id,
+                'order_number' => $return->order->order_number,
+                'reason' => $return->reason,
+                'note' => $return->note,
+                'status' => $return->status,
+                // 'refund_status' => $return->refund_status,
+                // 'type' => $return->type,
+                'shipping_fee' => $return->order->shipping_fee ?? 'N/A',
+                'total_price' => $return->order->total_price,
+                'created_at' => $return->created_at->format('d-m-Y H:i:s'),
+                'image' => $return->image,
+                'payment' => [
+                    'payment_method' => optional($return->order->payment)->payment_method ?? 'N/A',
+                    'payment_status' => optional($return->order->payment)->status ?? 'N/A',
+                    'reference' => $return->order->payment->payment_reference ?? 'N/A',
+                    'paid_at' => optional($return->order->payment)->paid_at ? $return->order->payment->paid_at->format('d-m-Y H:i:s') : 'N/A',
+                ],
+                'customer' => [
+                    'first_name' => $return->user->first_name,
+                    'last_name' => $return->user->last_name,
+                    'email' => $return->user->email,
+                    'avatar' => $return->user->image,
+                ],
+                'address' => $return->order->address,
+                'items' => $return->items->map(function ($item) {
+                    return [
+                        'return_item_id' => $item->id,
+                        'quantity' => $item->quantity,
+                        'product' => [
+                            'product_id' => $item->orderItem->productVariant->product->id,
+                            'name' => $item->orderItem->product_name,
+                            'price' => $item->orderItem->price,
+                            'size' => $item->orderItem->size,
+                            'color' => $item->orderItem->color,
+                            'image' => $item->orderItem->product_image,
+
+                        ]
+                    ];
+                }),
+
+
+            ];
+        });
         return response()->json([
             'message' => 'Return orders retrieved successfully',
-            'data' => $returns
+            'data' => $data
         ]);
+
     }
     public function show($id)
     {
-        $return = ReturnOrder::with('items.orderItem.product', 'images')->where('user_id', Auth::id())->find($id);
+        $returnOrder = ReturnOrder::with('user', 'items')->where('user_id', Auth::id())->orderBy('id', 'asc')->find($id);
 
-        if (!$return) {
+        if (!$returnOrder) {
             return response()->json([
                 'message' => 'Return order not found.'
             ], 404);
         }
 
         return response()->json([
-            'message' => 'Return order retrieved successfully',
-            'data' => $return
+            'message' => 'Retrieved return order details successfully',
+            'data' => [
+                'id' => $returnOrder->id,
+                'order_number' => $returnOrder->order->order_number,
+                'date' => $returnOrder->created_at->format('Y-m-d'),
+                'time' => $returnOrder->created_at->format('h:i:s A'),
+                'status' => $returnOrder->status ?? 'N/A',
+                'payment_status' => optional($returnOrder->order->payment)->status ?? 'N/A',
+                'payment_method' => optional($returnOrder->order->payment)->payment_method ?? 'N/A',
+                'shipping_fee' => $returnOrder->order->shipping_fee ?? 'N/A',
+                'total_price' => $returnOrder->order->total_price,
+                'customer' => [
+                    'first_name' => $returnOrder->user->first_name,
+                    'last_name' => $returnOrder->user->last_name,
+                    'email' => $returnOrder->user->email,
+                    'avatar' => $returnOrder->user->image,
+                ],
+                'shipping_address' => $returnOrder->order->address,
+                'items' => $returnOrder->items->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_name' => $item->orderItem->product_name,
+                        'price' => $item->orderItem->price,
+                        'quantity' => $item->orderItem->quantity,
+                        'subtotal' => $item->orderItem->price * $item->quantity,
+                        'size' => $item->orderItem->size,
+                        'color' => $item->orderItem->color,
+                        'product_image' => $item->orderItem->product_image
+                            ?? null,
+                    ];
+                }),
+            ]
         ]);
     }
     public function store(Request $request)
@@ -63,10 +157,10 @@ class ReturnOrderController extends Controller
         $request->validate([
             'order_id' => 'required|exists:orders,id',
             'reason' => 'required|string',
-            'items' => 'required|array',
-            'items.*.order_item_id' => 'required|exists:order_items,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'images.*' => 'nullable|image|mimes:jpg,png|max:2048'
+            'note' => 'nullable|string',
+            'order_item_id' => 'required|exists:order_items,id',
+            'quantity' => 'required|integer|min:1',
+            'image' => 'nullable|image|mimes:jpg,png|max:2048'
         ]);
 
         $order = Order::where('id', $request->order_id)
@@ -75,12 +169,10 @@ class ReturnOrderController extends Controller
 
         if (!$order) {
             return response()->json([
-                'message' => 'Order not found for this user',
-                'auth_id' => Auth::id(),
-                'order_id' => $request->order_id
+                'message' => 'Order not found for this user'
             ], 404);
         }
-        // Only completed orders
+
         if ($order->status !== 'completed') {
             return response()->json([
                 'message' => 'Only completed orders can be returned.'
@@ -93,65 +185,115 @@ class ReturnOrderController extends Controller
             ], 400);
         }
 
-        $completeDate = $order->completed_at;
-
-        // 7 days return window
-        if ($completeDate->copy()->addDays(7)->isPast()) {
+        if ($order->completed_at->copy()->addDays(7)->isPast()) {
             return response()->json([
-                'message' => 'Return request period has expired. Only returns within 7 days of delivery are accepted.'
+                'message' => 'Return period expired (7 days only).'
             ], 400);
         }
 
-        // Prevent duplicate return request
         if (ReturnOrder::where('order_id', $order->id)->exists()) {
             return response()->json([
                 'message' => 'Return request already exists for this order.'
             ], 400);
         }
+
+        $orderItem = OrderItem::where('id', $request->order_item_id)
+            ->where('order_id', $order->id)
+            ->first();
+
+        if (!$orderItem) {
+            return response()->json([
+                'message' => 'Invalid order item.'
+            ], 400);
+        }
+
+        // ✅ Prevent over-return
+        if ($request->quantity > $orderItem->quantity) {
+            return response()->json([
+                'message' => 'Return quantity exceeds purchased quantity.'
+            ], 400);
+        }
+
         DB::beginTransaction();
-        $returnOrder = ReturnOrder::create([
-            'user_id' => Auth::id(),
-            'order_id' => $order->id,
-            'reason' => $request->reason,
-            'note' => $request->note,
-            'status' => 'requested'
-        ]);
-        foreach ($request->items as $item) {
+
+        try {
+            $imageUrl = null;
+
+            // ✅ Upload AFTER validation
+            if ($request->hasFile('image')) {
+                $imageKit = new ImageKit(
+                    config('imagekit.public_key'),
+                    config('imagekit.private_key'),
+                    config('imagekit.url_endpoint')
+                );
+
+                $upload = $imageKit->upload([
+                    'file' => fopen($request->file('image')->getRealPath(), "r"),
+                    'fileName' => $request->file('image')->getClientOriginalName(),
+                    'folder' => '/return-images',
+                ]);
+
+                if (isset($upload->error)) {
+                    return response()->json([
+                        'message' => 'Upload failed',
+                        'error' => $upload->error->message,
+                    ], 400);
+                }
+
+                $imageUrl = $upload->result->url;
+            }
+
+            $returnOrder = ReturnOrder::create([
+                'user_id' => Auth::id(),
+                'order_id' => $order->id,
+                'reason' => $request->reason,
+                'note' => $request->note,
+                'status' => 'requested',
+                'image' => $imageUrl
+            ]);
+
             ReturnItem::create([
                 'return_order_id' => $returnOrder->id,
-                'order_item_id' => $item['order_item_id'],
-                'quantity' => $item['quantity'],
-                'reason' => $item['reason'] ?? null
+                'order_item_id' => $request->order_item_id,
+                'quantity' => $request->quantity,
+                'reason' => $request->reason,
             ]);
-        }
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('returns', 'public');
 
-                ReturnImage::create([
-                    'return_order_id' => $returnOrder->id,
-                    'image_path' => $path
-                ]);
-            }
+            DB::commit();
+
+            $adminEmail = config('mail.admin_email');
+
+            Mail::to($adminEmail)->send(
+                new AdminReturnRequestMail($returnOrder->load('user'))
+            );
+
+            Mail::to($order->user->email)->send(
+                new ReturnOrderRequestMail($returnOrder)
+            );
+
+            return response()->json([
+                'message' => 'Return request submitted successfully.'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Something went wrong',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        DB::commit();
-        $adminEmail = config('mail.admin_email');
-        Mail::to($adminEmail)->send(
-            new AdminReturnRequestMail($returnOrder->load('user'))
-        );
-        Mail::to($order->user->email)->send(
-            new ReturnOrderRequestMail($returnOrder)
-        );
-        return response()->json([
-            'message' => 'Return request submitted successfully.'
-        ]);
     }
 
     // Approve
     public function approve($id)
     {
         $return = ReturnOrder::with('items.orderItem')->findOrFail($id);
-
+        if($return->status === 'approved') {
+            return response()->json([
+                'message' => 'Return request is already approved'
+            ], 400);
+        }
         if ($return->status !== 'requested') {
             return response()->json([
                 'message' => 'Return request is not requested'
@@ -185,7 +327,6 @@ class ReturnOrderController extends Controller
 
             return response()->json([
                 'message' => 'Return approved successfully',
-                'refund_amount' => $refund,
                 'data' => $return
             ]);
 
@@ -205,7 +346,7 @@ class ReturnOrderController extends Controller
         $return = ReturnOrder::findOrFail($id);
 
         if ($return->status !== 'requested') {
-            return response()->json(['message' => 'Invalid status'], 400);
+            return response()->json(['message' => 'Only requested returns can be rejected'], 400);
         }
 
         $return->update([
@@ -215,46 +356,55 @@ class ReturnOrderController extends Controller
 
         return response()->json(['message' => 'Rejected']);
     }
-
     public function complete($id)
     {
-        $return = ReturnOrder::with('items.orderItem.variant')->findOrFail($id);
-        if ($return->status !== 'approved') {
-            return response()->json(['message' => 'Not approved'], 400);
-        }
-        
+        $return = ReturnOrder::with([
+            'items.orderItem.variant',
+            'items.orderItem.product',
+            'user'
+        ])->findOrFail($id);
+
         if ($return->status === 'completed') {
             return response()->json(['message' => 'Already completed'], 400);
+        }
+
+        if ($return->status !== 'approved') {
+            return response()->json(['message' => 'Not approved'], 400);
         }
 
         DB::beginTransaction();
 
         try {
             foreach ($return->items as $item) {
-
-                $variant = optional($item->orderItem)->variant;
-
-                if (!$variant) {
-                    continue; //
+                if (!$item->orderItem || !$item->orderItem->variant) {
+                    continue;
                 }
 
-                // ✅ restock safely
+                $variant = $item->orderItem->variant;
                 $variant->increment('stock', $item->quantity);
             }
 
             $return->update([
                 'status' => 'completed',
                 'completed_at' => now(),
-                'refund_status' => 'processed',
+                'refund_status' => 'refunded',
             ]);
 
             DB::commit();
-            if ($return->user && $return->user->email) {
-                Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
-            }
+
+            DB::afterCommit(function () use ($return) {
+                if ($return->user && $return->user->email) {
+                    Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
+                }
+            });
+
             return response()->json([
                 'message' => 'Return completed successfully',
-                'data' => $return
+                'data' => $return->fresh([
+                    'items.orderItem.variant',
+                    'items.orderItem.product',
+                    // 'user'
+                ])
             ]);
 
         } catch (\Exception $e) {
@@ -266,5 +416,56 @@ class ReturnOrderController extends Controller
             ], 500);
         }
     }
+    // public function complete($id)
+    // {
+    //     $return = ReturnOrder::with('items.orderItem.variant')->findOrFail($id);
+    //     if ($return->status !== 'approved') {
+    //         return response()->json(['message' => 'Not approved'], 400);
+    //     }
+
+    //     if ($return->status === 'completed') {
+    //         return response()->json(['message' => 'Already completed'], 400);
+    //     }
+
+    //     DB::beginTransaction();
+
+    //     try {
+    //         foreach ($return->items as $item) {
+
+    //             $variant = optional($item->orderItem)->variant;
+
+    //             if (!$variant) {
+    //                 continue; //
+    //             }
+
+    //             // ✅ restock safely
+    //             $variant->increment('stock', $item->quantity);
+    //         }
+
+    //         $return->update([
+    //             'status' => 'completed',
+    //             'completed_at' => now(),
+    //             'refund_status' => 'processed',
+    //         ]);
+
+    //         DB::commit();
+    //         if ($return->user && $return->user->email) {
+    //             Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
+    //         }
+    //         return response()->json([
+    //             'message' => 'Return completed successfully',
+    //             'data' => $return
+    //         ]);
+
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+
+    //         return response()->json([
+    //             'message' => 'Failed to complete return',
+    //             'error' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+    // 
 
 }

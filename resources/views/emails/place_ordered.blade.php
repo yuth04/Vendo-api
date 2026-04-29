@@ -130,7 +130,12 @@
 
         <!-- FOOTER -->
         <div style="padding: 0 40px 40px; text-align: center;">
-   
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="{{ $downloadUrl }}"
+                    style="background-color: #2b3a55; color: #ffffff; padding: 12px 20px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                    📄 Download Invoice
+                </a>
+            </div>
 
             <p style="margin: 20px 0 0; color: #94a3b8; font-size: 12px;">
                 We’ll notify you once your order is confirmed. Thank you for shopping with us 💙

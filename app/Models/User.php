@@ -36,8 +36,8 @@ class User extends Authenticatable
     // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
         'verification_code_expire' => 'datetime',
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
     ];
 
     /**

@@ -5,12 +5,14 @@ use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Models\ParentCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class ParentCategoryController extends Controller
 {
     public function index()
     {
         $baseCategories = ParentCategory::with(['categories.products'])
+            ->where('status', true)
             ->orderBy('id', 'asc')
             ->get()
             ->map(function ($base) {
@@ -57,7 +59,7 @@ class ParentCategoryController extends Controller
     // search by id
     public function search($id)
     {
-        $parentCategories = ParentCategory::with(['categories.products'])->findOrFail($id);
+        $parentCategories = ParentCategory::with(['categories.products'])->where('status', 'active')->find($id);
         if (!$parentCategories) {
             return response()->json([
                 'message' => 'Search not found',
@@ -95,7 +97,8 @@ class ParentCategoryController extends Controller
     {
 
         $validated = $request->validate([
-            'name' => "required|string|max:255"
+            'name' => "required|string|max:255",
+            'status'=>"nullable|boolean"
         ]);
         if (ParentCategory::where('name', $validated['name'])->exists()) {
             return response()->json([
@@ -104,7 +107,7 @@ class ParentCategoryController extends Controller
         }
         $parentCategory = ParentCategory::create([
             'name' => $validated['name'],
-            'status' => ''
+            'status' => $validated['status']
         ]);
 
         return response()->json([
@@ -115,17 +118,31 @@ class ParentCategoryController extends Controller
     public function update(Request $request, $id)
     {
         $parentCategory = ParentCategory::find($id);
-        $validated = $request->validate([
-            'name' => "required|string|max:255"
+        // $validated = $request->validate([
+        //     'name' => "required|string|max:255|unique:parent_categories,name,$id",
+        //     'status' => 'required|boolean'
+        // ], [
+        //     'name.unique' => 'This category name already exists.'
+        // ]);
+        $validated = Validator::make($request->all(), [
+            'name' => "required|string|max:255|unique:parent_categories,name,$id",
+            'status' => 'required|in:0,1'
+        ], [
+            'name.unique' => 'This category name already exists.'
         ]);
-        if (ParentCategory::where('name', $validated['name'])->exists()) {
+
+        if ($validated->fails()) {
             return response()->json([
-                'message' => 'Parent category with this name already exists'
-            ], 400);
+                'message' => 'Validation error',
+                'errors' => $validated->errors()
+            ], 422);
         }
-        $parentCategory->update([
-            'name' => $validated['name']
-        ]);
+        $parentCategory->update($validated->validated());
+        // $parentCategory->update([
+        //     'name' => $validated['name'],
+        //     'status' => $validated['status'],
+
+        // ]);
 
         return response()->json([
             'message' => 'Updated successfully',

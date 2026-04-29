@@ -10,11 +10,8 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('return_images', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('return_order_id')->constrained()->cascadeOnDelete();
-            $table->string('image_path');
-            $table->timestamps();
+        Schema::table('orders', function (Blueprint $table) {
+            $table->boolean('is_seen')->default(false);
         });
     }
 
@@ -23,6 +20,8 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::dropIfExists('return_images');
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropColumn('is_seen');
+        });
     }
 };

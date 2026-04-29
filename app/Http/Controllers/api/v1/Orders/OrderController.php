@@ -102,7 +102,7 @@ class OrderController extends Controller
         if ($request->filled('address_id')) {
             return Address::where('id', $request->address_id)
                 ->where('user_id', $user->id)
-                ->firstOrFail();
+                ->first();
         }
 
         return Address::create([
@@ -124,12 +124,15 @@ class OrderController extends Controller
             'order_number' => 'ODR-' . strtoupper(Str::random(10)),
             'status' => 'pending',
             'total_price' => 0,
+            'discount_amount' => 0,
+
+
         ]);
     }
-
     private function processOrderItems(Order $order, array $frontendItems)
     {
         $total = 0;
+        $totalDiscount = 0;
 
         foreach ($frontendItems as $item) {
             $variant = ProductVariant::with('product.discount')
@@ -141,23 +144,78 @@ class OrderController extends Controller
                 throw new \Exception("Insufficient stock for {$variant->product->productName}");
             }
 
-            $price = $variant->product->price;
-            $total += $price * $item['quantity'];
+            $originalPrice = (float) $variant->product->price;
+            $finalPrice = $originalPrice;
+
+            // Check if there is an active discount
+            $discount = $variant->product->discount;
+            if ($discount && $discount->is_active) { // Assuming you have an 'is_active' check
+                // Example: If discount is percentage based
+                if ($discount->type === 'percentage') {
+                    $discountValue = ($originalPrice * $discount->value) / 100;
+                    $finalPrice = $originalPrice - $discountValue;
+                } else {
+                    // Fixed amount discount
+                    $finalPrice = $originalPrice - $discount->value;
+                }
+
+                // Track total discount amount
+                $totalDiscount += ($originalPrice - $finalPrice) * $item['quantity'];
+            }
+
+            $total += $finalPrice * $item['quantity'];
 
             $variant->decrement('stock', $item['quantity']);
 
             $order->items()->create([
                 'product_variant_id' => $variant->id,
                 'product_name' => $variant->product->productName,
-                'price' => round($price, 2),
+                'product_image' => $variant->product->image,
+                'price' => round($finalPrice, 2), // Save the price they actually paid
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
             ]);
         }
 
+        // Update the order with the calculated discount
+        $order->update(['discount_amount' => round($totalDiscount, 2)]);
+
         return $total;
     }
+    // private function processOrderItems(Order $order, array $frontendItems)
+    // {
+    //     $total = 0;
+
+    //     foreach ($frontendItems as $item) {
+    //         $variant = ProductVariant::with('product.discount')
+    //             ->where('id', $item['product_variant_id'])
+    //             ->lockForUpdate()
+    //             ->firstOrFail();
+
+    //         if ($variant->stock < $item['quantity']) {
+    //             throw new \Exception("Insufficient stock for {$variant->product->productName}");
+    //         }
+
+    //         $price = $variant->product->price;
+    //         $total += $price * $item['quantity'];
+
+    //         $variant->decrement('stock', $item['quantity']);
+
+    //         $order->items()->create([
+    //             'product_variant_id' => $variant->id,
+    //             'product_name' => $variant->product->productName,
+    //             'product_image' => $variant->product->image,
+    //             'price' => round($price, 2),
+    //             'quantity' => $item['quantity'],
+    //             'size' => $variant->size,
+    //             'color' => $variant->color,
+    //         ]);
+    //     }
+
+
+    //     return $total;
+    // }
 
     private function calculateShipping($province)
     {
@@ -312,11 +370,14 @@ class OrderController extends Controller
             'sub_total_price' => round((float) $order->total_price - $shipping, 2),
             'shipping_fee' => $shipping,
             'total_price' => (float) $order->total_price,
+            'save' => $order->discount_amount,
+            'created_at' => $order->created_at->format('d-m-Y'),
+            'time' => $order->created_at->format('h:i:s A'),
             'payment' => [
                 'method' => $order->payment->payment_method ?? null,
                 'status' => $order->payment->status ?? null,
                 'reference' => $order->payment->payment_reference ?? null,
-                'paid_at' => $order->payment->paid_at ?? null,
+                'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
             ],
             'address' => [
                 'first_name' => $order->address->first_name ?? null,
@@ -352,14 +413,16 @@ class OrderController extends Controller
         if (!$request->hasValidSignature()) {
             abort(403, 'The download link has expired.');
         }
-
+        if (auth()->id() !== $order->user_id) {
+            abort(403, 'Unauthorized access to this invoice.');
+        }
         $order->load(['items.variant.product', 'user', 'address', 'payment']);
 
         $pdf = Pdf::loadView('invoices.receipt', [
             'order' => $order,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->stream('Vendo-Receipt-' . $order->order_number . '.pdf');
+        return $pdf->download('Vendo-Receipt-' . $order->order_number . '.pdf');
     }
     // Export order history to Excel
 

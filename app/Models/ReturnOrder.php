@@ -17,21 +17,27 @@ class ReturnOrder extends Model
         'approved_at',
         'rejected_at',
         'completed_at',
-        'type'
+        'image'
     ];
         protected $casts = [
-        'approved_at' => 'datetime:d-m-Y',
-        'rejected_at' => 'datetime:d-m-Y',
-        'completed_at' => 'datetime:d-m-Y',   
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'approved_at' => 'datetime:d-m-Y h:i:s A',
+        'rejected_at' => 'datetime:d-m-Y h:i:s A',
+        'completed_at' => 'datetime:d-m-Y h:i:s A',   
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
     ];
 
     protected $attributes = [
         'status' => 'requested',
         'refund_status' => 'pending',
     ];
-
+    protected $hidden = [
+        'approved_at',
+        'rejected_at',
+        'completed_at',
+        'updated_at',
+        'user_id',
+    ];
 
     // ✅ Status constants
     const STATUS_REQUESTED = 'requested';
@@ -115,9 +121,6 @@ class ReturnOrder extends Model
         return $this->hasMany(ReturnItem::class);
     }
 
-    public function images()
-    {
-        return $this->hasMany(ReturnImage::class);
-    }
+
 
 }

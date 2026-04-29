@@ -2,6 +2,10 @@
 
 
 
+use App\Http\Controllers\api\v1\Admin\AdminProductController;
+use App\Http\Controllers\api\v1\Admin\NotificationController;
+use App\Http\Controllers\api\v1\Admin\ProductDamageController;
+use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -18,7 +22,7 @@ use App\Http\Controllers\api\v1\Marketing\DiscountCategoryController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
-use App\Http\Controllers\api\v1\PermissionController;
+use App\Http\Controllers\api\v1\Admin\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
@@ -30,8 +34,16 @@ use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    Route::get('/orders/export', [ExportController::class, 'exportOrderHistory']);
-    Route::get('/products/export', [ExportController::class, 'exportProducts']);
+    Route::get('/orders/excel', [ExportController::class, 'exportOrderHistory']);
+    Route::get('/products/excel', [ExportController::class, 'exportProducts']);
+    Route::get('/sales-report/excel', [ExportController::class, 'exportSalesReport']);
+    Route::get('/products-report/excel', [ExportController::class, 'exportProductsReport']);
+    Route::get('/returns-history/excel', [ExportController::class, 'exportReturnHistoryExcel']);
+    Route::get('/returns-history/pdf', [ExportController::class, 'exportReturnHistoryPdf']);
+    Route::get('/products-report/pdf', [ExportController::class, 'exportProductsPdf']);
+    Route::get('/sales-report/pdf', [ExportController::class, 'exportSalesReportPdf']);
+    Route::get('/orders-history/pdf', [ExportController::class, 'orderHistoryPdf']);
+    Route::get('/products-history/pdf', [ExportController::class, 'productHistoryPdf']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -163,7 +175,11 @@ Route::prefix('v1')->group(function () {
 
             // Orders
             Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
-            Route::get('/order-details/{id}',[PosController::class,'orderDetails']);
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
+            // Returns
+            Route::get('/returns', [PosController::class, 'returnHistory']);
+            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             // Admin
             Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
@@ -172,6 +188,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
             Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
+            Route::get('discount-categories', [ProductPermissionController::class, 'discountCategory']);
+            Route::get('discount-categories/{id}', [ProductPermissionController::class, 'discountCategoryId']);
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
@@ -179,37 +197,47 @@ Route::prefix('v1')->group(function () {
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
 
             // Carousels
+            Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
+            Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'update']);
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
 
             // Products
+            Route::get('/products', [ProductPermissionController::class, 'index']);
+            Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
             Route::post('/products', [ProductController::class, 'store']);
             Route::post('/products/{id}', [ProductController::class, 'update']);
             Route::delete('/products/{id}', [ProductController::class, 'destroy']);
             // Product Variant images
+            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
+            Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
             Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
             Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
-
             // Categories
+            Route::get('/categories', [ProductPermissionController::class, 'category']);
+            Route::get('/categories/{id}', [ProductPermissionController::class, 'categoryId']);
             Route::post('/categories', [CategoryController::class, 'store']);
             Route::post('/categories/{id}', [CategoryController::class, 'update']);
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
             Route::post('/categories/upload-image/{id}', [CategoryController::class, 'uploadImageToCategory']);
 
             // Brands
+            Route::get('/brands', [ProductPermissionController::class, 'brand']);
+            Route::get('/brands/{id}', [ProductPermissionController::class, 'brandId']);
             Route::post('/brands', [BrandController::class, 'store']);
             Route::post('/brands/{id}', [BrandController::class, 'update']);
             Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
 
             // Parent Categories
+            Route::get('/parent-categories', [ProductPermissionController::class, 'parentCategory']);
+            Route::get('/parent-categories/{id}', [ProductPermissionController::class, 'parentCategoryId']);
             Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
             Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
             // Admin view of user orders
-            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/orders', [OrderController::class, 'filterByStatus']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
@@ -227,7 +255,7 @@ Route::prefix('v1')->group(function () {
 
             // Dashboard Stats
             Route::prefix('/dashboard')->group(function () {
-                Route::get('/', [DashboardController::class, 'index']);
+                Route::get('/', [DashboardController::class, 'dashboard']);
                 Route::get('/stats', [DashboardController::class, 'stats']);
                 Route::get('/order-stats', [DashboardController::class, 'orderStat']);
                 Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
@@ -236,6 +264,19 @@ Route::prefix('v1')->group(function () {
                 Route::get('/stocks', [DashboardController::class, 'stock']);
                 Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
             });
+            // Notificatons
+            Route::get('/notifications', [NotificationController::class, 'notifications']);
+            Route::post('/notifications/seen/{id}', [NotificationController::class, 'markAsSeen']);
+            // Product Damages
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
+            Route::post('/product-damages/{id}', [ProductDamageController::class, 'update']);
+            Route::delete('/product-damages/{id}', [ProductDamageController::class, 'destroy']);
+
+            // Sales report
+            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
+            // Products report
+            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
         });
 
     });

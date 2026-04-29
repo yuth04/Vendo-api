@@ -13,8 +13,11 @@ class ReturnItem extends Model
         'reason'
     ];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
+    ];
+    protected $hidden =[
+        'reason'
     ];
     public function returnOrder()
     {

@@ -15,7 +15,7 @@ class DiscountCategory extends Model
         'is_active',
         'image_file_id',
         'start_date',
-        'end_date',
+        'end_date'
 
     ];
 
@@ -23,8 +23,8 @@ class DiscountCategory extends Model
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'is_active' => 'boolean',
-        'created_at' => 'datetime:d-m-Y',
-        'updated_at' => 'datetime:d-m-Y',
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
 
 
     ];

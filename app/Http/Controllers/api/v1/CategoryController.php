@@ -15,6 +15,7 @@ class CategoryController extends Controller
     public function index()
     {
         $categories = Category::with('products')
+            ->where('is_active',true)
             ->orderBy('id', 'asc')
             ->get();
         return response()->json([
@@ -26,7 +27,7 @@ class CategoryController extends Controller
     public function showById($id)
     {
         try {
-            $category = Category::with(['children.products', 'products'])->findOrFail($id);
+            $category = Category::with(['children.products', 'products'])->where('status',true)->findOrFail($id);
             return response()->json([
                 'message' => 'Category found successfully',
                 'category' => $category
