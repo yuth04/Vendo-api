@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -552,7 +553,128 @@ class DashboardController extends Controller
             'data' => $products
         ]);
     }
+    // Sales report
+    public function salesReport(Request $request)
+    {
+        //input date
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
 
+        // Base query
+        $query = Order::with('payment');
+
+        // Apply date 
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [
+                Carbon::parse($startDate)->startOfDay(),
+                Carbon::parse($endDate)->endOfDay()
+            ]);
+        }
+
+        // Clone query 
+        $statsQuery = clone $query;
+
+        $totalOrders = $statsQuery->count();
+
+        $totalEarnings = (clone $statsQuery)
+            ->whereIn('status', ['completed', 'delivered'])
+            ->sum('total_price');
+
+        $totalDiscounts = (clone $statsQuery)->sum('discount_amount');
+        $shippingCharges = (clone $statsQuery)->sum('shipping_fee');
+
+        $orders = $query->latest()->get();
+
+        return response()->json([
+            'filter' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate
+            ],
+            'stats' => [
+                'total_orders' => $totalOrders,
+                'total_earnings' => number_format($totalEarnings, 2),
+                'total_discounts' => number_format($totalDiscounts, 2),
+                'shipping_charges' => number_format($shippingCharges, 2),
+            ],
+            'orders' => $orders->map(function ($order) {
+                return [
+                    'order_id' => '#' . $order->order_number,
+                    'date' => $order->created_at->format('M d, Y'),
+                    'total' => $order->total_price,
+                    'discount' => $order->discount_amount > 0 ? $order->discount_amount : 0,
+                    'shipping' => $order->shipping_fee,
+                    'payment' => [
+                        'method' => optional($order->payment)->payment_method,
+                        'status' => optional($order->payment)->status,
+                    ],
+                    'status' => $order->status,
+                ];
+            })
+        ]);
+    }
+    // Products Report
+    public function productsReport(Request $request)
+    {
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        $query = OrderItem::with(['productVariant.product', 'order']);
+
+        // Only completed/delivered orders
+        $query->whereHas('order', function ($q) {
+            $q->whereIn('status', ['completed', 'delivered']);
+        });
+
+        // Date filter
+        if ($startDate && $endDate) {
+            $query->whereHas('order', function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('created_at', [
+                    Carbon::parse($startDate)->startOfDay(),
+                    Carbon::parse($endDate)->endOfDay()
+                ]);
+            });
+        }
+
+        // Aggregate by product_variant_id
+        $products = $query
+            ->select('product_variant_id')
+            ->selectRaw('SUM(quantity) as total_quantity')
+            ->selectRaw('SUM(price * quantity) as total_revenue')
+            ->groupBy('product_variant_id')
+            ->get();
+
+        // Stats
+        $totalRevenue = $products->sum('total_revenue');
+        $totalQuantity = $products->sum('total_quantity');
+        $totalProduct = $products->count();
+        return response()->json([
+            'filter' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate
+            ],
+            'stats' => [
+                'total_product'=>$totalProduct,
+                'total_quantity_sold' => $totalQuantity,
+                'total_revenue' => number_format($totalRevenue, 2),
+            ],
+            'products' => $products->map(function ($item) {
+                $variant = $item->productVariant;
+                $product = optional($variant)->product;
+
+                return [
+                    'variant_id' => $item->product_variant_id,
+                    'product_name' => optional($product)->productName,
+                    'variant' => [
+                        'size' => optional($variant)->size,
+                        'color' => optional($variant)->color,
+                    ],
+                    'image' => optional($product)->image,
+                    'total_quantity' => (int) $item->total_quantity,
+                    'total_revenue' => (float) $item->total_revenue,
+                ];
+            })
+        ]);
+    }
 
 
 }
