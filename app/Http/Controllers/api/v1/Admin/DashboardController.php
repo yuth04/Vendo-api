@@ -613,8 +613,7 @@ class DashboardController extends Controller
         ]);
     }
     // Products Report
-    public function productsReport(Request $request)
-    {
+    public function productsReport(Request $request){
         $startDate = $request->start_date;
         $endDate = $request->end_date;
 
@@ -674,7 +673,7 @@ class DashboardController extends Controller
                         'size' => optional($variant)->size,
                         'color' => optional($variant)->color,
                     ],
-                    'category' => $product->category->name,
+                    'category' => optional($product->category)->name,
                     'image' => optional($product)->image,
                     'total_quantity' => (int) $item->total_quantity,
 

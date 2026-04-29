@@ -34,8 +34,16 @@ use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
-    Route::get('/orders/export', [ExportController::class, 'exportOrderHistory']);
-    Route::get('/products/export', [ExportController::class, 'exportProducts']);
+    Route::get('/orders/excel', [ExportController::class, 'exportOrderHistory']);
+    Route::get('/products/excel', [ExportController::class, 'exportProducts']);
+    Route::get('/sales-report/excel', [ExportController::class, 'exportSalesReport']);
+    Route::get('/products-report/excel', [ExportController::class, 'exportProductsReport']);
+    Route::get('/returns-history/excel', [ExportController::class, 'exportReturnHistoryExcel']);
+    Route::get('/returns-history/pdf', [ExportController::class, 'exportReturnHistoryPdf']);
+    Route::get('/products-report/pdf', [ExportController::class, 'exportProductsPdf']);
+    Route::get('/sales-report/pdf', [ExportController::class, 'exportSalesReportPdf']);
+    Route::get('/orders-history/pdf', [ExportController::class, 'orderHistoryPdf']);
+    Route::get('/products-history/pdf', [ExportController::class, 'productHistoryPdf']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
