@@ -31,7 +31,11 @@ class GoogleAuthController extends Controller
             $user = User::where('google_id', $googleUser->id)
                 ->orWhere('email', $googleUser->email)
                 ->first();
-
+            if ($user->status === 'inactive') {
+                return response()->json([
+                    'message' => 'Your account is inactive. Please contact admin.'
+                ], 403);
+            }
             if (!$user) {
                 // Create new user
                 $user = User::create([
