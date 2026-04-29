@@ -11,34 +11,7 @@ use ImageKit\ImageKit;
 
 class DiscountCategoryController extends Controller
 {
-    private function formatCategory($category)
-    {
-        return [
-            'id' => $category->id,
-            'title' => $category->title,
-            'slug' => $category->slug,
-            'description' => $category->description,
-            'banner_image' => $category->banner_image,
-            'is_active' => (bool) $category->is_active,
-            'start_date' => $category->start_date,
-            'end_date' => $category->end_date,
-            'products' => $category->discounts->map(fn($discount) => [
-                'id' => $discount->id,
-                'name' => $discount->name,
-                'description' => $discount->description,
-                'amount' => (float) $discount->amount,
-                'type' => $discount->type,
-                'product' => [
-                    'id' => $discount->product->id ?? null,
-                    'name' => $discount->product->productName ?? null,
-                    'slug' => $discount->product->slug ?? null,
-                    'original_price' => (float) ($discount->product->price ?? 0),
-                    'discount_price' => (float) ($discount->product->discount_price ?? 0),
-                    'image' => $discount->product->image ?? null,
-                ]
-            ])
-        ];
-    }
+  
     public function index()
     {
         $category = DiscountCategory::with('discounts.products')->where('is_active',true)->orderBy('id','asc')->get();
@@ -147,7 +120,7 @@ class DiscountCategoryController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
-        $title = $request->title ?? $discountCategory->title;
+        // $title = $request->title ?? $discountCategory->title;
 
         if ($request->has('title') && $request->title !== $discountCategory->title) {
             $slug = Str::slug($request->title);

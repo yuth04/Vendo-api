@@ -647,14 +647,20 @@ class DashboardController extends Controller
         $totalRevenue = $products->sum('total_revenue');
         $totalQuantity = $products->sum('total_quantity');
         $totalProduct = $products->count();
+        $totalCategories = $products
+            ->pluck('productVariant.product.category_id')
+            ->filter()
+            ->unique()
+            ->count();
         return response()->json([
             'filter' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate
             ],
             'stats' => [
-                'total_product'=>$totalProduct,
+                'total_product' => $totalProduct,
                 'total_quantity_sold' => $totalQuantity,
+                'total_categories' => $totalCategories,
                 'total_revenue' => number_format($totalRevenue, 2),
             ],
             'products' => $products->map(function ($item) {
@@ -668,9 +674,10 @@ class DashboardController extends Controller
                         'size' => optional($variant)->size,
                         'color' => optional($variant)->color,
                     ],
+                    'category' => $product->category->name,
                     'image' => optional($product)->image,
                     'total_quantity' => (int) $item->total_quantity,
-                    'total_revenue' => (float) $item->total_revenue,
+
                 ];
             })
         ]);

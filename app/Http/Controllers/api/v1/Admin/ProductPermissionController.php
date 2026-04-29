@@ -197,7 +197,7 @@ class ProductPermissionController extends Controller
             'data' => $category
         ]);
     }
-     public function discountCategoryId($id)
+    public function discountCategoryId($id)
     {
         $category = DiscountCategory::with('discounts.products')->find($id);
 
@@ -216,6 +216,19 @@ class ProductPermissionController extends Controller
     {
         $carousels = Carousel::orderBy('position')
             ->get();
+
+        return response()->json([
+            'message' => 'Carousels retrieved successfully',
+            'carousels' => $carousels
+        ]);
+    }
+    public function carouselId($id)
+    {
+        $carousels = Carousel::orderBy('position')
+            ->find($id);
+        if (!$carousels) {
+            return response()->json(['message' => 'Carousel not found']);
+        }
 
         return response()->json([
             'message' => 'Carousels retrieved successfully',

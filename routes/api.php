@@ -190,6 +190,7 @@ Route::prefix('v1')->group(function () {
 
             // Carousels
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
+            Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'update']);
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
@@ -267,8 +268,8 @@ Route::prefix('v1')->group(function () {
             // Sales report
             Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
             // Products report
-            Route::get('/product-reports',[DashboardController::class,'productsReport']);
-            });
+            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+        });
 
     });
 });

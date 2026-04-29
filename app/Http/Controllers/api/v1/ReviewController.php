@@ -117,6 +117,7 @@ class ReviewController extends Controller
             'rating' => 'nullable|integer|min:1|max:5',
             'comment' => 'nullable|string',
             'image' => 'nullable|image|max:5120', // 5MB
+            
         ]);
 
         $imageUrl = $review->image;
