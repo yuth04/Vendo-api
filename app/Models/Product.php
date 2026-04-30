@@ -46,25 +46,12 @@ class Product extends Model
     public function getFinalPrice()
     {
         $price = (float) $this->price;
-        $discount = $this->discount; // This uses your belongsTo relationship
 
-        // Check if discount exists and is active
-        // Added a date check to ensure it matches what the frontend sees
-        $now = now();
-        $isActive = $discount &&
-            $discount->is_active &&
-            ($discount->start_date === null || $discount->start_date <= $now) &&
-            ($discount->end_date === null || $discount->end_date >= $now);
-
-        if ($isActive) {
-            if ($discount->type === 'percentage') {
-                $price = $price - ($price * ($discount->value / 100));
-            } elseif ($discount->type === 'fixed') {
-                $price = max(0, $price - $discount->value);
-            }
+        if ($this->discount_price && $this->discount_price < $price) {
+            return (float) $this->discount_price;
         }
 
-        return round($price, 2);
+        return $price;
     }
     public function activeDiscount()
     {
