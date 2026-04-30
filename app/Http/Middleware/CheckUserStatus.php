@@ -15,14 +15,17 @@ class CheckUserStatus
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::check() && Auth::user()->status !== 'active') {
+        $user = $request->user();
 
-            Auth::logout();
+        if ($user && $user->status !== 'active') {
+
+            $user->tokens()->delete();
 
             return response()->json([
                 'message' => 'Your account has been deactivated'
             ], 403);
         }
+
         return $next($request);
     }
 }

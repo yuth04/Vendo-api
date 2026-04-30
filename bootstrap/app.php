@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckUserStatus;
 use App\Http\Middleware\EnsureApiUserIsAuthenticated;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -18,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             // 'auth.api' => EnsureApiUserIsAuthenticated::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+        ]);
+    })
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->alias([
+            'check.status' => CheckUserStatus::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

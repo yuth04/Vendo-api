@@ -118,7 +118,10 @@ Route::prefix('v1')->group(function () {
     });
 
     // ------------------- PROTECTED -------------------
-    Route::middleware(['auth:sanctum'])->group(function () {
+    Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
+        Route::get('/user', function (Request $request) {
+            return $request->user();
+        });
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
