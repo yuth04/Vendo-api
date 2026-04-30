@@ -206,6 +206,7 @@ class ExportController extends Controller
 
         return $pdf->download('return_history_' . now()->format('d-m-Y') . '.pdf');
     }
+    // Users
     public function exportUsersExcel()
     {
         return Excel::download(new UsersExport(), 'users.xlsx');
@@ -215,15 +216,23 @@ class ExportController extends Controller
         $startDate = $request->start_date;
         $endDate = $request->end_date;
 
-        $users = User::where('role', 'customer')->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
+        $query = User::where('role', 'customer');
+
+        if ($startDate && $endDate) {
             $query->whereBetween('created_at', [$startDate, $endDate]);
-        })->get();
+        }
+
+        $users = $query->get();
 
         $stats = [
             'total_users' => $users->count(),
             'active_users' => $users->where('status', 'active')->count(),
             'inactive_users' => $users->where('status', 'inactive')->count(),
-            'new_users' => $users->whereBetween('created_at', [$startDate, $endDate])->count(),
+
+            // ✅ always correct
+            'new_users' => User::where('role', 'customer')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->count(),
         ];
 
         $pdf = Pdf::loadView('reports.users', compact('users', 'stats', 'startDate', 'endDate'));
@@ -239,15 +248,26 @@ class ExportController extends Controller
         $startDate = $request->start_date;
         $endDate = $request->end_date;
 
-        $users = User::where('role', 'admin')->when($startDate && $endDate, function ($query) use ($startDate, $endDate) {
-            $query->whereBetween('created_at', [$startDate, $endDate]);
-        })->get();
+        // Base query
+        $query = User::where('role', 'admin');
 
+        // Apply filter for listing
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        }
+
+        $users = $query->get();
         $stats = [
             'total_admins' => $users->count(),
             'active_admins' => $users->where('status', 'active')->count(),
             'inactive_admins' => $users->where('status', 'inactive')->count(),
-            'new_admins' => $users->whereBetween('created_at', [$startDate, $endDate])->count(),
+
+
+            'new_admins' => ($startDate && $endDate)
+                ? User::where('role', 'admin')
+                    ->whereBetween('created_at', [$startDate, $endDate])
+                    ->count()
+                : 0,
         ];
 
         $pdf = Pdf::loadView('reports.admins', compact('users', 'stats', 'startDate', 'endDate'));
