@@ -135,51 +135,68 @@ class OrderController extends Controller
         $totalDiscount = 0;
 
         foreach ($frontendItems as $item) {
-            $variant = ProductVariant::with('product.discount')
+
+            // ✅ Fresh product + discount
+            $variant = ProductVariant::with([
+                'product' => function ($q) {
+                    $q->with('discount');
+                }
+            ])
                 ->where('id', $item['product_variant_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // ❌ stock check
             if ($variant->stock < $item['quantity']) {
                 throw new \Exception("Insufficient stock for {$variant->product->productName}");
             }
 
+            // 💰 original price
             $originalPrice = (float) $variant->product->price;
+
+            // 💡 default final price
             $finalPrice = $originalPrice;
 
-            // Check if there is an active discount
+            // 🎯 discount logic (FIXED)
             $discount = $variant->product->discount;
-            if ($discount && $discount->is_active) { // Assuming you have an 'is_active' check
-                // Example: If discount is percentage based
+
+            if ($discount && $discount->is_active) {
+
                 if ($discount->type === 'percentage') {
-                    $discountValue = ($originalPrice * $discount->value) / 100;
-                    $finalPrice = $originalPrice - $discountValue;
-                } else {
-                    // Fixed amount discount
-                    $finalPrice = $originalPrice - $discount->value;
+                    $finalPrice = $originalPrice - ($originalPrice * $discount->value / 100);
                 }
 
-                // Track total discount amount
-                $totalDiscount += ($originalPrice - $finalPrice) * $item['quantity'];
+                if ($discount->type === 'fixed') {
+                    $finalPrice = max(0, $originalPrice - $discount->value);
+                }
             }
 
-            $total += $finalPrice * $item['quantity'];
+            // 🧮 total calculation (SAFE)
+            $lineTotal = max(0, $finalPrice) * $item['quantity'];
+            $total += $lineTotal;
 
+            // 💸 discount tracking
+            $totalDiscount += ($originalPrice - $finalPrice) * $item['quantity'];
+
+            // 📉 reduce stock
             $variant->decrement('stock', $item['quantity']);
 
+            // 🧾 save order item (FINAL PRICE FIXED)
             $order->items()->create([
                 'product_variant_id' => $variant->id,
                 'product_name' => $variant->product->productName,
                 'product_image' => $variant->product->image,
-                'price' => round($finalPrice, 2), // Save the price they actually paid
+                'price' => round($finalPrice, 2), // ✔ actual paid price
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
             ]);
         }
 
-        // Update the order with the calculated discount
-        $order->update(['discount_amount' => round($totalDiscount, 2)]);
+        // 💾 save total discount to order
+        $order->update([
+            'discount_amount' => round($totalDiscount, 2)
+        ]);
 
         return $total;
     }
