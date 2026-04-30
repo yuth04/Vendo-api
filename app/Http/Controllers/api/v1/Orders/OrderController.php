@@ -154,7 +154,7 @@ class OrderController extends Controller
 
             // 3. Get Prices - Use (float) to ensure mathematical accuracy
             $product = $variant->product;
-            $originalPrice = (float) $product->price;
+            $originalPrice $price = $variant->product->discount_price ?? $variant->product->price;
 
             // This method in your Model must now handle the 20% logic correctly
             $finalPrice = (float) $product->getFinalPrice();
@@ -203,7 +203,7 @@ class OrderController extends Controller
     //             throw new \Exception("Insufficient stock for {$variant->product->productName}");
     //         }
 
-    //         $price = $variant->product->price;
+    //         $price = $variant->product->discount_price ?? $variant->product->price;
     //         $total += $price * $item['quantity'];
 
     //         $variant->decrement('stock', $item['quantity']);
