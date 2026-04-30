@@ -44,6 +44,14 @@ Route::prefix('v1')->group(function () {
     Route::get('/sales-report/pdf', [ExportController::class, 'exportSalesReportPdf']);
     Route::get('/orders-history/pdf', [ExportController::class, 'orderHistoryPdf']);
     Route::get('/products-history/pdf', [ExportController::class, 'productHistoryPdf']);
+    Route::get('/customers/excel', [ExportController::class, 'exportUsersExcel']);
+    Route::get('/customers/pdf', [ExportController::class, 'exportUsersPDF']);
+    Route::get('/admins/excel', [ExportController::class, 'exportAdminsExcel']);
+    Route::get('/admins/pdf', [ExportController::class, 'exportAdminsPDF']);
+    Route::get('/stocks/excel', [ExportController::class, 'exportStock']);
+    Route::get('/stocks/pdf', [ExportController::class, 'exportStockPDF']);
+    Route::get('/variants/excel', [ExportController::class, 'exportVariantsExcel']);
+    Route::get('/variants/pdf', [ExportController::class, 'exportVariantPDF']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -110,7 +118,10 @@ Route::prefix('v1')->group(function () {
     });
 
     // ------------------- PROTECTED -------------------
-    Route::middleware(['auth:sanctum'])->group(function () {
+    Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
+        Route::get('/user', function (Request $request) {
+            return $request->user();
+        });
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);

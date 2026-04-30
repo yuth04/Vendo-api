@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers\api\v1\Export;
 
+use App\Exports\AdminsExport;
 use App\Exports\OrderHistoryExport;
 use App\Exports\ProductExport;
 use App\Exports\ProductsReportExport;
+use App\Exports\ProductVariantsExport;
 use App\Exports\ReturnHistoryExport;
 use App\Exports\SalesReportExport;
+use App\Exports\StockExport;
+use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\ReturnOrder;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -200,4 +206,157 @@ class ExportController extends Controller
 
         return $pdf->download('return_history_' . now()->format('d-m-Y') . '.pdf');
     }
+    // Users
+    public function exportUsersExcel()
+    {
+        return Excel::download(new UsersExport(), 'users.xlsx');
+    }
+    public function exportUsersPDF(Request $request)
+    {
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        $query = User::where('role', 'customer');
+
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        }
+
+        $users = $query->get();
+
+        $stats = [
+            'total_users' => $users->count(),
+            'active_users' => $users->where('status', 'active')->count(),
+            'inactive_users' => $users->where('status', 'inactive')->count(),
+
+            // ✅ always correct
+            'new_users' => User::where('role', 'customer')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->count(),
+        ];
+
+        $pdf = Pdf::loadView('reports.users', compact('users', 'stats', 'startDate', 'endDate'));
+
+        return $pdf->download('users-report.pdf');
+    }
+    public function exportAdminsExcel()
+    {
+        return Excel::download(new AdminsExport(), 'admins.xlsx');
+    }
+    public function exportAdminsPDF(Request $request)
+    {
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        // Base query
+        $query = User::where('role', 'admin');
+
+        // Apply filter for listing
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        }
+
+        $users = $query->get();
+        $stats = [
+            'total_admins' => $users->count(),
+            'active_admins' => $users->where('status', 'active')->count(),
+            'inactive_admins' => $users->where('status', 'inactive')->count(),
+
+
+            'new_admins' => ($startDate && $endDate)
+                ? User::where('role', 'admin')
+                    ->whereBetween('created_at', [$startDate, $endDate])
+                    ->count()
+                : 0,
+        ];
+
+        $pdf = Pdf::loadView('reports.admins', compact('users', 'stats', 'startDate', 'endDate'));
+
+        return $pdf->download('admins-report.pdf');
+    }
+    // Stocks
+    public function exportStock()
+    {
+        return Excel::download(new StockExport(), 'stock-report.xlsx');
+    }
+    public function exportStockPDF()
+    {
+        $products = Product::with('variants')->get();
+
+        $data = $products->map(function ($p) {
+
+            $totalStock = $p->variants->sum('stock');
+            $lowVariants = $p->variants->where('stock', '<=', 5);
+
+            return [
+                'id' => $p->id,
+                'name' => $p->productName,
+                'price' => $p->price,
+                'total_stock' => $totalStock,
+                'low_stock_count' => $lowVariants->count(),
+
+                'status' => match (true) {
+                    $totalStock == 0 => 'OUT_OF_STOCK',
+                    $totalStock <= 5 => 'CRITICAL_LOW',
+                    $totalStock <= 10 => 'LOW',
+                    default => 'IN_STOCK'
+                },
+
+                'alerts' => $lowVariants->map(function ($v) {
+                    return "{$v->size}/{$v->color} ({$v->stock})";
+                })->implode(', ')
+            ];
+        });
+
+        $summary = [
+            'total_products' => $products->count(),
+            'out_of_stock' => $products->filter(fn($p) => $p->variants->sum('stock') == 0)->count(),
+            'low_stock' => $products->filter(fn($p) => $p->variants->sum('stock') <= 10)->count(),
+            'total_units' => $products->sum(fn($p) => $p->variants->sum('stock')),
+        ];
+
+        $pdf = Pdf::loadView('reports.stock_pdf', compact('data', 'summary'));
+
+        return $pdf->download('stock-report.pdf');
+    }
+    // Variants
+    public function exportVariantsExcel()
+    {
+        return Excel::download(new ProductVariantsExport(), 'product-variants.xlsx');
+    }
+    public function exportVariantPDF()
+    {
+        $variants = ProductVariant::with('product')->get();
+
+        $data = $variants->map(function ($v) {
+
+            return [
+                'id' => $v->id,
+                'product' => $v->product->productName ?? '-',
+                'size' => $v->size,
+                'color' => $v->color,
+                'price' => $v->price ?? $v->product->price,
+                'stock' => $v->stock,
+
+                'status' => match (true) {
+                    $v->stock == 0 => 'OUT',
+                    $v->stock <= 2 => 'CRITICAL',
+                    $v->stock <= 5 => 'LOW',
+                    default => 'OK'
+                }
+            ];
+        });
+
+        $summary = [
+            'total_variants' => $variants->count(),
+            'out_of_stock' => $variants->where('stock', 0)->count(),
+            'low_stock' => $variants->where('stock', '<=', 5)->count(),
+            'total_units' => $variants->sum('stock'),
+        ];
+
+        $pdf = Pdf::loadView('reports.variant_pdf', compact('data', 'summary'));
+
+        return $pdf->download('product-variants-report.pdf');
+    }
+
 }

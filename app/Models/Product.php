@@ -43,7 +43,16 @@ class Product extends Model
     {
         return $this->belongsTo(Discount::class);
     }
+    public function getFinalPrice()
+    {
+        $price = (float) $this->price;
 
+        if ($this->discount_price && $this->discount_price < $price) {
+            return (float) $this->discount_price;
+        }
+
+        return $price;
+    }
     public function activeDiscount()
     {
         $now = now();

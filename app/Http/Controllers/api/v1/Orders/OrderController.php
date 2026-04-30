@@ -20,7 +20,14 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
-
+    private function calculateShipping($province)
+    {
+        $province = strtolower($province);
+        if (in_array($province, ['phnom penh', 'ភ្នំពេញ', 'pp'])) {
+            return 1.5;
+        }
+        return 2.0;
+    }
     // Checkout
     public function checkout(Request $request)
     {
@@ -115,7 +122,6 @@ class OrderController extends Controller
             'phone' => $request->phone,
         ]);
     }
-
     private function initializeOrder($user, $address)
     {
         return Order::create([
@@ -135,51 +141,45 @@ class OrderController extends Controller
         $totalDiscount = 0;
 
         foreach ($frontendItems as $item) {
-            $variant = ProductVariant::with('product.discount')
+
+            $variant = ProductVariant::with('product')
                 ->where('id', $item['product_variant_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
 
             if ($variant->stock < $item['quantity']) {
-                throw new \Exception("Insufficient stock for {$variant->product->productName}");
+                throw new \Exception("Insufficient stock for {$variant->product->name}");
             }
 
-            $originalPrice = (float) $variant->product->price;
-            $finalPrice = $originalPrice;
+            $product = $variant->product;
 
-            // Check if there is an active discount
-            $discount = $variant->product->discount;
-            if ($discount && $discount->is_active) { // Assuming you have an 'is_active' check
-                // Example: If discount is percentage based
-                if ($discount->type === 'percentage') {
-                    $discountValue = ($originalPrice * $discount->value) / 100;
-                    $finalPrice = $originalPrice - $discountValue;
-                } else {
-                    // Fixed amount discount
-                    $finalPrice = $originalPrice - $discount->value;
-                }
+            $originalPrice = (float) $product->price;
+            $finalPrice = (float) $product->getFinalPrice();
 
-                // Track total discount amount
-                $totalDiscount += ($originalPrice - $finalPrice) * $item['quantity'];
-            }
+            // prevent negative discount
+            $discountPerUnit = max(0, $originalPrice - $finalPrice);
 
-            $total += $finalPrice * $item['quantity'];
+            $lineTotal = $finalPrice * $item['quantity'];
+
+            $total += $lineTotal;
+            $totalDiscount += $discountPerUnit * $item['quantity'];
 
             $variant->decrement('stock', $item['quantity']);
 
             $order->items()->create([
                 'product_variant_id' => $variant->id,
-                'product_name' => $variant->product->productName,
-                'product_image' => $variant->product->image,
-                'price' => round($finalPrice, 2), // Save the price they actually paid
+                'product_name' => $product->name,
+                'product_image' => $product->image,
+                'price' => round($finalPrice, 2),
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
             ]);
         }
 
-        // Update the order with the calculated discount
-        $order->update(['discount_amount' => round($totalDiscount, 2)]);
+        $order->update([
+            'discount_amount' => round($totalDiscount, 2)
+        ]);
 
         return $total;
     }
@@ -197,7 +197,7 @@ class OrderController extends Controller
     //             throw new \Exception("Insufficient stock for {$variant->product->productName}");
     //         }
 
-    //         $price = $variant->product->price;
+    //         $price = $variant->product->discount_price ?? $variant->product->price;
     //         $total += $price * $item['quantity'];
 
     //         $variant->decrement('stock', $item['quantity']);
@@ -217,14 +217,7 @@ class OrderController extends Controller
     //     return $total;
     // }
 
-    private function calculateShipping($province)
-    {
-        $province = strtolower($province);
-        if (in_array($province, ['phnom penh', 'ភ្នំពេញ', 'pp'])) {
-            return 1.5;
-        }
-        return 2.0;
-    }
+
 
     private function prepareCheckoutResponse(Order $order, Payment $payment)
     {
@@ -262,7 +255,150 @@ class OrderController extends Controller
             'orders' => $orders->map(fn($order) => $this->formatOrder($order))
         ]);
     }
+    private function formatOrder($order)
+    {
+        $shipping = (float) $order->shipping_fee;
 
+        $items = $order->items->map(function ($item) {
+
+            $product = $item->variant->product ?? null;
+
+            // ORIGINAL price (base product price)
+            $originalPrice = (float) ($product->price ?? 0);
+
+            // FINAL price (stored in order item)
+            $finalPrice = $product->discount_price ?? $item->price;
+
+            // discount per unit (safe, never negative)
+
+            return [
+                'id' => $item->id,
+                'quantity' => $item->quantity,
+
+                // PRICES
+                'original_price' => $originalPrice,
+                'discount_price' => $finalPrice,
+                'discount_percent' => $product->discount->amount ?? 0,
+                // subtotal of item (final price)
+                'subtotal' => round($finalPrice * $item->quantity, 2),
+
+                'variant' => [
+                    'id' => $item->product_variant_id,
+                    'size' => $item->size,
+                    'color' => $item->color,
+                ],
+
+                'product' => [
+                    'id' => $product->id ?? null,
+                    'name' => $product->productName ?? null,
+                    'slug' => $product->slug ?? null,
+                    'image' => $product->image ?? null,
+                ],
+            ];
+        });
+
+        // SUBTOTAL (original total before discount)
+        $subTotal = $order->items->sum(function ($item) {
+            $product = $item->variant->product ?? null;
+            $originalPrice = (float) ($product->price ?? 0);
+            return $originalPrice * $item->quantity;
+        });
+
+        // FINAL TOTAL (after discount)
+        $totalAfterDiscount = $order->items->sum(function ($item) {
+            return (float) $item->price * $item->quantity;
+        });
+
+        $discountTotal = max(0, $subTotal - $totalAfterDiscount);
+
+        $totalPrice = $totalAfterDiscount + $shipping;
+
+        return [
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'status' => $order->status,
+            // PRICES
+            'total_price' => round($subTotal, 2),
+            'discount' => round($discountTotal, 2),
+            'shipping_fee' => $shipping,
+            'total_payment' => round($totalPrice, 2),
+            'save' => round($subTotal - $discountTotal, 2),
+            // DATE
+            'created_at' => $order->created_at->format('d-m-Y'),
+            'time' => $order->created_at->format('h:i:s A'),
+            // PAYMENT
+            'payment' => [
+                'method' => $order->payment->payment_method ?? null,
+                'status' => $order->payment->status ?? null,
+                'reference' => $order->payment->payment_reference ?? null,
+                'paid_at' => $order->payment && $order->payment->paid_at
+                    ? $order->payment->paid_at->format('d-m-Y h:i:s A')
+                    : null,
+            ],
+
+            // ADDRESS
+            'address' => [
+                'first_name' => $order->address->first_name ?? null,
+                'last_name' => $order->address->last_name ?? null,
+                'address_line' => $order->address->address_line ?? null,
+                'city' => $order->address->city ?? null,
+                'province' => $order->address->province ?? null,
+                'phone' => $order->address->phone ?? ($order->user->contact ?? null),
+                'note' => $order->note,
+            ],
+
+            // ITEMS
+            'items' => $items,
+        ];
+    }
+    // private function formatOrder($order)
+    // {
+    //     $shipping = (float) ($order->shipping_fee ?? $this->calculateShipping($order->address->province ?? ''));
+
+    //     return [
+    //         'order_id' => $order->id,
+    //         'order_number' => $order->order_number,
+    //         'status' => $order->status,
+    //         'sub_total_price' => round((float) $order->total_price - $shipping, 2),
+    //         'shipping_fee' => $shipping,
+    //         'total_price' => (float) $order->total_price,
+    //         'save' => $order->discount_amount,
+    //         'created_at' => $order->created_at->format('d-m-Y'),
+    //         'time' => $order->created_at->format('h:i:s A'),
+    //         'payment' => [
+    //             'method' => $order->payment->payment_method ?? null,
+    //             'status' => $order->payment->status ?? null,
+    //             'reference' => $order->payment->payment_reference ?? null,
+    //             'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
+    //         ],
+    //         'address' => [
+    //             'first_name' => $order->address->first_name ?? null,
+    //             'last_name' => $order->address->last_name ?? null,
+    //             'address_line' => $order->address->address_line ?? null,
+    //             'city' => $order->address->city ?? null,
+    //             'province' => $order->address->province ?? null,
+    //             'phone' => $order->address->phone ?? $order->user->contact ?? null,
+    //             'note' => $order->note,
+    //         ],
+    //         'items' => $order->items->map(fn($item) => [
+    //             'id' => $item->id,
+    //             'quantity' => $item->quantity,
+    //             'subtotal' => round((float) ($item->price * $item->quantity), 2),
+    //             'variant' => [
+    //                 'id' => $item->product_variant_id,
+    //                 'size' => $item->size,
+    //                 'color' => $item->color,
+    //                 'price' => (float) $item->price,
+    //                 'product' => [
+    //                     'id' => $item->variant->product->id ?? null,
+    //                     'name' => $item->product_name,
+    //                     'slug' => $item->variant->product->slug ?? null,
+    //                     'image' => $item->variant->product->image ?? null,
+    //                 ]
+    //             ]
+    //         ])
+    //     ];
+    // }
     public function filterByStatus(Request $request)
     {
         $status = $request->query('status');
@@ -359,55 +495,6 @@ class OrderController extends Controller
         return response()->json(['message' => 'Order deleted successfully', 'order_id' => $orderId]);
     }
 
-    private function formatOrder($order)
-    {
-        $shipping = (float) ($order->shipping_fee ?? $this->calculateShipping($order->address->province ?? ''));
-
-        return [
-            'order_id' => $order->id,
-            'order_number' => $order->order_number,
-            'status' => $order->status,
-            'sub_total_price' => round((float) $order->total_price - $shipping, 2),
-            'shipping_fee' => $shipping,
-            'total_price' => (float) $order->total_price,
-            'save' => $order->discount_amount,
-            'created_at' => $order->created_at->format('d-m-Y'),
-            'time' => $order->created_at->format('h:i:s A'),
-            'payment' => [
-                'method' => $order->payment->payment_method ?? null,
-                'status' => $order->payment->status ?? null,
-                'reference' => $order->payment->payment_reference ?? null,
-                'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
-            ],
-            'address' => [
-                'first_name' => $order->address->first_name ?? null,
-                'last_name' => $order->address->last_name ?? null,
-                'address_line' => $order->address->address_line ?? null,
-                'city' => $order->address->city ?? null,
-                'province' => $order->address->province ?? null,
-                'phone' => $order->address->phone ?? $order->user->contact ?? null,
-                'note' => $order->note,
-            ],
-            'items' => $order->items->map(fn($item) => [
-                'id' => $item->id,
-                'quantity' => $item->quantity,
-                'subtotal' => round((float) ($item->price * $item->quantity), 2),
-                'variant' => [
-                    'id' => $item->product_variant_id,
-                    'size' => $item->size,
-                    'color' => $item->color,
-                    'price' => (float) $item->price,
-                    'product' => [
-                        'id' => $item->variant->product->id ?? null,
-                        'name' => $item->product_name,
-                        'slug' => $item->variant->product->slug ?? null,
-                        'image' => $item->variant->product->image ?? null,
-                    ]
-                ]
-            ])
-        ];
-    }
-
     public function downloadReceipt(Request $request, Order $order)
     {
         if (!$request->hasValidSignature()) {
@@ -424,6 +511,6 @@ class OrderController extends Controller
 
         return $pdf->download('Vendo-Receipt-' . $order->order_number . '.pdf');
     }
-    // Export order history to Excel
+
 
 }

@@ -31,11 +31,10 @@ class GoogleAuthController extends Controller
             $user = User::where('google_id', $googleUser->id)
                 ->orWhere('email', $googleUser->email)
                 ->first();
-            if ($user->status === 'inactive') {
-                return response()->json([
-                    'message' => 'Your account is inactive. Please contact admin.'
-                ], 403);
+            if ($user && $user->status === 'inactive') {
+                return redirect(config('app.frontend_url') . '/auth/login?error=inactive');
             }
+
             if (!$user) {
                 // Create new user
                 $user = User::create([
@@ -46,8 +45,9 @@ class GoogleAuthController extends Controller
                     'google_id' => $googleUser->id,
                     'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
                     'is_verified' => true,
-                    'email_verified_at' => now(),
-                    'role' => 'customer'
+                    'email_verified_at' => now()->format('d-m-Y h:i:s A'),
+                    'role' => 'customer',
+                    'created_at'=>now()->format('d-m-Y h:i:s A')
                 ]);
                 Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {
