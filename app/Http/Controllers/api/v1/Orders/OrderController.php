@@ -122,7 +122,6 @@ class OrderController extends Controller
             'phone' => $request->phone,
         ]);
     }
-
     private function initializeOrder($user, $address)
     {
         return Order::create([
@@ -142,46 +141,48 @@ class OrderController extends Controller
         $totalDiscount = 0;
 
         foreach ($frontendItems as $item) {
-
-            // Lock + load fresh product + discount
+            // 1. Load the variant with the product and its discount relationship
             $variant = ProductVariant::with(['product.discount'])
                 ->where('id', $item['product_variant_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            // stock validation
+            // 2. Stock validation
             if ($variant->stock < $item['quantity']) {
                 throw new \Exception("Insufficient stock for {$variant->product->productName}");
             }
 
-            //  FINAL PRICE (single source of truth)
-            $finalPrice = (float) $variant->product->getFinalPrice();
+            // 3. Get Prices - Use (float) to ensure mathematical accuracy
+            $product = $variant->product;
+            $originalPrice = (float) $product->price;
 
-            // line total
+            // This method in your Model must now handle the 20% logic correctly
+            $finalPrice = (float) $product->getFinalPrice();
+
+            // 4. Calculate Totals
             $lineTotal = $finalPrice * $item['quantity'];
-
             $total += $lineTotal;
 
-            // discount tracking (optional but correct)
-            $originalPrice = (float) $variant->product->price;
-            $totalDiscount += ($originalPrice - $finalPrice) * $item['quantity'];
+            // 5. Track the discount amount (Original - Final)
+            $discountAmountPerUnit = $originalPrice - $finalPrice;
+            $totalDiscount += ($discountAmountPerUnit * $item['quantity']);
 
-            // reduce stock
+            // 6. Reduce stock
             $variant->decrement('stock', $item['quantity']);
 
-            // create order item
+            // 7. Create the Order Item with the DISCOUNTED price
             $order->items()->create([
                 'product_variant_id' => $variant->id,
-                'product_name' => $variant->product->productName,
-                'product_image' => $variant->product->image,
-                'price' => round($finalPrice, 2),
+                'product_name' => $product->productName,
+                'product_image' => $product->image,
+                'price' => round($finalPrice, 2), // This will now be 73.60
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
             ]);
         }
 
-        // save total discount
+        // 8. Update the order with the total discount saved
         $order->update([
             'discount_amount' => round($totalDiscount, 2)
         ]);
