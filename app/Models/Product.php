@@ -43,7 +43,25 @@ class Product extends Model
     {
         return $this->belongsTo(Discount::class);
     }
+    public function getFinalPrice()
+    {
+        $price = (float) $this->price;
 
+        $discount = $this->discount;
+
+        if ($discount && $discount->is_active) {
+
+            if ($discount->type === 'percentage') {
+                $price = $price - ($price * $discount->value / 100);
+            }
+
+            if ($discount->type === 'fixed') {
+                $price = max(0, $price - $discount->value);
+            }
+        }
+
+        return round($price, 2);
+    }
     public function activeDiscount()
     {
         $now = now();
