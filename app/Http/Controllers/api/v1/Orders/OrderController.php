@@ -154,7 +154,7 @@ class OrderController extends Controller
 
             // 3. Get Prices - Use (float) to ensure mathematical accuracy
             $product = $variant->product;
-            $originalPrice $price = $variant->product->discount_price ?? $variant->product->price;
+            $originalPrice = $variant->product->discount_price ?? $variant->product->price;
 
             // This method in your Model must now handle the 20% logic correctly
             $finalPrice = (float) $product->getFinalPrice();
