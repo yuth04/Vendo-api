@@ -1,124 +1,158 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+
 <head>
     <title>Stock Report</title>
-
     <style>
         body {
-            font-family: DejaVu Sans, Arial, sans-serif;
+            font-family: "Helvetica", "Arial", sans-serif;
             font-size: 12px;
-            color: #333;
-            margin: 10px;
+            color: #5c6770;
+            margin: 20px;
         }
 
         h3 {
-            text-align: center;
-            font-size: 18px;
-            margin-bottom: 5px;
+            color: #2c3e50;
+            font-size: 20px;
+            margin-bottom: 15px;
         }
 
         .stats {
-            display: flex;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            background: #f9f9f9;
+            margin-bottom: 20px;
         }
 
         .stats p {
-            width: 50%;
-            margin: 5px 0;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 11px;
+            margin: 3px 0;
         }
 
         thead {
             background: #2c3e50;
-            color: #fff;
+            color: white;
         }
 
-        th, td {
-            border: 1px solid #ddd;
-            padding: 6px;
-            text-align: center;
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        tbody tr:nth-child(even) {
-            background: #f2f2f2;
+        .report-table thead th {
+            padding: 10px;
+            text-align: left;
+            font-size: 10px;
+        }
+
+        .report-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .product-name {
+            font-weight: bold;
+        }
+
+        .variant-indent {
+            padding-left: 40px;
+            font-style: italic;
+            color: #777;
+        }
+
+        .sku-badge {
+            background: #eee;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
         }
 
         .status {
-            padding: 3px 8px;
-            border-radius: 10px;
-            color: #fff;
-            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: bold;
         }
 
-        .IN_STOCK { background: #27ae60; }
-        .LOW { background: #f39c12; }
-        .CRITICAL_LOW { background: #e67e22; }
-        .OUT_OF_STOCK { background: #e74c3c; }
+        .IN_STOCK {
+            background: #e0f9f1;
+            color: #27ae60;
+        }
 
-        .footer {
-            margin-top: 15px;
-            text-align: center;
-            font-size: 10px;
-            color: #888;
+        .LOW {
+            background: #fff4e5;
+            color: #f39c12;
+        }
+
+        .OUT_OF_STOCK {
+            background: #ffebee;
+            color: #e74c3c;
+        }
+
+        .stock-count {
+            font-weight: bold;
         }
     </style>
 </head>
 
 <body>
 
-<h3>Stock Report</h3>
+    <h3>Stock Report</h3>
 
-<div class="stats">
-    <p><strong>Total Products:</strong> {{ $summary['total_products'] }}</p>
-    <p><strong>Total Units:</strong> {{ $summary['total_units'] }}</p>
-    <p><strong>Out of Stock:</strong> {{ $summary['out_of_stock'] }}</p>
-    <p><strong>Low Stock:</strong> {{ $summary['low_stock'] }}</p>
-</div>
+    <!-- Summary -->
+    <div class="stats">
+        <p><strong>Total Products:</strong> {{ $summary['total_products'] }}</p>
+        <p><strong>Out of Stock:</strong> {{ $summary['out_of_stock'] }}</p>
+        <p><strong>Low Stock:</strong> {{ $summary['low_stock'] }}</p>
+        <p><strong>Total Units:</strong> {{ $summary['total_units'] }}</p>
+        <p><strong>Total Categories:</strong> {{ $summary['total_categories'] }}</p>
+    </div>
 
-<table>
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Product</th>
-            <th>Price</th>
-            <th>Total Stock</th>
-            <th>Low Variants</th>
-            <th>Status</th>
-            <th>Alerts</th>
-        </tr>
-    </thead>
+    <!-- Table -->
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>SKU / ID</th>
+                <th>Category</th>
+                <th>Stock</th>
+                <th>Status</th>
+            </tr>
+        </thead>
 
-    <tbody>
-        @foreach($data as $item)
-        <tr>
-            <td>#{{ $item['id'] }}</td>
-            <td>{{ $item['name'] }}</td>
-            <td>${{ $item['price'] }}</td>
-            <td>{{ $item['total_stock'] }}</td>
-            <td>{{ $item['low_stock_count'] }}</td>
-            <td>
-                <span class="status {{ $item['status'] }}">
-                    {{ $item['status'] }}
-                </span>
-            </td>
-            <td>{{ $item['alerts'] ?: '-' }}</td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
+        <tbody>
+            @foreach($data as $item)
 
-<div class="footer">
-    Generated by Inventory System • {{ now()->format('d-m-Y h:i A') }}
-</div>
+                <!-- Product Row -->
+                <tr>
+                    <td class="product-name">{{ $item['name'] }}</td>
+                    <td><span class="sku-badge">PROD-{{ $item['id'] }}</span></td>
+                    <td>{{ $item['category'] }}</td>
+                    <td class="stock-count">{{ $item['total_stock'] }}</td>
+                    <td>
+                        <span class="status {{ $item['status'] }}">
+                            {{ str_replace('_', ' ', $item['status']) }}
+                        </span>
+                    </td>
+                </tr>
+
+                <!-- Variants -->
+                @foreach($item['variants'] as $variant)
+                    <tr>
+                        <td class="variant-indent">
+                            Color: {{ $variant['color'] }},
+                            Size: {{ $variant['size'] }}
+                        </td>
+                        <td><span class="sku-badge">SKU-{{ $variant['id'] }}</span></td>
+                        <td>---</td>
+                        <td class="stock-count">{{ $variant['stock'] }}</td>
+                        <td>
+                            <span class="status {{ $variant['status'] }}">
+                                {{ str_replace('_', ' ', $variant['status']) }}
+                            </span>
+                        </td>
+                    </tr>
+                @endforeach
+
+            @endforeach
+        </tbody>
+    </table>
 
 </body>
 </html>

@@ -20,7 +20,9 @@ class Order extends Model
         'returned_at',
         'shipping_fee',
         'completed_at',
-        'discount_amount'
+        'discount_amount',
+        'coupon_code',
+        'coupon_discount'
 
     ];
     protected $casts = [
@@ -29,14 +31,14 @@ class Order extends Model
         'cancelled_at' => 'datetime',
         'returned_at' => 'datetime',
         'completed_at' => 'datetime',
-        'created_at'=>'datetime',
-        'updated_at'=>'datetime'
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
     ];
     protected function serializeDate(\DateTimeInterface $date)
     {
         return $date->format('d-m-Y h:i:s A');
     }
-    protected $hidden = [ 'updated_at'];
+    protected $hidden = ['updated_at'];
     const STATUS_PENDING = 'pending';
     const STATUS_PAID = 'paid';
     const STATUS_DELIVERED = 'delivered';

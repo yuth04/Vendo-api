@@ -10,48 +10,55 @@ class StockExport implements FromCollection, WithHeadings
 {
     public function collection()
     {
-        $products = Product::with('variants')->get();
+        $products = Product::with(['variants', 'category'])->get();
 
-        return $products->map(function ($p) {
+        // Same status logic as PDF
+        $getStatus = function ($stock) {
+            if ($stock == 0)
+                return 'OUT_OF_STOCK';
+            if ($stock <= 10)
+                return 'LOW';
+            return 'IN_STOCK';
+        };
+
+        return $products->flatMap(function ($p) use ($getStatus) {
+
+            $rows = [];
 
             $totalStock = $p->variants->sum('stock');
-            $lowVariants = $p->variants->where('stock', '<=', 5);
 
-            return [
-                'ID' => $p->id,
-                'Product Name' => $p->productName,
-                'Price' => $p->price,
-
-                // 📦 stock
-                'Total Stock' => $totalStock,
-                'Low Stock Variants' => $lowVariants->count(),
-
-                // 🚨 status
-                'Inventory Status' => match (true) {
-                    $totalStock == 0 => 'OUT_OF_STOCK',
-                    $totalStock <= 5 => 'CRITICAL_LOW',
-                    $totalStock <= 10 => 'LOW',
-                    default => 'IN_STOCK'
-                },
-
-                // ⚠️ alerts (flatten as string)
-                'Alerts' => $lowVariants->map(function ($v) {
-                    return "{$v->size}/{$v->color} ({$v->stock})";
-                })->implode(', ')
+            // ✅ PRODUCT ROW
+            $rows[] = [
+                'Product' => $p->productName,
+                'SKU/ID' => 'PROD-' . $p->id,
+                'Category' => $p->category->name ?? 'N/A',
+                'Stock' => $totalStock,
+                'Status' => $getStatus($totalStock),
             ];
+
+            // ✅ VARIANT ROWS
+            foreach ($p->variants as $v) {
+                $rows[] = [
+                    'Product' => '   Color: ' . $v->color . ', Size: ' . $v->size, // indent style
+                    'SKU/ID' => 'SKU-' . $v->id,
+                    'Category' => '---',
+                    'Stock' => $v->stock,
+                    'Status' => $getStatus($v->stock),
+                ];
+            }
+
+            return $rows;
         });
     }
 
     public function headings(): array
     {
         return [
-            'ID',
-            'Product Name',
-            'Price',
-            'Total Stock',
-            'Low Stock Variants',
-            'Inventory Status',
-            'Alerts'
+            'Product',
+            'SKU / ID',
+            'Category',
+            'Stock',
+            'Status',
         ];
     }
 }
