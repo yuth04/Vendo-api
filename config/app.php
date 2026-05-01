@@ -66,7 +66,6 @@ return [
     */
 
     'timezone' => 'Asia/Phnom_Penh',
-
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

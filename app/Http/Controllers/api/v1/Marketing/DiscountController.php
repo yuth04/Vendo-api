@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1\Marketing;
 
 use App\Http\Controllers\Controller;
+use App\Models\Coupon;
 use App\Models\Discount;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -10,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class DiscountController extends Controller
 {
+ 
     public function index(Request $request)
     {
 
@@ -260,31 +262,31 @@ class DiscountController extends Controller
         });
     }
     public function removeProduct(Request $request, $discountId)
-{
-    $validated = $request->validate([
-        'product_id' => 'required|exists:products,id',
-    ]);
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
 
-    // Find the product that belongs to this specific discount
-    $product = Product::where('id', $validated['product_id'])
-                      ->where('discount_id', $discountId)
-                      ->first();
+        // Find the product that belongs to this specific discount
+        $product = Product::where('id', $validated['product_id'])
+            ->where('discount_id', $discountId)
+            ->first();
 
-    if (!$product) {
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found or not associated with this discount.'
+            ], 404);
+        }
+
+        // Reset the discount fields
+        $product->update([
+            'discount_id' => null,
+            'discount_price' => 0 // Or keep original price depending on your logic
+        ]);
+
         return response()->json([
-            'message' => 'Product not found or not associated with this discount.'
-        ], 404);
+            'message' => "Product {$product->id} removed from discount successfully."
+        ]);
     }
-
-    // Reset the discount fields
-    $product->update([
-        'discount_id' => null,
-        'discount_price' => 0 // Or keep original price depending on your logic
-    ]);
-
-    return response()->json([
-        'message' => "Product {$product->id} removed from discount successfully."
-    ]);
-}
 
 }

@@ -3,6 +3,7 @@
 
 
 use App\Http\Controllers\api\v1\Admin\AdminProductController;
+use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
@@ -52,6 +53,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/stocks/pdf', [ExportController::class, 'exportStockPDF']);
     Route::get('/variants/excel', [ExportController::class, 'exportVariantsExcel']);
     Route::get('/variants/pdf', [ExportController::class, 'exportVariantPDF']);
+
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -169,7 +171,8 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [AddressController::class, 'update']);
             Route::delete('/{id}', [AddressController::class, 'destroy']);
         });
-
+        // Coupon
+        Route::post('/apply-coupon', [CouponController::class, 'apply']);
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
             //  Updater Status
@@ -288,6 +291,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
             // Products report
             Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+            // Coupon
+            Route::get('/coupons', [CouponController::class, 'index']);
+            Route::get('/coupons/{id}', [CouponController::class, 'getById']);
+            Route::post('/coupons', [CouponController::class, 'store']);
+            Route::post('/coupons/{id}', [CouponController::class, 'update']);
+            Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
         });
 
     });
