@@ -281,41 +281,68 @@ class ExportController extends Controller
     }
     public function exportStockPDF()
     {
-        $products = Product::with('variants')->get();
+        $products = Product::with(['variants', 'category'])->get();
 
-        $data = $products->map(function ($p) {
+        // Status helper
+        $getStatus = function ($stock) {
+            if ($stock == 0)
+                return 'OUT_OF_STOCK';
+            if ($stock <= 10)
+                return 'LOW';
+            return 'IN_STOCK';
+        };
 
+        // Format data for PDF
+        $data = $products->map(function ($p) use ($getStatus) {
             $totalStock = $p->variants->sum('stock');
-            $lowVariants = $p->variants->where('stock', '<=', 5);
 
             return [
                 'id' => $p->id,
                 'name' => $p->productName,
                 'price' => $p->price,
                 'total_stock' => $totalStock,
-                'low_stock_count' => $lowVariants->count(),
+                'status' => $getStatus($totalStock),
+                'category' => $p->category->name ?? 'N/A',
 
-                'status' => match (true) {
-                    $totalStock == 0 => 'OUT_OF_STOCK',
-                    $totalStock <= 5 => 'CRITICAL_LOW',
-                    $totalStock <= 10 => 'LOW',
-                    default => 'IN_STOCK'
-                },
-
-                'alerts' => $lowVariants->map(function ($v) {
-                    return "{$v->size}/{$v->color} ({$v->stock})";
-                })->implode(', ')
+                'variants' => $p->variants->map(function ($v) use ($getStatus) {
+                    return [
+                        'id' => $v->id,
+                        'color' => $v->color,
+                        'size' => $v->size,
+                        'stock' => $v->stock,
+                        'status' => $getStatus($v->stock),
+                    ];
+                }),
             ];
         });
 
+        $allVariants = $products->flatMap->variants;
+
+        // Summary
         $summary = [
             'total_products' => $products->count(),
-            'out_of_stock' => $products->filter(fn($p) => $p->variants->sum('stock') == 0)->count(),
-            'low_stock' => $products->filter(fn($p) => $p->variants->sum('stock') <= 10)->count(),
-            'total_units' => $products->sum(fn($p) => $p->variants->sum('stock')),
+
+            // Products completely out of stock
+            'out_of_stock' => $products->filter(
+                fn($p) => $p->variants->sum('stock') == 0
+            )->count(),
+
+            'low_stock' => $allVariants->filter(
+                fn($v) => $v->stock > 0 && $v->stock <= 10
+            )->count(),
+
+            // Total units
+            'total_units' => $allVariants->sum('stock'),
+
+            // Categories count
+            'total_categories' => $products->pluck('category_id')->unique()->count(),
         ];
 
-        $pdf = Pdf::loadView('reports.stock_pdf', compact('data', 'summary'));
+        // Generate PDF
+        $pdf = Pdf::loadView('reports.stock_pdf', [
+            'data' => $data,
+            'summary' => $summary
+        ]);
 
         return $pdf->download('stock-report.pdf');
     }

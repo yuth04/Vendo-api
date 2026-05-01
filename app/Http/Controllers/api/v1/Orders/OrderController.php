@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\AdminOrderPlaced;
 use App\Mail\OrderPlaced;
 use App\Models\Address;
+use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\ProductVariant;
@@ -41,6 +42,7 @@ class OrderController extends Controller
             'last_name' => 'nullable|string|max:255',
             'address_line' => 'required_without:address_id|string|max:500',
             'city' => 'required_without:address_id|string|max:255',
+            'coupon_code' => 'nullable|string',
             'province' => 'required_without:address_id|string|max:255',
             'phone' => 'required_without:address_id|string|max:20',
             'payment_method' => 'required|in:Cash on Delivery,ABA,Bakong,Credit Card',
@@ -54,7 +56,9 @@ class OrderController extends Controller
 
         try {
             $orderModel = null;
-            $result = DB::transaction(function () use ($user, $request, &$orderModel) {
+            $coupon = null;
+            $couponDiscount = 0;
+            $result = DB::transaction(function () use ($user, $request, &$orderModel, &$coupon, &$couponDiscount) {
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
 
@@ -65,11 +69,43 @@ class OrderController extends Controller
 
                 $subtotal = $this->processOrderItems($order, $request->items);
                 $shipping = (float) $this->calculateShipping($address->province);
-                $totalAmount = round($subtotal + $shipping, 2);
+                // $totalAmount = round($subtotal + $shipping, 2);
+                $totalAmount = round(($subtotal - $couponDiscount) + $shipping, 2);
+                // Coupon
+                if ($request->filled('coupon_code')) {
 
+                    $coupon = Coupon::where('code', $request->coupon_code)->first();
+
+                    if (!$coupon) {
+                        throw new \Exception("Invalid coupon code");
+                    }
+
+                    if ($coupon->start_date && now()->lt($coupon->start_date)) {
+                        throw new \Exception("Coupon not active yet");
+                    }
+
+                    if ($coupon->end_date && now()->gt($coupon->end_date)) {
+                        throw new \Exception("Coupon expired");
+                    }
+
+                    if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
+                        throw new \Exception("Coupon usage limit reached");
+                    }
+
+                    if ($coupon->min_amount && $subtotal < $coupon->min_amount) {
+                        throw new \Exception("Minimum order not reached");
+                    }
+
+                    $couponDiscount = $coupon->calculateDiscount($subtotal);
+
+                    $coupon->increment('used');
+                }
                 $order->update([
                     'total_price' => $totalAmount,
                     'shipping_fee' => $shipping,
+                    'coupon_code' => $request->coupon_code,
+                    'discount_amount' => $order->discount_amount + $couponDiscount,
+                    'coupon_discount' => $couponDiscount,
                 ]);
 
                 $payment = Payment::create([
@@ -131,7 +167,8 @@ class OrderController extends Controller
             'status' => 'pending',
             'total_price' => 0,
             'discount_amount' => 0,
-
+            'coupon_code' => null,
+            'coupon_discount'
 
         ]);
     }
@@ -168,7 +205,7 @@ class OrderController extends Controller
 
             $order->items()->create([
                 'product_variant_id' => $variant->id,
-                'product_name' => $product->name,
+                'product_name' => $product->productName,
                 'product_image' => $product->image,
                 'price' => round($finalPrice, 2),
                 'quantity' => $item['quantity'],
@@ -259,28 +296,25 @@ class OrderController extends Controller
     {
         $shipping = (float) $order->shipping_fee;
 
+        // -------------------------
+        // ITEMS
+        // -------------------------
         $items = $order->items->map(function ($item) {
 
             $product = $item->variant->product ?? null;
 
-            // ORIGINAL price (base product price)
             $originalPrice = (float) ($product->price ?? 0);
-
-            // FINAL price (stored in order item)
-            $finalPrice = $product->discount_price ?? $item->price;
-
-            // discount per unit (safe, never negative)
+            $finalPrice = (float) $item->price;
 
             return [
                 'id' => $item->id,
                 'quantity' => $item->quantity,
 
-                // PRICES
                 'original_price' => $originalPrice,
-                'discount_price' => $finalPrice,
-                'discount_percent' => $product->discount->amount ?? 0,
-                // subtotal of item (final price)
-                'subtotal' => round($finalPrice * $item->quantity, 2),
+                'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
+
+                // final item subtotal
+                // 'subtotal' => round($finalPrice * $item->quantity, 2),
 
                 'variant' => [
                     'id' => $item->product_variant_id,
@@ -291,63 +325,62 @@ class OrderController extends Controller
                 'product' => [
                     'id' => $product->id ?? null,
                     'name' => $product->productName ?? null,
-                    'slug' => $product->slug ?? null,
                     'image' => $product->image ?? null,
                 ],
             ];
         });
 
-        // SUBTOTAL (original total before discount)
-        $subTotal = $order->items->sum(function ($item) {
+        // -------------------------
+        // SUBTOTAL (ORIGINAL)
+        // -------------------------
+        $originalSubtotal = $order->items->sum(function ($item) {
             $product = $item->variant->product ?? null;
-            $originalPrice = (float) ($product->price ?? 0);
-            return $originalPrice * $item->quantity;
+            return (float) ($product->price ?? 0) * $item->quantity;
         });
 
-        // FINAL TOTAL (after discount)
-        $totalAfterDiscount = $order->items->sum(function ($item) {
+        // -------------------------
+        // SUBTOTAL (AFTER PRODUCT DISCOUNT)
+        // -------------------------
+        $finalSubtotal = $order->items->sum(function ($item) {
             return (float) $item->price * $item->quantity;
         });
 
-        $discountTotal = max(0, $subTotal - $totalAfterDiscount);
+        // -------------------------
+        // DISCOUNTS
+        // -------------------------
+        $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
+        $couponDiscount = (float) $order->coupon_discount;
 
-        $totalPrice = $totalAfterDiscount + $shipping;
+        // -------------------------
+        // TOTAL
+        // -------------------------
+        $totalPayment = ($finalSubtotal - $couponDiscount) + $shipping;
 
+        // -------------------------
+        // RESPONSE
+        // -------------------------
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
-            // PRICES
-            'total_price' => round($subTotal, 2),
-            'discount' => round($discountTotal, 2),
+
+            'subtotal' => round($originalSubtotal, 2),
+            'product_discount' => round($productDiscount, 2),
+            'coupon_discount' => $couponDiscount,
+
             'shipping_fee' => $shipping,
-            'total_payment' => round($totalPrice, 2),
-            'save' => round($subTotal - $discountTotal, 2),
-            // DATE
+            'total_payment' => round($totalPayment, 2),
+
+            'saved' => round($productDiscount + $couponDiscount, 2),
+
+            'coupon' => [
+                'code' => $order->coupon_code,
+                'discount' => $couponDiscount,
+            ],
+
             'created_at' => $order->created_at->format('d-m-Y'),
             'time' => $order->created_at->format('h:i:s A'),
-            // PAYMENT
-            'payment' => [
-                'method' => $order->payment->payment_method ?? null,
-                'status' => $order->payment->status ?? null,
-                'reference' => $order->payment->payment_reference ?? null,
-                'paid_at' => $order->payment && $order->payment->paid_at
-                    ? $order->payment->paid_at->format('d-m-Y h:i:s A')
-                    : null,
-            ],
 
-            // ADDRESS
-            'address' => [
-                'first_name' => $order->address->first_name ?? null,
-                'last_name' => $order->address->last_name ?? null,
-                'address_line' => $order->address->address_line ?? null,
-                'city' => $order->address->city ?? null,
-                'province' => $order->address->province ?? null,
-                'phone' => $order->address->phone ?? ($order->user->contact ?? null),
-                'note' => $order->note,
-            ],
-
-            // ITEMS
             'items' => $items,
         ];
     }
