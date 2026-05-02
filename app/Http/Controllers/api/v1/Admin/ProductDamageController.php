@@ -73,9 +73,11 @@ class ProductDamageController extends Controller
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
-            'reason' => 'required|string:max:255',
+            'reason' => 'required|string|max:255',
             'quantity' => 'required|integer|min:1',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048'
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048',
+            'status' => 'required|string'
+
         ]);
 
         $user = Auth::user();
@@ -112,7 +114,7 @@ class ProductDamageController extends Controller
             'quantity' => $request->quantity,
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'status' => 'pending'
+            'status' => $request->status
         ]);
 
         return response()->json([
