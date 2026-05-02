@@ -314,7 +314,7 @@ class OrderController extends Controller
                 'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
 
                 // final item subtotal
-                // 'subtotal' => round($finalPrice * $item->quantity, 2),
+                'subtotal' => round($finalPrice * $item->quantity, 2),
 
                 'variant' => [
                     'id' => $item->product_variant_id,
@@ -364,12 +364,12 @@ class OrderController extends Controller
             'order_number' => $order->order_number,
             'status' => $order->status,
 
-            'subtotal' => round($originalSubtotal, 2),
+            'sub_total_price' => round($originalSubtotal, 2),
             'product_discount' => round($productDiscount, 2),
             'coupon_discount' => $couponDiscount,
 
             'shipping_fee' => $shipping,
-            'total_payment' => round($totalPayment, 2),
+            'total_price' => round($totalPayment, 2),
 
             'saved' => round($productDiscount + $couponDiscount, 2),
 
