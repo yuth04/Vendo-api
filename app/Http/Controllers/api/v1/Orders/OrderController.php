@@ -396,9 +396,9 @@ class OrderController extends Controller
                 return [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-                    'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
+                    'discount' => (float) $item->order->discount_amount ?? $finalPrice,
                     // final item subtotal
-                    'subtotal' => round($finalPrice * $item->quantity, 2),
+                    'subtotal' => $finalPrice - $item->order->discount_amount ?? $finalPrice,
                     'variant' => [
                         'id' => $item->product_variant_id,
                         'size' => $item->size,
@@ -406,11 +406,11 @@ class OrderController extends Controller
                         'price' => $originalPrice,
                     ],
                     'product' => [
-                        'id' => $product->id ?? null,
-                        'name' => $product->productName ?? null,
-                        'slug' => $product->slug ?? null,
-                        'image' => $product->image ?? null,
-                    ],
+                        'id' => $item->variant->product->id ?? null,
+                        'name' => $item->product_name,
+                        'slug' => $item->variant->product->slug ?? null,
+                        'image' => $item->variant->product->image ?? null,
+                    ]
                 ];
             })
         ];
