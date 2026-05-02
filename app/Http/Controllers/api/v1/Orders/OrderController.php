@@ -484,7 +484,7 @@ class OrderController extends Controller
                 'id' => $item->id,
                 'quantity' => $item->quantity,
                 'discount' => (float) $item->order->discount_amount ?? $item->price,
-                'subtotal' => round((float) $item->price - $item->order->discount_amount ?? $item->price, 2),
+                'subtotal' => round((float) $item->price),
                 'variant' => [
                     'id' => $item->product_variant_id,
                     'size' => $item->size,
