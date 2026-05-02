@@ -46,6 +46,7 @@ class NotificationController extends Controller
                     'message' => 'New order #' . $order->id,
                     'first_name' => $order->user->first_name,
                     'last_name' => $order->user->last_name,
+                    'image' => $order->user->email,
                     'total' => $order->total_price,
                     'time' => $order->time_ago,
                     'products' => $order->items->map(function ($item) {
@@ -71,5 +72,39 @@ class NotificationController extends Controller
         ]);
 
         return response()->json(['success' => true]);
+    }
+    public function getById($id)
+    {
+        $order = Order::with(['items.product', 'user'])
+            ->where('is_seen', false)
+            ->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'order' => [
+                'id' => $order->id,
+                'message' => 'New order #' . $order->id,
+                'first_name' => $order->user->first_name,
+                'last_name' => $order->user->last_name,
+                'email' => $order->user->email,
+                'image' => $order->user->image,
+                'total' => $order->total_price,
+                'time' => $order->time_ago,
+                'products' => $order->items->map(function ($item) {
+                    return [
+                        'name' => $item->product_name ?? ($item->product->name ?? 'Unknown'),
+                        'qty' => $item->quantity,
+                        'size' => $item->size,
+                        'color' => $item->color,
+                        'image' => $item->product_image
+                    ];
+                })
+            ]
+        ]);
     }
 }
