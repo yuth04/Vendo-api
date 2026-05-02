@@ -309,22 +309,20 @@ class OrderController extends Controller
             return [
                 'id' => $item->id,
                 'quantity' => $item->quantity,
-
-                'original_price' => $originalPrice,
                 'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
-
                 // final item subtotal
                 'subtotal' => round($finalPrice * $item->quantity, 2),
-
                 'variant' => [
                     'id' => $item->product_variant_id,
                     'size' => $item->size,
                     'color' => $item->color,
+                    'price' => $originalPrice,
                 ],
 
                 'product' => [
                     'id' => $product->id ?? null,
                     'name' => $product->productName ?? null,
+                    'slug' => $product->slug ?? null,
                     'image' => $product->image ?? null,
                 ],
             ];
@@ -363,25 +361,58 @@ class OrderController extends Controller
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
-
             'sub_total_price' => round($originalSubtotal, 2),
             'product_discount' => round($productDiscount, 2),
             'coupon_discount' => $couponDiscount,
-
             'shipping_fee' => $shipping,
             'total_price' => round($totalPayment, 2),
-
             'saved' => round($productDiscount + $couponDiscount, 2),
-
             'coupon' => [
                 'code' => $order->coupon_code,
                 'discount' => $couponDiscount,
             ],
-
             'created_at' => $order->created_at->format('d-m-Y'),
             'time' => $order->created_at->format('h:i:s A'),
-
-            'items' => $items,
+            'payment' => [
+                'method' => $order->payment->payment_method ?? null,
+                'status' => $order->payment->status ?? null,
+                'reference' => $order->payment->payment_reference ?? null,
+                'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
+            ],
+            'address' => [
+                'first_name' => $order->address->first_name ?? null,
+                'last_name' => $order->address->last_name ?? null,
+                'address_line' => $order->address->address_line ?? null,
+                'city' => $order->address->city ?? null,
+                'province' => $order->address->province ?? null,
+                'phone' => $order->address->phone ?? $order->user->contact ?? null,
+                'note' => $order->note,
+            ],
+            // 'items' => $items,
+            'items' => $order->items->map(function ($item) {
+                $product = $item->variant->product ?? null;
+                $originalPrice = (float) ($product->price ?? 0);
+                $finalPrice = (float) $item->price;
+                return [
+                    'id' => $item->id,
+                    'quantity' => $item->quantity,
+                    'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
+                    // final item subtotal
+                    'subtotal' => round($finalPrice * $item->quantity, 2),
+                    'variant' => [
+                        'id' => $item->product_variant_id,
+                        'size' => $item->size,
+                        'color' => $item->color,
+                        'price' => $originalPrice,
+                    ],
+                    'product' => [
+                        'id' => $product->id ?? null,
+                        'name' => $product->productName ?? null,
+                        'slug' => $product->slug ?? null,
+                        'image' => $product->image ?? null,
+                    ],
+                ];
+            })
         ];
     }
     // private function formatOrder($order)
