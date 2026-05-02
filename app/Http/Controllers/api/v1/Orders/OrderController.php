@@ -207,7 +207,7 @@ class OrderController extends Controller
                 'product_variant_id' => $variant->id,
                 'product_name' => $product->productName,
                 'product_image' => $product->image,
-                'price' => $product->price,
+                'price' => $finalPrice,
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
@@ -415,8 +415,7 @@ class OrderController extends Controller
     //         })
     //     ];
     // }
-    private function formatOrder($order)
-    {
+    private function formatOrder($order){
         $shipping = (float) ($order->shipping_fee ?? $this->calculateShipping($order->address->province ?? ''));
         // -------------------------
         // SUBTOTAL (ORIGINAL)
@@ -447,6 +446,7 @@ class OrderController extends Controller
             fn($item) =>
             (float) ($item->price ?? 0) * $item->quantity
         );
+
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
@@ -480,16 +480,16 @@ class OrderController extends Controller
                 'note' => $order->note,
             ],
             'items' => $order->items->map(fn($item) => [
-                $finalPrice = (float) $item->price,
+
                 'id' => $item->id,
                 'quantity' => $item->quantity,
-                'discount' => (float) $item->order->discount_amount ?? $finalPrice,
-                'subtotal' => round((float) $finalPrice - $item->order->discount_amount ?? $finalPrice, 2),
+                'discount' => (float) $item->order->discount_amount ?? $item->price,
+                'subtotal' => round((float) $item->price - $item->order->discount_amount ?? $item->price, 2),
                 'variant' => [
                     'id' => $item->product_variant_id,
                     'size' => $item->size,
                     'color' => $item->color,
-                    'price' => $originalSubtotal,
+                    'price' => (float) $item->variant->product->price,
                     'product' => [
                         'id' => $item->variant->product->id ?? null,
                         'name' => $item->product_name,
