@@ -292,42 +292,132 @@ class OrderController extends Controller
             'orders' => $orders->map(fn($order) => $this->formatOrder($order))
         ]);
     }
+    // private function formatOrder($order)
+    // {
+    //     $shipping = (float) $order->shipping_fee;
+
+    //     // -------------------------
+    //     // ITEMS
+    //     // -------------------------
+    //     $items = $order->items->map(function ($item) {
+
+    //         $product = $item->variant->product ?? null;
+
+    //         $originalPrice = (float) ($product->price ?? 0);
+    //         $finalPrice = (float) $item->price;
+
+    //         return [
+    //             'id' => $item->id,
+    //             'quantity' => $item->quantity,
+    //             'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
+    //             // final item subtotal
+    //             'subtotal' => round($finalPrice * $item->quantity, 2),
+    //             'variant' => [
+    //                 'id' => $item->product_variant_id,
+    //                 'size' => $item->size,
+    //                 'color' => $item->color,
+    //                 'price' => $originalPrice,
+    //             ],
+
+    //             'product' => [
+    //                 'id' => $product->id ?? null,
+    //                 'name' => $product->productName ?? null,
+    //                 'slug' => $product->slug ?? null,
+    //                 'image' => $product->image ?? null,
+    //             ],
+    //         ];
+    //     });
+
+    //     // -------------------------
+    //     // SUBTOTAL (ORIGINAL)
+    //     // -------------------------
+    //     $originalSubtotal = $order->items->sum(function ($item) {
+    //         $product = $item->variant->product ?? null;
+    //         return (float) ($product->price ?? 0) * $item->quantity;
+    //     });
+
+    //     // -------------------------
+    //     // SUBTOTAL (AFTER PRODUCT DISCOUNT)
+    //     // -------------------------
+    //     $finalSubtotal = $order->items->sum(function ($item) {
+    //         return (float) $item->price * $item->quantity;
+    //     });
+
+    //     // -------------------------
+    //     // DISCOUNTS
+    //     // -------------------------
+    //     $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
+    //     $couponDiscount = (float) $order->coupon_discount;
+
+    //     // -------------------------
+    //     // TOTAL
+    //     // -------------------------
+    //     $totalPayment = ($finalSubtotal - $couponDiscount) + $shipping;
+
+    //     // -------------------------
+    //     // RESPONSE
+    //     // -------------------------
+    //     return [
+    //         'order_id' => $order->id,
+    //         'order_number' => $order->order_number,
+    //         'status' => $order->status,
+    //         'sub_total_price' => round($originalSubtotal, 2),
+    //         'product_discount' => round($productDiscount, 2),
+    //         'coupon_discount' => $couponDiscount,
+    //         'shipping_fee' => $shipping,
+    //         'total_price' => round($totalPayment, 2),
+    //         'saved' => round($productDiscount + $couponDiscount, 2),
+    //         'coupon' => [
+    //             'code' => $order->coupon_code,
+    //             'discount' => $couponDiscount,
+    //         ],
+    //         'created_at' => $order->created_at->format('d-m-Y'),
+    //         'time' => $order->created_at->format('h:i:s A'),
+    //         'payment' => [
+    //             'method' => $order->payment->payment_method ?? null,
+    //             'status' => $order->payment->status ?? null,
+    //             'reference' => $order->payment->payment_reference ?? null,
+    //             'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
+    //         ],
+    //         'address' => [
+    //             'first_name' => $order->address->first_name ?? null,
+    //             'last_name' => $order->address->last_name ?? null,
+    //             'address_line' => $order->address->address_line ?? null,
+    //             'city' => $order->address->city ?? null,
+    //             'province' => $order->address->province ?? null,
+    //             'phone' => $order->address->phone ?? $order->user->contact ?? null,
+    //             'note' => $order->note,
+    //         ],
+    //         // 'items' => $items,
+    //         'items' => $order->items->map(function ($item) {
+    //             $product = $item->variant->product ?? null;
+    //             $originalPrice = (float) ($product->price ?? 0);
+    //             $finalPrice = (float) $item->price;
+    //             return [
+    //                 'id' => $item->id,
+    //                 'quantity' => $item->quantity,
+    //                 'discount' => (float) $item->order->discount_amount ?? $finalPrice,
+    //                 // final item subtotal
+    //                 'subtotal' => $finalPrice - $item->order->discount_amount ?? $finalPrice,
+    //                 'variant' => [
+    //                     'id' => $item->product_variant_id,
+    //                     'size' => $item->size,
+    //                     'color' => $item->color,
+    //                     'price' => $originalPrice,
+    //                 ],
+    //                 'product' => [
+    //                     'id' => $item->variant->product->id ?? null,
+    //                     'name' => $item->product_name,
+    //                     'slug' => $item->variant->product->slug ?? null,
+    //                     'image' => $item->variant->product->image ?? null,
+    //                 ]
+    //             ];
+    //         })
+    //     ];
+    // }
     private function formatOrder($order)
     {
-        $shipping = (float) $order->shipping_fee;
-
-        // -------------------------
-        // ITEMS
-        // -------------------------
-        $items = $order->items->map(function ($item) {
-
-            $product = $item->variant->product ?? null;
-
-            $originalPrice = (float) ($product->price ?? 0);
-            $finalPrice = (float) $item->price;
-
-            return [
-                'id' => $item->id,
-                'quantity' => $item->quantity,
-                'discount_price' => (float) $item->order->discount_amount ?? $finalPrice,
-                // final item subtotal
-                'subtotal' => round($finalPrice * $item->quantity, 2),
-                'variant' => [
-                    'id' => $item->product_variant_id,
-                    'size' => $item->size,
-                    'color' => $item->color,
-                    'price' => $originalPrice,
-                ],
-
-                'product' => [
-                    'id' => $product->id ?? null,
-                    'name' => $product->productName ?? null,
-                    'slug' => $product->slug ?? null,
-                    'image' => $product->image ?? null,
-                ],
-            ];
-        });
-
+        $shipping = (float) ($order->shipping_fee ?? $this->calculateShipping($order->address->province ?? ''));
         // -------------------------
         // SUBTOTAL (ORIGINAL)
         // -------------------------
@@ -354,19 +444,16 @@ class OrderController extends Controller
         // -------------------------
         $totalPayment = ($finalSubtotal - $couponDiscount) + $shipping;
 
-        // -------------------------
-        // RESPONSE
-        // -------------------------
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
-            'sub_total_price' => round($originalSubtotal, 2),
+            'sub_total_price' => round((float) $order->total_price - $shipping, 2),
             'product_discount' => round($productDiscount, 2),
             'coupon_discount' => $couponDiscount,
             'shipping_fee' => $shipping,
             'total_price' => round($totalPayment, 2),
-            'saved' => round($productDiscount + $couponDiscount, 2),
+            'save' => $order->discount_amount,
             'coupon' => [
                 'code' => $order->coupon_code,
                 'discount' => $couponDiscount,
@@ -388,81 +475,27 @@ class OrderController extends Controller
                 'phone' => $order->address->phone ?? $order->user->contact ?? null,
                 'note' => $order->note,
             ],
-            // 'items' => $items,
-            'items' => $order->items->map(function ($item) {
-                $product = $item->variant->product ?? null;
-                $originalPrice = (float) ($product->price ?? 0);
-                $finalPrice = (float) $item->price;
-                return [
-                    'id' => $item->id,
-                    'quantity' => $item->quantity,
-                    'discount' => (float) $item->order->discount_amount ?? $finalPrice,
-                    // final item subtotal
-                    'subtotal' => $finalPrice - $item->order->discount_amount ?? $finalPrice,
-                    'variant' => [
-                        'id' => $item->product_variant_id,
-                        'size' => $item->size,
-                        'color' => $item->color,
-                        'price' => $originalPrice,
-                    ],
+            'items' => $order->items->map(fn($item) => [
+                $finalPrice = (float) $item->price,
+                'id' => $item->id,
+                'quantity' => $item->quantity,
+                'discount' => (float) $item->order->discount_amount ?? $finalPrice,
+                'subtotal' => (float) $finalPrice - $item->order->discount_amount ?? $finalPrice,
+                'variant' => [
+                    'id' => $item->product_variant_id,
+                    'size' => $item->size,
+                    'color' => $item->color,
+                    'price' => (float) $item->price,
                     'product' => [
                         'id' => $item->variant->product->id ?? null,
                         'name' => $item->product_name,
                         'slug' => $item->variant->product->slug ?? null,
                         'image' => $item->variant->product->image ?? null,
                     ]
-                ];
-            })
+                ]
+            ])
         ];
     }
-    // private function formatOrder($order)
-    // {
-    //     $shipping = (float) ($order->shipping_fee ?? $this->calculateShipping($order->address->province ?? ''));
-
-    //     return [
-    //         'order_id' => $order->id,
-    //         'order_number' => $order->order_number,
-    //         'status' => $order->status,
-    //         'sub_total_price' => round((float) $order->total_price - $shipping, 2),
-    //         'shipping_fee' => $shipping,
-    //         'total_price' => (float) $order->total_price,
-    //         'save' => $order->discount_amount,
-    //         'created_at' => $order->created_at->format('d-m-Y'),
-    //         'time' => $order->created_at->format('h:i:s A'),
-    //         'payment' => [
-    //             'method' => $order->payment->payment_method ?? null,
-    //             'status' => $order->payment->status ?? null,
-    //             'reference' => $order->payment->payment_reference ?? null,
-    //             'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
-    //         ],
-    //         'address' => [
-    //             'first_name' => $order->address->first_name ?? null,
-    //             'last_name' => $order->address->last_name ?? null,
-    //             'address_line' => $order->address->address_line ?? null,
-    //             'city' => $order->address->city ?? null,
-    //             'province' => $order->address->province ?? null,
-    //             'phone' => $order->address->phone ?? $order->user->contact ?? null,
-    //             'note' => $order->note,
-    //         ],
-    //         'items' => $order->items->map(fn($item) => [
-    //             'id' => $item->id,
-    //             'quantity' => $item->quantity,
-    //             'subtotal' => round((float) ($item->price * $item->quantity), 2),
-    //             'variant' => [
-    //                 'id' => $item->product_variant_id,
-    //                 'size' => $item->size,
-    //                 'color' => $item->color,
-    //                 'price' => (float) $item->price,
-    //                 'product' => [
-    //                     'id' => $item->variant->product->id ?? null,
-    //                     'name' => $item->product_name,
-    //                     'slug' => $item->variant->product->slug ?? null,
-    //                     'image' => $item->variant->product->image ?? null,
-    //                 ]
-    //             ]
-    //         ])
-    //     ];
-    // }
     public function filterByStatus(Request $request)
     {
         $status = $request->query('status');
