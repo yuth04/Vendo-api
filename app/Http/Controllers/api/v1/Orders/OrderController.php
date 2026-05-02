@@ -207,7 +207,7 @@ class OrderController extends Controller
                 'product_variant_id' => $variant->id,
                 'product_name' => $product->productName,
                 'product_image' => $product->image,
-                'price' => round($finalPrice, 2),
+                'price' => $product->price,
                 'quantity' => $item['quantity'],
                 'size' => $variant->size,
                 'color' => $variant->color,
@@ -443,17 +443,21 @@ class OrderController extends Controller
         // TOTAL
         // -------------------------
         $totalPayment = ($finalSubtotal - $couponDiscount) + $shipping;
-
+        $originalSubtotal = $order->items->sum(
+            fn($item) =>
+            (float) ($item->price ?? 0) * $item->quantity
+        );
         return [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
-            'sub_total_price' => round((float) $order->total_price - $shipping, 2),
+            // 'original_price' => round($originalSubtotal, 2),
+            'sub_total_price' => (float) $order->total_price - $shipping,
             'product_discount' => round($productDiscount, 2),
             'coupon_discount' => $couponDiscount,
             'shipping_fee' => $shipping,
             'total_price' => round($totalPayment, 2),
-            'save' => $order->discount_amount,
+            'save' => (float) $order->discount_amount,
             'coupon' => [
                 'code' => $order->coupon_code,
                 'discount' => $couponDiscount,
@@ -480,12 +484,12 @@ class OrderController extends Controller
                 'id' => $item->id,
                 'quantity' => $item->quantity,
                 'discount' => (float) $item->order->discount_amount ?? $finalPrice,
-                'subtotal' => (float) $finalPrice - $item->order->discount_amount ?? $finalPrice,
+                'subtotal' => round((float) $finalPrice - $item->order->discount_amount ?? $finalPrice, 2),
                 'variant' => [
                     'id' => $item->product_variant_id,
                     'size' => $item->size,
                     'color' => $item->color,
-                    'price' => (float) $item->price,
+                    'price' => $originalSubtotal,
                     'product' => [
                         'id' => $item->variant->product->id ?? null,
                         'name' => $item->product_name,
