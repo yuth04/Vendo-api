@@ -26,7 +26,7 @@ class ProductDamageController extends Controller
                     ],
                     'reason' => $damage->reason,
                     'quantity' => $damage->quantity,
-                    'current_stock' => $damage->product->variant->stock ?? 0,
+                    'current_stock' => $damage->product->variants->sum('stock'),
                     'status' => $damage->status,
                     'image_proof' => $damage->image,
                     'reported_by' => [
@@ -55,7 +55,7 @@ class ProductDamageController extends Controller
                     ],
                     'reason' => $damage->reason,
                     'quantity' => $damage->quantity,
-                    'current_stock' => $damage->product->variant->stock ?? 0,
+                    'current_stock' => $damage->product->variant->stock,
                     'status' => $damage->status,
                     'image_proof' => $damage->image,
                     'reported_by' => [
