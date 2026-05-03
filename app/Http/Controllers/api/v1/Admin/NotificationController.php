@@ -92,7 +92,7 @@ class NotificationController extends Controller
                 'first_name' => $order->user->first_name,
                 'last_name' => $order->user->last_name,
                 'email' => $order->user->email,
-                // 'image' => $order->user->image,
+                'image' => $order->user->image,
                 'total' => $order->total_price,
                 'time' => $order->time_ago,
                 'products' => $order->items->map(function ($item) {
