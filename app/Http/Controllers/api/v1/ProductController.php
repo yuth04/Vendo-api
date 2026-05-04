@@ -205,7 +205,7 @@ class ProductController extends Controller
             'category_id' => $validated['category_id'],
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
-            'image_file_id' => $imageFileId,,
+            'image_file_id' => $imageFileId,
             'status'=>$request->status
         ]);
 
