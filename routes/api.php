@@ -53,7 +53,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/stocks/pdf', [ExportController::class, 'exportStockPDF']);
     Route::get('/variants/excel', [ExportController::class, 'exportVariantsExcel']);
     Route::get('/variants/pdf', [ExportController::class, 'exportVariantPDF']);
-
+    Route::get('/product-damages/excel', [ExportController::class, 'exportProductDamageExcel']);
+    Route::get('/product-damages/pdf', [ExportController::class, 'exportProductDamagePdf']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
