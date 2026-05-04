@@ -206,7 +206,7 @@ class ProductController extends Controller
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'status'=>$validated['status']
+            'status' => $validated['status'] ?? $product->status,
         ]);
 
         return response()->json([
