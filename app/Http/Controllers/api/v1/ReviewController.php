@@ -12,7 +12,7 @@ class ReviewController extends Controller
 
     public function index(Request $request)
     {
-        $query = Review::with(['user', 'product']);
+        $query = Review::with(['user', 'product'])->where('is_approved', true);
 
         if ($request->has('product_id')) {
             $query->where('product_id', $request->product_id);
@@ -117,7 +117,7 @@ class ReviewController extends Controller
             'rating' => 'nullable|integer|min:1|max:5',
             'comment' => 'nullable|string',
             'image' => 'nullable|image|max:5120', // 5MB
-            
+
         ]);
 
         $imageUrl = $review->image;
@@ -211,9 +211,7 @@ class ReviewController extends Controller
         ]);
     }
 
-    /**
-     * Product rating summary
-     */
+
     public function productSummary($productId)
     {
         $reviews = Review::where('product_id', $productId);
@@ -223,4 +221,119 @@ class ReviewController extends Controller
             'total_reviews' => $reviews->count()
         ]);
     }
+    public function getAll(Request $request)
+    {
+        $query = Review::with(['user', 'replies.user', 'product'])
+            ->whereNull('parent_id');
+
+        if ($request->has('product_id')) {
+            $query->where('product_id', $request->product_id);
+        }
+
+        $reviews = $query->latest()->get();
+
+        return response()->json([
+            'message' => 'Reviews retrieved successfully',
+            'data' => $reviews
+        ]);
+    }
+    public function getById($id)
+    {
+        $review = Review::with(['user', 'replies.user', 'product'])
+            ->whereNull('parent_id') // optional but recommended
+            ->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Review retrieved successfully',
+            'data' => $review
+        ]);
+    }
+    public function reply(Request $request, $id)
+    {
+        $request->validate([
+            'comment' => 'required|string'
+        ]);
+
+        $parent = Review::findOrFail($id);
+        if ($parent->parent_id !== null) {
+            return response()->json([
+                'message' => 'Cannot reply to a reply'
+            ], 400);
+        }
+        $reply = Review::create([
+            'user_id' => auth()->id(),
+            'product_id' => $parent->product_id,
+            'comment' => $request->comment,
+            'rating' => $parent->rating,
+            'parent_id' => $parent->id,
+            'is_approved' => 1
+        ]);
+
+        return response()->json([
+            'message' => 'Reply created',
+            'data' => $reply
+        ]);
+    }
+    public function updateReply(Request $request, $id)
+    {
+        $request->validate([
+            'comment' => 'required|string'
+        ]);
+
+        $review = Review::findOrFail($id);
+
+        //  Check if it's a reply
+        if ($review->parent_id === null) {
+            return response()->json([
+                'message' => 'This is not a reply'
+            ], 400);
+        }
+
+        // Optional: only allow owner/admin
+        if (auth()->id() !== $review->user_id) {
+            return response()->json([
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        $review->update([
+            'comment' => $request->comment
+        ]);
+
+        return response()->json([
+            'message' => 'Reply updated successfully',
+            'data' => $review
+        ]);
+    }
+    public function approved(Request $request, $id)
+    {
+        $review = Review::findOrFail($id);
+
+        $review->is_approved = !$review->is_approved;
+        $review->save();
+
+        return response()->json([
+            'message' => $review->is_approved ? 'Approved' : 'Unapproved',
+            'data' => $review
+        ]);
+    }
+    public function delete($id)
+    {
+        $review = Review::findOrFail($id);
+
+        // ✅ Check if it's a reply
+        if ($review->parent_id !== null) {
+            $review->delete();
+
+            return response()->json([
+                'message' => 'Reply deleted successfully'
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'This is not a reply'
+        ], 400);
+    }
+
+
 }

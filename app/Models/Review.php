@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Review extends Model
 {
-    protected $fillable = ['user_id', 'product_id', 'rating', 'comment', 'is_approved', 'image', 'image_file_id'];
+    protected $fillable = ['user_id', 'product_id', 'rating', 'comment', 'is_approved', 'image', 'image_file_id','parent_id'];
     protected $hidden = ['created_at', 'updated_at'];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
@@ -20,4 +20,13 @@ class Review extends Model
     {
         return $this->belongsTo(Product::class);
     }
+        public function parent()
+    {
+        return $this->belongsTo(Review::class, 'parent_id');
+    }
+        public function replies()
+    {
+        return $this->hasMany(Review::class, 'parent_id');
+    }
+
 }
