@@ -280,7 +280,9 @@ Route::prefix('v1')->group(function () {
             });
             // Notificatons
             Route::get('/notifications', [NotificationController::class, 'notifications']);
-            Route::post('/notifications/seen/{id}', [NotificationController::class, 'markAsSeen']);
+            Route::get('/notifications/{id}', [NotificationController::class, 'getById']);
+            Route::post('/notifications/{id}', [NotificationController::class, 'markAsSeen']);
+
             // Product Damages
             Route::get('/product-damages', [ProductDamageController::class, 'index']);
             Route::post('/product-damages', [ProductDamageController::class, 'store']);

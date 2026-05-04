@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
@@ -68,4 +69,12 @@ class Order extends Model
     {
         return $this->belongsTo(Address::class, 'address_id');
     }
+    public function getTimeAgoAttribute()
+{
+    return Carbon::parse($this->created_at)->diffForHumans([
+        'parts' => 2,
+        'short' => true,
+        'syntax' => Carbon::DIFF_RELATIVE_TO_NOW,
+    ]);
+}
 }

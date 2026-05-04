@@ -26,7 +26,36 @@ class ProductDamageController extends Controller
                     ],
                     'reason' => $damage->reason,
                     'quantity' => $damage->quantity,
-                    'current_stock' => $damage->product->variant->stock ?? 0,
+                    'current_stock' => $damage->product->variants->sum('stock'),
+                    'status' => $damage->status,
+                    'image_proof' => $damage->image,
+                    'reported_by' => [
+                        'first_name' => $damage->user->first_name ?? 'Unknown',
+                        'last_name' => $damage->user->last_name ?? 'Unknown',
+                        'date' => $damage->created_at->format('d-m-Y'),
+                        'time' => $damage->created_at->format('h-i-s A'),
+                    ],
+                ];
+            }),
+        ]);
+    }
+    public function getById($id)
+    {
+        $damages = ProductDamage::with(['product', 'user'])->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Retrieved product damage successfully ',
+            'data' => $damages->map(function ($damage) {
+                return [
+                    'id' => $damage->id,
+                    'product' => [
+                        'name' => $damage->product->productName ?? 'N/A',
+                        'slug' => $damage->product->slug ?? 'N/A',
+                        'image' => $damage->product->image ?? null,
+                    ],
+                    'reason' => $damage->reason,
+                    'quantity' => $damage->quantity,
+                    'current_stock' => $damage->product->variant->stock,
                     'status' => $damage->status,
                     'image_proof' => $damage->image,
                     'reported_by' => [
@@ -44,9 +73,11 @@ class ProductDamageController extends Controller
     {
         $request->validate([
             'product_id' => 'required|exists:products,id',
-            'reason' => 'required|string:max:255',
+            'reason' => 'required|string|max:255',
             'quantity' => 'required|integer|min:1',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048'
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048',
+            'status' => 'required|string'
+
         ]);
 
         $user = Auth::user();
@@ -83,7 +114,7 @@ class ProductDamageController extends Controller
             'quantity' => $request->quantity,
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'status' => 'pending'
+            'status' => $request->status
         ]);
 
         return response()->json([
