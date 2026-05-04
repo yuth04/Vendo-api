@@ -12,12 +12,12 @@ use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 class ProductController extends Controller
 {
-    
+
     public function index(Request $request)
     {
 
         $products = Product::with(['category', 'brand', 'variants'])
-            ->where('status','active')
+            ->where('status', 'active')
             ->orderBy('id', 'asc')
             ->get();
 
@@ -33,7 +33,7 @@ class ProductController extends Controller
     {
         $product = Product::with(['category', 'brand', 'variants'])
             ->whereRaw('slug ILIKE ?', [$slug])
-            ->where('status','active')
+            ->where('status', 'active')
             ->first();
 
         if (!$product) {
@@ -50,7 +50,7 @@ class ProductController extends Controller
     public function searchById($id)
     {
         try {
-            $product = Product::with(['category', 'brand', 'variants'])->where('status','active')->findOrFail($id);
+            $product = Product::with(['category', 'brand', 'variants'])->where('status', 'active')->findOrFail($id);
 
             return response()->json([
                 'message' => "search product successfully",
@@ -143,7 +143,8 @@ class ProductController extends Controller
             'price' => 'required|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'brand_id' => 'required|exists:brands,id',
-            'image' => 'nullable|image|max:5120'
+            'image' => 'nullable|image|max:5120',
+            'status' => 'nullable|string|max:50'
         ]);
 
         // ✅ Handle slug
@@ -204,7 +205,8 @@ class ProductController extends Controller
             'category_id' => $validated['category_id'],
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
-            'image_file_id' => $imageFileId,
+            'image_file_id' => $imageFileId,,
+            'status'=>$request->status
         ]);
 
         return response()->json([
