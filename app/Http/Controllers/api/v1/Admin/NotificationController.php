@@ -43,7 +43,7 @@ class NotificationController extends Controller
             ->map(function ($order) {
                 return [
                     'id' => $order->id,
-                    'message' => 'New order #' . $order->id,
+                    'message' => 'Order ID ' . $order->id,
                     'first_name' => $order->user->first_name,
                     'last_name' => $order->user->last_name,
                     'image' => $order->user->image,
@@ -88,7 +88,7 @@ class NotificationController extends Controller
         return response()->json([
             'order' => [
                 'id' => $order->id,
-                'message' => '#' . $order->id,
+                'message' => 'Order ID ' . $order->id,
                 'first_name' => $order->user->first_name,
                 'last_name' => $order->user->last_name,
                 'email' => $order->user->email,
