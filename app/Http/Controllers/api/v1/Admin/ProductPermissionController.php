@@ -184,7 +184,7 @@ class ProductPermissionController extends Controller
     }
     public function discountCategory()
     {
-        $category = DiscountCategory::with('discounts.products')->orderBy('id', 'asc')->get();
+        $category = DiscountCategory::with('discounts.products','coupons')->orderBy('id', 'asc')->get();
 
         if (!$category) {
             return response()->json([
@@ -199,7 +199,7 @@ class ProductPermissionController extends Controller
     }
     public function discountCategoryId($id)
     {
-        $category = DiscountCategory::with('discounts.products')->find($id);
+        $category = DiscountCategory::with('discounts.products','coupons')->find($id);
 
         if (!$category) {
             return response()->json([
