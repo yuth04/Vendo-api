@@ -12,7 +12,7 @@ class ReviewController extends Controller
 
     public function index(Request $request)
     {
-        $query = Review::with(['user', 'product'])->where('is_approved', true);
+        $query = Review::with(['user', 'product','replies'])->where('is_approved', true);
 
         if ($request->has('product_id')) {
             $query->where('product_id', $request->product_id);
