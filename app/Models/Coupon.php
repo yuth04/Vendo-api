@@ -20,7 +20,8 @@ class Coupon extends Model
         'status',
         'image',
         'image_file_id',
-        'description'
+        'description',
+        'discount_category_id'
     ];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
@@ -28,6 +29,9 @@ class Coupon extends Model
         'start_date'=> 'datetime:d-m-Y h:i:s A',
         'end_date'=> 'datetime:d-m-Y h:i:s A',
     ];
+    public function discountCategory(){
+        return $this->belongsTo(DiscountCategory::class);
+    }
     public function isValid($total)
     {
         if (!$this->is_active)
@@ -63,4 +67,5 @@ class Coupon extends Model
 
         return 0;
     }
+  
 }
