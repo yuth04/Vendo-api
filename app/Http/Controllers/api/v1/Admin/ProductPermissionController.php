@@ -168,7 +168,7 @@ class ProductPermissionController extends Controller
     }
     public function brand()
     {
-        $brand = Brand::with(['products'])->get();
+        $brand = Brand::with(['products'])->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => "get brands successfully",
             'brands' => $brand
@@ -215,6 +215,7 @@ class ProductPermissionController extends Controller
     public function carousel()
     {
         $carousels = Carousel::orderBy('position')
+            ->orderBy('id', 'asc')
             ->get();
 
         return response()->json([

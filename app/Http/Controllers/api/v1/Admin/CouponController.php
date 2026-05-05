@@ -38,7 +38,7 @@ class CouponController extends Controller
     }
     public function index()
     {
-        $coupons = Coupon::all();
+        $coupons = Coupon::orderBy('id', 'asc')->get();
         if ($coupons->isEmpty()) {
             return response()->json([
                 'message' => "Coupon is empty",
