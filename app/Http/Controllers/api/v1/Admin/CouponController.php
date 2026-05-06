@@ -38,7 +38,7 @@ class CouponController extends Controller
     }
     public function index()
     {
-        $coupons = Coupon::all();
+        $coupons = Coupon::orderBy('id', 'asc')->get();
         if ($coupons->isEmpty()) {
             return response()->json([
                 'message' => "Coupon is empty",
@@ -77,6 +77,7 @@ class CouponController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048',
             'status' => 'required|string',
+            'discount_category_id' => 'nullable|exists:discount_categories,id'
         ]);
         $imageUrl = null;
         $imageFileId = null;
@@ -118,6 +119,7 @@ class CouponController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $request->status,
+            'discount_category_id'=>$request->discount_category_id
 
         ]);
 
@@ -148,6 +150,7 @@ class CouponController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048',
             'status' => 'required|string',
+            'discount_category_id' => 'nullable|exists:discount_categories,id'
         ]);
         $imageUrl = $coupon->image;
         $imageFileId = $coupon->image_file_id;
@@ -191,7 +194,7 @@ class CouponController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $request->status,
-
+            'discount_category_id'=>$request->discount_category_id
         ]);
 
         return response()->json([

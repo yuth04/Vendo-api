@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1\Export;
 
 use App\Exports\AdminsExport;
 use App\Exports\OrderHistoryExport;
+use App\Exports\ProductDamageExport;
 use App\Exports\ProductExport;
 use App\Exports\ProductsReportExport;
 use App\Exports\ProductVariantsExport;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductDamage;
 use App\Models\ProductVariant;
 use App\Models\ReturnOrder;
 use App\Models\User;
@@ -384,6 +386,34 @@ class ExportController extends Controller
         $pdf = Pdf::loadView('reports.variant_pdf', compact('data', 'summary'));
 
         return $pdf->download('product-variants-report.pdf');
+    }
+    // Product Damage
+    public function exportProductDamageExcel()
+    {
+        return Excel::download(new ProductDamageExport(), 'product_damages.xlsx');
+    }
+    public function exportProductDamagePdf()
+    {
+        $damages = ProductDamage::with(['product.variants', 'user'])->get();
+
+        $data = $damages->map(function ($damage) {
+            return [
+                'id' => $damage->id,
+                'product_name' => $damage->product->productName ?? 'N/A',
+                'slug' => $damage->product->slug ?? 'N/A',
+                'reason' => $damage->reason,
+                'quantity' => $damage->quantity,
+                'stock' => optional($damage->product)->variants->sum('stock') ?? 0,
+                'status' => $damage->status,
+                'user' => ($damage->user->first_name ?? '') . ' ' . ($damage->user->last_name ?? ''),
+                'date' => $damage->created_at->format('d-m-Y'),
+                'time' => $damage->created_at->format('h:i A'),
+            ];
+        });
+
+        $pdf = Pdf::loadView('reports.product-damage', ['data' => $data]);
+
+        return $pdf->download('product-damages.pdf');
     }
 
 }

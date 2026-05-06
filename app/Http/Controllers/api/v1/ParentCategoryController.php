@@ -118,12 +118,7 @@ class ParentCategoryController extends Controller
     public function update(Request $request, $id)
     {
         $parentCategory = ParentCategory::find($id);
-        // $validated = $request->validate([
-        //     'name' => "required|string|max:255|unique:parent_categories,name,$id",
-        //     'status' => 'required|boolean'
-        // ], [
-        //     'name.unique' => 'This category name already exists.'
-        // ]);
+
         $validated = Validator::make($request->all(), [
             'name' => "required|string|max:255|unique:parent_categories,name,$id",
             'status' => 'required|in:0,1'

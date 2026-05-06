@@ -26,7 +26,6 @@ class DiscountCategory extends Model
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
 
-
     ];
 
     protected $hidden = [
@@ -41,4 +40,9 @@ class DiscountCategory extends Model
     {
         return $this->hasMany(Discount::class, 'discount_category_id');
     }
+    public function coupons()
+    {
+        return $this->hasMany(Coupon::class,'discount_category_id');
+    }
+
 }

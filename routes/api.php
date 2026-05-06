@@ -53,7 +53,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/stocks/pdf', [ExportController::class, 'exportStockPDF']);
     Route::get('/variants/excel', [ExportController::class, 'exportVariantsExcel']);
     Route::get('/variants/pdf', [ExportController::class, 'exportVariantPDF']);
-
+    Route::get('/product-damages/excel', [ExportController::class, 'exportProductDamageExcel']);
+    Route::get('/product-damages/pdf', [ExportController::class, 'exportProductDamagePdf']);
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -194,8 +195,6 @@ Route::prefix('v1')->group(function () {
             // Returns
             Route::get('/returns', [PosController::class, 'returnHistory']);
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
-            // Admin
-            Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approve']);
 
             // Discounts
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
@@ -299,6 +298,17 @@ Route::prefix('v1')->group(function () {
             Route::post('/coupons', [CouponController::class, 'store']);
             Route::post('/coupons/{id}', [CouponController::class, 'update']);
             Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
+            // Reviews
+            Route::get('reviews-reply', [ReviewController::class, 'getAll']);
+            Route::get('reviews-reply/{id}', [ReviewController::class, 'getById']);
+
+            Route::post('reviews-reply/{id}', [ReviewController::class, 'reply']);
+            Route::put('reviews-reply/{id}', [ReviewController::class, 'updateReply']);
+
+            Route::patch('reviews/approve/{id}', [ReviewController::class, 'approved']);
+            Route::delete('reviews-reply/{id}', [ReviewController::class, 'delete']);
+
+
         });
 
     });

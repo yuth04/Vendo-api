@@ -14,7 +14,7 @@ class DiscountCategoryController extends Controller
   
     public function index()
     {
-        $category = DiscountCategory::with('discounts.products')->where('is_active',true)->orderBy('id','asc')->get();
+        $category = DiscountCategory::with(['discounts.products','coupons'])->where('is_active',true)->orderBy('id','asc')->get();
 
         if (!$category) {
             return response()->json([
