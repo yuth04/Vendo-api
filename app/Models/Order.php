@@ -11,6 +11,8 @@ class Order extends Model
         'user_id',
         'address_id',
         'order_number',
+        'original_price',
+        'sub_total_price',
         'total_price',
         'status',
         'contact',
@@ -70,11 +72,11 @@ class Order extends Model
         return $this->belongsTo(Address::class, 'address_id');
     }
     public function getTimeAgoAttribute()
-{
-    return Carbon::parse($this->created_at)->diffForHumans([
-        'parts' => 2,
-        'short' => true,
-        'syntax' => Carbon::DIFF_RELATIVE_TO_NOW,
-    ]);
-}
+    {
+        return Carbon::parse($this->created_at)->diffForHumans([
+            'parts' => 2,
+            'short' => true,
+            'syntax' => Carbon::DIFF_RELATIVE_TO_NOW,
+        ]);
+    }
 }
