@@ -8,19 +8,22 @@ class Discount extends Model
 {
 
     protected $fillable = [
-        'product_id',
         'name',
         'description',
         'amount',
         'type',
         'start_date',
         'end_date',
-        'discount_category_id'
+        'banner_image',
+        'image_file_id',
+        'slug',
+        'is_active',
     ];
-    protected $hidden = ['created_at', 'updated_at', 'discount_price', 'product_id'];
+    protected $hidden = ['created_at', 'updated_at', 'discount_price','image_file_id'];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'is_active'=>'boolean'
     ];
     public function discountCategory()
     {
@@ -30,7 +33,9 @@ class Discount extends Model
     {
         return $this->hasMany(Product::class);
     }
-
+    public function coupon(){
+        return $this->hasOne(Coupon::class,'discount_id');
+    }
 
 
 

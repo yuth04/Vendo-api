@@ -8,6 +8,8 @@ use App\Models\Discount;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use ImageKit\ImageKit;
 
 class DiscountController extends Controller
 {
@@ -15,7 +17,7 @@ class DiscountController extends Controller
     public function index(Request $request)
     {
 
-        $discounts = Discount::with('products')
+        $discounts = Discount::with(['products','coupon'])
 
             ->orderBy('id', 'asc')
             ->get();
@@ -57,156 +59,64 @@ class DiscountController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'discount_category_id' => 'nullable|exists:discount_categories,id',
-            'description' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:255',
             'amount' => 'required|numeric|min:0',
             'type' => 'required|in:percent,fixed',
-            'product_id' => 'required|array',
-            'product_id.*' => 'exists:products,id',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
-            'status'
+            'banner_image' => 'nullable|image|max:5120',
+            'is_active' => 'nullable|boolean'
         ]);
+        $slug = Str::slug($request->name);
+        $count = Discount::where('slug', 'like', "{$slug}%")->count();
+        $slug = $count ? "{$slug}-{$count}" : $slug;
+        $imageUrl = null;
+        $imageFileId = null;
 
-        // 1. Check for  discounts for ANY of the products in the array
-        $exists = Discount::whereIn('product_id', $validated['product_id'])
+        if ($request->hasFile('banner_image')) {
 
-            ->where('start_date', $request->start_date)
-            ->where('end_date', $request->end_date)
-            ->exists();
-        if ($exists) {
-            return response()->json([
-                'message' => 'One or more products already have a discount in this period'
-            ], 409);
-        }
+            $imageKit = new ImageKit(
+                config('imagekit.public_key'),
+                config('imagekit.private_key'),
+                config('imagekit.url_endpoint')
+            );
 
-        return DB::transaction(function () use ($validated) {
-            $discountData = $validated;
-            $discountData['product_id'] = $validated['product_id'][0];
+            $upload = $imageKit->upload([
+                'file' => fopen($request->file('banner_image')->getRealPath(), "r"),
+                'fileName' => $request->file('banner_image')->getClientOriginalName(),
+                'folder' => '/banner_images',
+            ]);
 
-            $discount = Discount::create($discountData);
-
-            $products = Product::whereIn('id', $validated['product_id'])->get();
-
-            foreach ($products as $product) {
-                $price = (float) $product->price;
-                $amount = (float) $validated['amount'];
-
-                $discountPrice = $validated['type'] === 'percent'
-                    ? $price - ($price * $amount / 100)
-                    : $price - $amount;
-
-                $product->update([
-                    'discount_id' => $discount->id, // Link them
-                    'discount_price' => max(0, round($discountPrice, 2))
-                ]);
+            if (isset($upload->error)) {
+                return response()->json([
+                    'message' => 'Upload failed',
+                    'error' => $upload->error->message,
+                ], 400);
             }
 
-            return response()->json([
-                'message' => 'Discount applied to ' . $products->count() . ' products successfully',
-                'data' => $discount->load('products')
-            ], 201);
-        });
+            $imageUrl = $upload->result->url;
+            $imageFileId = $upload->result->fileId;
+        }
+
+        $discount = Discount::create([
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'amount' => $validated['amount'],
+            'type' => $validated['type'],
+            'start_date' => $validated['start_date'],
+            'end_date' => $validated['end_date'],
+            'banner_image' => $imageUrl,
+            'image_file_id' => $imageFileId
+        ]);
+        return response()->json([
+            'message' => 'Discount created successfully',
+            'data' => $discount
+        ], 201);
     }
-    // public function update(Request $request, $id)
-    // {
-    //     // 1. Load the discount with all associated products
-    //     $discount = Discount::with('products')->find($id);
-
-    //     if (!$discount) {
-    //         return response()->json(['message' => 'Discount not found'], 404);
-    //     }
-
-    //     $validated = $request->validate([
-    //         'product_id'=>'sometime|array',
-    //         'product_id.*'=>'exists:product,id',
-    //         'discount_category_id' => 'nullable|exists:discount_categories,id',
-    //         'name' => 'nullable|string|max:255',
-    //         'description' => 'nullable|string',
-    //         'amount' => 'sometimes|numeric|min:0',
-    //         'type' => 'sometimes|in:percent,fixed',
-    //         'start_date' => 'nullable|date',
-    //         'end_date' => 'nullable|date|after_or_equal:start_date',
-    //     ]);
-
-    //     // 2. Use a Transaction to ensure data consistency
-    //     return DB::transaction(function () use ($discount, $validated) {
-
-    //         // Update the Discount record
-    //         $discount->update($validated);
-    //         foreach ($discount->products as $product) {
-    //             $price = (float) $product->price;
-    //             $amount = (float) $discount->amount;
-
-    //             $discountPrice = $discount->type === 'percent'
-    //                 ? $price - ($price * $amount / 100)
-    //                 : $price - $amount;
-
-    //             $product->update([
-    //                 'discount_price' => max(0, round($discountPrice, 2))
-    //             ]);
-    //         }
-
-    //         return response()->json([
-    //             'message' => 'Discount and all associated products updated successfully',
-    //             'data' => $discount->load('products')
-    //         ]);
-    //     });
-    // }
-
-    // public function update(Request $request, $id)
-    // {
-    //     $discount = Discount::findOrFail($id);
-
-    //     $validated = $request->validate([
-
-
-    //         'product_id' => 'sometimes|exists:products,id',
-
-    //         'name' => 'nullable|string|max:255',
-    //         'description' => 'nullable|string',
-    //         'amount' => 'sometimes|numeric|min:0',
-    //         'type' => 'sometimes|in:percent,fixed',
-    //         'start_date' => 'nullable|date',
-    //         'end_date' => 'nullable|date|after_or_equal:start_date',
-    //     ]);
-
-    //     $discount->update($validated);
-
-    //     $discount = $discount->fresh();
-
-    //     $product = $discount->product;
-
-    //     if (!$product) {
-    //         return response()->json([
-    //             'message' => 'Product not found for this discount'
-    //         ], 404);
-    //     }
-
-    //     // calculate discount price safely
-
-    //     if ($discount->type === 'percent') {
-    //         $discountPrice = $product->price - ($product->price * ($discount->amount / 100));
-    //     } else {
-    //         $discountPrice = $product->price - $discount->amount;
-    //     }
-
-
-    //     $product->update([
-    //         'discount_price' => max(0, round($discountPrice, 2))
-    //     ]);
-
-    //     return response()->json([
-    //         'message' => 'Discount updated successfully',
-
-    //         'data' => $discount->load(['product', 'discountCategory'])
-    //     ]);
-    // }
-
     public function update(Request $request, $id)
     {
-        $discount = Discount::with('products')->find($id);
+        $discount = Discount::find($id);
 
         if (!$discount) {
             return response()->json([
@@ -215,80 +125,105 @@ class DiscountController extends Controller
         }
 
         $validated = $request->validate([
-            'discount_category_id' => 'nullable|exists:discount_categories,id',
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'amount' => 'sometimes|numeric|min:0',
             'type' => 'sometimes|in:percent,fixed',
-            'product_id' => 'sometimes|array',
-            'product_id.*' => 'exists:products,id',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
+            'banner_image' => 'nullable|image|max:5120',
+            'is_active' => 'nullable|boolean',
         ]);
 
-        return DB::transaction(function () use ($discount, $validated) {
-            $discountData = $validated;
+        // upload image if exists
+        if ($request->hasFile('banner_image')) {
 
-            // save first product_id only
-            if (isset($validated['product_id'])) {
-                $discountData['product_id'] = $validated['product_id'][0];
+            $imageKit = new ImageKit(
+                config('imagekit.public_key'),
+                config('imagekit.private_key'),
+                config('imagekit.url_endpoint')
+            );
+
+            $upload = $imageKit->upload([
+                'file' => fopen($request->file('banner_image')->getRealPath(), "r"),
+                'fileName' => $request->file('banner_image')->getClientOriginalName(),
+                'folder' => '/banner_images',
+            ]);
+
+            if (isset($upload->error)) {
+                return response()->json([
+                    'message' => 'Upload failed',
+                    'error' => $upload->error->message,
+                ], 400);
             }
-
-            $discount->update($discountData);
-
-            // Add new products
-            if (isset($validated['product_id'])) {
-
-                $products = Product::whereIn('id', $validated['product_id'])->get();
-
-                foreach ($products as $product) {
-
-                    $price = (float) $product->price;
-                    $amount = (float) $discount->amount;
-
-                    $discountPrice = $discount->type === 'percent'
-                        ? $price - ($price * $amount / 100)
-                        : $price - $amount;
-
-                    $product->update([
-                        'discount_id' => $discount->id,
-                        'discount_price' => max(0, round($discountPrice, 2))
-                    ]);
+            if ($discount->image_file_id) {
+                try {
+                    $imageKit->deleteFile($discount->image_file_id);
+                } catch (\Exception $e) {
                 }
             }
-            // Response
+
+            $validated['banner_image'] = $upload->result->url;
+            $validated['image_file_id'] = $upload->result->fileId;
+        }
+
+        return DB::transaction(function () use ($discount, $validated) {
+
+            $discount->update($validated);
+
+            foreach ($discount->products as $product) {
+
+                $price = (float) $product->price;
+                $amount = (float) $discount->amount;
+
+                $discountPrice = $discount->type === 'percent'
+                    ? $price - ($price * $amount / 100)
+                    : $price - $amount;
+
+                $product->update([
+                    'discount_price' => max(0, round($discountPrice, 2))
+                ]);
+            }
+
             return response()->json([
-                'message' => 'Discount updated successfully',
-                'data' => $discount->fresh()->load('products')
+                'message' => 'Discount and products updated successfully',
+                'data' => $discount->load('products')
             ]);
         });
     }
     public function destroy($id)
     {
-        $discount = Discount::findOrFail($id);
-        Product::where('discount_id', $discount->id)->update([
-            'discount_id' => null,
-            'discount_price' => null
-        ]);
+        $discount = Discount::find($id);
+
+        if (!$discount) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
         $discount->delete();
 
-        DB::statement("SELECT setval(pg_get_serial_sequence('discounts', 'id'), coalesce(max(id), 0) + 1, false) FROM discounts;");
         return response()->json([
-            'message' => 'Active discount deleted successfully',
-
-
+            'message' => 'Discount deleted successfully'
         ]);
     }
     public function addProducts(Request $request, $discountId)
     {
         // Find the existing discount
-        $discount = Discount::findOrFail($discountId);
-
+        $discount = Discount::find($discountId);
+        if (!$discount) {
+            return response()->json([
+                'message' => 'Discount not found'
+            ]);
+        }
         $validated = $request->validate([
             'product_ids' => 'required|array',
             'product_ids.*' => 'exists:products,id',
         ]);
 
+        if ($discount->products()->whereIn('products.id', $validated['product_ids'])->exists()) {
+            return response()->json([
+                'message' => 'Some products already have this discount'
+            ], 409);
+        }
         return DB::transaction(function () use ($validated, $discount) {
             $products = Product::whereIn('id', $validated['product_ids'])->get();
             $addedCount = 0;
@@ -313,7 +248,7 @@ class DiscountController extends Controller
             }
 
             return response()->json([
-                'message' => "$addedCount new products added to discount: {$discount->name}",
+                'message' => 'Add new product to discount successfully',
                 'discount' => $discount->load('products')
             ]);
         });

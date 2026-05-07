@@ -336,7 +336,7 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        //  1. Calculate subtotal (same logic as checkout)
+        //  1. Calculate subtotal
         $subtotal = 0;
 
         foreach ($request->items as $item) {
@@ -371,7 +371,8 @@ class OrderController extends Controller
             'message'=>'Apply coupon success',
             'coupon' => $coupon->code,
             'subtotal' => round($subtotal, 2),
-            'coupon_discount' => round($discount, 2),
+            'save' => round($discount, 2),
+            
             'shipping' => $shipping,
             'total_price' => round($total, 2), 
         ]);
@@ -652,92 +653,7 @@ class OrderController extends Controller
             })
         ];
     }
-    // private function formatOrder($order)
-    // {
-    //     $shipping = (float) ($order->shipping_fee ?? $this->calculateShipping($order->address->province ?? ''));
-    //     // -------------------------
-    //     // SUBTOTAL (ORIGINAL)
-    //     // -------------------------
-    //     $originalSubtotal = $order->items->sum(function ($item) {
-    //         $product = $item->variant->product ?? null;
-    //         return (float) ($product->price ?? 0) * $item->quantity;
-    //     });
-
-    //     // -------------------------
-    //     // SUBTOTAL (AFTER PRODUCT DISCOUNT)
-    //     // -------------------------
-    //     $finalSubtotal = $order->items->sum(function ($item) {
-    //         return (float) $item->price * $item->quantity;
-    //     });
-
-    //     // -------------------------
-    //     // DISCOUNTS
-    //     // -------------------------
-    //     $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
-    //     $couponDiscount = (float) $order->coupon_discount;
-
-    //     // -------------------------
-    //     // TOTAL
-    //     // -------------------------
-    //     $totalPayment = ($finalSubtotal - $couponDiscount) + $shipping;
-    //     $originalSubtotal = $order->items->sum(
-    //         fn($item) =>
-    //         (float) ($item->price ?? 0) * $item->quantity
-    //     );
-
-    //     return [
-    //         'order_id' => $order->id,
-    //         'order_number' => $order->order_number,
-    //         'status' => $order->status,
-    //         // 'original_price' => round($originalSubtotal, 2),
-    //         'sub_total_price' => (float) $order->total_price - $shipping,
-    //         'product_discount' => round($productDiscount, 2),
-    //         'coupon_discount' => $couponDiscount,
-    //         'shipping_fee' => $shipping,
-    //         'total_price' => round($totalPayment, 2),
-    //         'save' => (float) $order->discount_amount,
-    //         'coupon' => [
-    //             'code' => $order->coupon_code,
-    //             'discount' => $couponDiscount,
-    //         ],
-    //         'created_at' => $order->created_at->format('d-m-Y'),
-    //         'time' => $order->created_at->format('h:i:s A'),
-    //         'payment' => [
-    //             'method' => $order->payment->payment_method ?? null,
-    //             'status' => $order->payment->status ?? null,
-    //             'reference' => $order->payment->payment_reference ?? null,
-    //             'paid_at' => $order->payment->paid_at ? $order->payment->paid_at->format('d-m-Y h:i:s A') : null,
-    //         ],
-    //         'address' => [
-    //             'first_name' => $order->address->first_name ?? null,
-    //             'last_name' => $order->address->last_name ?? null,
-    //             'address_line' => $order->address->address_line ?? null,
-    //             'city' => $order->address->city ?? null,
-    //             'province' => $order->address->province ?? null,
-    //             'phone' => $order->address->phone ?? $order->user->contact ?? null,
-    //             'note' => $order->note,
-    //         ],
-    //         'items' => $order->items->map(fn($item) => [
-
-    //             'id' => $item->id,
-    //             'quantity' => $item->quantity,
-    //             'discount' => (float) $item->order->discount_amount ?? $item->price,
-    //             'subtotal' => round((float) $item->price),
-    //             'variant' => [
-    //                 'id' => $item->product_variant_id,
-    //                 'size' => $item->size,
-    //                 'color' => $item->color,
-    //                 'price' => (float) $item->variant->product->price,
-    //                 'product' => [
-    //                     'id' => $item->variant->product->id ?? null,
-    //                     'name' => $item->product_name,
-    //                     'slug' => $item->variant->product->slug ?? null,
-    //                     'image' => $item->variant->product->image ?? null,
-    //                 ]
-    //             ]
-    //         ])
-    //     ];
-    // }
+   
     public function filterByStatus(Request $request)
     {
         $status = $request->query('status');
