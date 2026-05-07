@@ -125,6 +125,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
+        // Coupon
+        Route::post('/apply-coupon', [OrderController::class, 'apply']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
@@ -172,8 +174,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [AddressController::class, 'update']);
             Route::delete('/{id}', [AddressController::class, 'destroy']);
         });
-        // Coupon
-        Route::post('/apply-coupon', [OrderController::class, 'apply']);
+
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
             //  Updater Status

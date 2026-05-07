@@ -290,6 +290,43 @@ class OrderController extends Controller
             ], 500);
         }
     }
+    //     public function apply(Request $request)
+    // {
+    //     $request->validate([
+    //         'code' => 'required|string',
+    //         'cart_total' => 'required|numeric|min:0'
+    //     ]);
+
+    //     $coupon = Coupon::where('code', $request->code)
+    //         ->where('is_active', true)
+    //         ->first();
+
+    //     if (!$coupon) {
+    //         return response()->json([
+    //             'message' => 'Invalid coupon code'
+    //         ], 404);
+    //     }
+
+    //     $cartTotal = $request->cart_total;
+
+
+    //     if ($coupon->type === 'percent') {
+    //         $discount = $cartTotal * $coupon->value / 100;
+    //     } else {
+    //         $discount = $coupon->value;
+    //     }
+
+    //     // prevent negative price
+    //     $discount = min($discount, $cartTotal);
+
+    //     $newTotal = $cartTotal - $discount;
+
+    //     return response()->json([
+    //         'message' => 'Coupon applied successfully',
+    //         'discount' => round($discount, 2),
+    //         'total' => round($newTotal, 2)
+    //     ]);
+    // }
     public function apply(Request $request)
     {
         $request->validate([
@@ -299,7 +336,7 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        // 🔥 1. Calculate subtotal (same logic as checkout)
+        //  1. Calculate subtotal (same logic as checkout)
         $subtotal = 0;
 
         foreach ($request->items as $item) {
@@ -310,32 +347,33 @@ class OrderController extends Controller
             $subtotal += $price * $item['quantity'];
         }
 
-        // 🔥 2. Validate coupon
+        //  2. Validate coupon
         $coupon = Coupon::where('code', $request->code)->first();
 
         if (!$coupon) {
             return response()->json(['message' => 'Invalid coupon'], 404);
         }
 
-        if (!$coupon->isValid($subtotal)) {
-            return response()->json(['message' => 'Coupon not valid'], 400);
-        }
+        // if (!$coupon->isValid($subtotal)) {
+        //     return response()->json(['message' => 'Coupon not valid'], 400);
+        // }
 
-        // 🔥 3. Calculate discount
+        //  3. Calculate discount
         $discount = $coupon->calculateDiscount($subtotal);
         $discount = min($discount, $subtotal);
 
-        // 🚚 optional shipping (same logic as checkout)
+        //  optional shipping (same logic as checkout)
         $shipping = 1.50;
 
         $total = max(0, ($subtotal - $discount) + $shipping);
 
         return response()->json([
+            'message'=>'Apply coupon success',
             'coupon' => $coupon->code,
             'subtotal' => round($subtotal, 2),
-            'discount' => round($discount, 2),
+            'coupon_discount' => round($discount, 2),
             'shipping' => $shipping,
-            'total_price' => round($total, 2), // 🔥 THIS is updated order total
+            'total_price' => round($total, 2), 
         ]);
     }
     private function resolveOrderAddress($user, Request $request)
