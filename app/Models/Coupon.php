@@ -21,16 +21,20 @@ class Coupon extends Model
         'image',
         'image_file_id',
         'description',
-        'discount_category_id'
+        'discount_id'
     ];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
-        'start_date'=> 'datetime:d-m-Y h:i:s A',
-        'end_date'=> 'datetime:d-m-Y h:i:s A',
+        'start_date' => 'datetime:d-m-Y h:i:s A',
+        'end_date' => 'datetime:d-m-Y h:i:s A',
     ];
-    public function discountCategory(){
-        return $this->belongsTo(DiscountCategory::class);
+    protected $hidden = [
+        'image_file_id'
+    ];
+    public function discount()
+    {
+        return $this->belongsTo(Discount::class);
     }
     public function isValid($total)
     {
@@ -67,5 +71,5 @@ class Coupon extends Model
 
         return 0;
     }
-  
+
 }
