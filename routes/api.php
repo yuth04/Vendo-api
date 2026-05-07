@@ -198,7 +198,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
 
             // Discounts
-            Route::get('/discounts', [DiscountController::class, 'index']);
+            Route::get('/discounts', [DiscountController::class, 'getAll']);
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
@@ -208,7 +208,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
-            Route::post('/discounts/add-product/{id}', [DiscountController::class, 'addProducts']);
+            Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
 
             // Carousels

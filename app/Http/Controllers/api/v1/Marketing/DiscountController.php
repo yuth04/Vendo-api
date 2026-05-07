@@ -17,8 +17,22 @@ class DiscountController extends Controller
     public function index(Request $request)
     {
 
-        $discounts = Discount::with(['products','coupon'])
+        $discounts = Discount::with(['products', 'coupon'])
+            ->where('is_active', true)
+            ->orderBy('id', 'asc')
+            ->get();
 
+        return response()->json([
+            'message' => $discounts->isEmpty()
+                ? 'No active discounts found'
+                : 'Active discounts retrieved successfully',
+            'discount' => $discounts,
+        ]);
+    }
+    public function getAll(Request $request)
+    {
+
+        $discounts = Discount::with(['products', 'coupon'])
             ->orderBy('id', 'asc')
             ->get();
 
@@ -101,13 +115,15 @@ class DiscountController extends Controller
 
         $discount = Discount::create([
             'name' => $validated['name'],
+            'slug' => $slug,
             'description' => $validated['description'],
             'amount' => $validated['amount'],
             'type' => $validated['type'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'],
             'banner_image' => $imageUrl,
-            'image_file_id' => $imageFileId
+            'image_file_id' => $imageFileId,
+
         ]);
         return response()->json([
             'message' => 'Discount created successfully',
@@ -134,6 +150,17 @@ class DiscountController extends Controller
             'banner_image' => 'nullable|image|max:5120',
             'is_active' => 'nullable|boolean',
         ]);
+
+        if ($request->filled('name')) {
+
+            $slug = Str::slug($request->name);
+
+            $count = Discount::where('slug', 'like', "{$slug}%")
+                ->where('id', '!=', $discount->id)
+                ->count();
+
+            $validated['slug'] = $count ? "{$slug}-{$count}" : $slug;
+        }
 
         // upload image if exists
         if ($request->hasFile('banner_image')) {
@@ -205,36 +232,46 @@ class DiscountController extends Controller
             'message' => 'Discount deleted successfully'
         ]);
     }
-    public function addProducts(Request $request, $discountId)
+    public function addProducts(Request $request)
     {
-        // Find the existing discount
-        $discount = Discount::find($discountId);
-        if (!$discount) {
-            return response()->json([
-                'message' => 'Discount not found'
-            ]);
-        }
         $validated = $request->validate([
+            'discount_id' => 'required|exists:discounts,id',
             'product_ids' => 'required|array',
             'product_ids.*' => 'exists:products,id',
         ]);
 
+        // Find discount
+        $discount = Discount::find($validated['discount_id']);
+
+        if (!$discount) {
+            return response()->json([
+                'message' => 'Discount not found'
+            ], 404);
+        }
+
+        // Check existing products
         if ($discount->products()->whereIn('products.id', $validated['product_ids'])->exists()) {
             return response()->json([
                 'message' => 'Some products already have this discount'
             ], 409);
         }
+
         return DB::transaction(function () use ($validated, $discount) {
+
             $products = Product::whereIn('id', $validated['product_ids'])->get();
-            $addedCount = 0;
+
+            // $addedCount = 0;
 
             foreach ($products as $product) {
 
-                if ($product->discount_id == $discount->id)
+                if ($product->discount_id == $discount->id) {
                     continue;
+                }
+
                 $price = (float) $product->price;
                 $amount = (float) $discount->amount;
 
+                // Calculate discounted price
                 $discountPrice = $discount->type === 'percent'
                     ? $price - ($price * $amount / 100)
                     : $price - $amount;
@@ -244,15 +281,73 @@ class DiscountController extends Controller
                     'discount_price' => max(0, round($discountPrice, 2))
                 ]);
 
-                $addedCount++;
+                // $addedCount++;
             }
 
             return response()->json([
                 'message' => 'Add new product to discount successfully',
                 'discount' => $discount->load('products')
-            ]);
+            ], 200);
         });
     }
+    // public function addProducts(Request $request)
+    // {
+    //     $validated = $request->validate([
+    //         'discount_id' => 'required|exists:discounts,id',
+    //         'product_ids' => 'required|array',
+    //         'product_ids.*' => 'exists:products,id',
+    //     ]);
+
+    //     // Find discount
+    //     $discount = Discount::find($validated['discount_id']);
+
+    //     if (!$discount) {
+    //         return response()->json([
+    //             'message' => 'Discount not found'
+    //         ], 404);
+    //     }
+
+    //     // Check existing products
+    //     if ($discount->products()->whereIn('products.id', $validated['product_ids'])->exists()) {
+    //         return response()->json([
+    //             'message' => 'Some products already have this discount'
+    //         ], 409);
+    //     }
+
+    //     return DB::transaction(function () use ($validated, $discount) {
+
+    //         $products = Product::whereIn('id', $validated['product_ids'])->get();
+
+    //         $addedCount = 0;
+
+    //         foreach ($products as $product) {
+
+    //             if ($product->discount_id == $discount->id) {
+    //                 continue;
+    //             }
+
+    //             $price = (float) $product->price;
+    //             $amount = (float) $discount->amount;
+
+    //             // Calculate discounted price
+    //             $discountPrice = $discount->type === 'percent'
+    //                 ? $price - ($price * $amount / 100)
+    //                 : $price - $amount;
+
+    //             $product->update([
+    //                 'discount_id' => $discount->id,
+    //                 'discount_price' => max(0, round($discountPrice, 2))
+    //             ]);
+
+    //             $addedCount++;
+    //         }
+
+    //         return response()->json([
+    //             'message' => 'Add new product to discount successfully',
+    //             'discount' => $discount->load('products')
+    //         ], 200);
+    //     });
+    // }
     public function removeProduct(Request $request, $discountId)
     {
         $validated = $request->validate([
