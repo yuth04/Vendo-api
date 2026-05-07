@@ -30,7 +30,9 @@ class DiscountCategory extends Model
 
     protected $hidden = [
         'created_at',
-        'updated_at'
+        'updated_at',
+        'start_date',
+        'end_date'
     ];
 
     /**
@@ -38,7 +40,7 @@ class DiscountCategory extends Model
      */
     public function discounts()
     {
-        return $this->hasMany(Discount::class, 'discount_category_id');
+        return $this->hasOne(Discount::class, 'discount_category_id');
     }
     public function coupons()
     {

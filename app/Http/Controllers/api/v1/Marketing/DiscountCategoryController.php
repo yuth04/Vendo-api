@@ -34,9 +34,7 @@ class DiscountCategoryController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'banner_image' => 'nullable|image|max:5120',
-            'is_active'=>'nullable|boolean',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'is_active'=>'nullable|boolean'
         ]);
         $slug = Str::slug($request->title);
         $count = DiscountCategory::where('slug', 'like', "{$slug}%")->count();
@@ -74,8 +72,6 @@ class DiscountCategoryController extends Controller
             'description' => $request->description,
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
             'is_active'=>$request->is_active
         ]);
 
