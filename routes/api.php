@@ -173,7 +173,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{id}', [AddressController::class, 'destroy']);
         });
         // Coupon
-        Route::post('/apply-coupon', [CouponController::class, 'apply']);
+        Route::post('/apply-coupon', [OrderController::class, 'apply']);
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
             //  Updater Status
@@ -197,6 +197,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
 
             // Discounts
+            Route::get('/discounts', [DiscountController::class, 'index']);
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
