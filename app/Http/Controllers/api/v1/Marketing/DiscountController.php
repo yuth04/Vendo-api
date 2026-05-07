@@ -16,7 +16,7 @@ class DiscountController extends Controller
     {
 
         $discounts = Discount::with('products')
-            
+
             ->orderBy('id', 'asc')
             ->get();
 
@@ -57,13 +57,13 @@ class DiscountController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'product_id' => 'required|array', // Now an array [1,3,6,2]
-            'product_id.*' => 'exists:products,id',
             'discount_category_id' => 'nullable|exists:discount_categories,id',
             'description' => 'nullable|string|max:255',
             'name' => 'nullable|string|max:255',
             'amount' => 'required|numeric|min:0',
             'type' => 'required|in:percent,fixed',
+            'product_id' => 'required|array',
+            'product_id.*' => 'exists:products,id',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'status'
@@ -215,14 +215,13 @@ class DiscountController extends Controller
         }
 
         $validated = $request->validate([
-            'product_id' => 'sometimes|array',
-            'product_id.*' => 'exists:products,id',
-
             'discount_category_id' => 'nullable|exists:discount_categories,id',
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string',
             'amount' => 'sometimes|numeric|min:0',
             'type' => 'sometimes|in:percent,fixed',
+            'product_id' => 'sometimes|array',
+            'product_id.*' => 'exists:products,id',
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
@@ -267,7 +266,12 @@ class DiscountController extends Controller
     public function destroy($id)
     {
         $discount = Discount::findOrFail($id);
+        Product::where('discount_id', $discount->id)->update([
+            'discount_id' => null,
+            'discount_price' => null
+        ]);
         $discount->delete();
+
         DB::statement("SELECT setval(pg_get_serial_sequence('discounts', 'id'), coalesce(max(id), 0) + 1, false) FROM discounts;");
         return response()->json([
             'message' => 'Active discount deleted successfully',
@@ -290,14 +294,12 @@ class DiscountController extends Controller
             $addedCount = 0;
 
             foreach ($products as $product) {
-                // Optional: Skip if product already has this discount
+
                 if ($product->discount_id == $discount->id)
                     continue;
-
                 $price = (float) $product->price;
                 $amount = (float) $discount->amount;
 
-                // Calculate price based on existing discount rules
                 $discountPrice = $discount->type === 'percent'
                     ? $price - ($price * $amount / 100)
                     : $price - $amount;
