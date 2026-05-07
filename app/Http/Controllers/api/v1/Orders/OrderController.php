@@ -140,7 +140,8 @@ class OrderController extends Controller
     //         ], 500);
     //     }
     // }
-    public function checkout(Request $request){
+    public function checkout(Request $request)
+    {
         if (!Auth::check()) {
             return response()->json(['message' => 'login required'], 400);
         }
@@ -288,6 +289,54 @@ class OrderController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+    public function apply(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string',
+            'items' => 'required|array|min:1',
+            'items.*.product_variant_id' => 'required|exists:product_variants,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        // 🔥 1. Calculate subtotal (same logic as checkout)
+        $subtotal = 0;
+
+        foreach ($request->items as $item) {
+            $variant = ProductVariant::with('product')
+                ->findOrFail($item['product_variant_id']);
+
+            $price = $variant->product->getFinalPrice();
+            $subtotal += $price * $item['quantity'];
+        }
+
+        // 🔥 2. Validate coupon
+        $coupon = Coupon::where('code', $request->code)->first();
+
+        if (!$coupon) {
+            return response()->json(['message' => 'Invalid coupon'], 404);
+        }
+
+        if (!$coupon->isValid($subtotal)) {
+            return response()->json(['message' => 'Coupon not valid'], 400);
+        }
+
+        // 🔥 3. Calculate discount
+        $discount = $coupon->calculateDiscount($subtotal);
+        $discount = min($discount, $subtotal);
+
+        // 🚚 optional shipping (same logic as checkout)
+        $shipping = 1.50;
+
+        $total = max(0, ($subtotal - $discount) + $shipping);
+
+        return response()->json([
+            'coupon' => $coupon->code,
+            'subtotal' => round($subtotal, 2),
+            'discount' => round($discount, 2),
+            'shipping' => $shipping,
+            'total_price' => round($total, 2), // 🔥 THIS is updated order total
+        ]);
     }
     private function resolveOrderAddress($user, Request $request)
     {
@@ -495,7 +544,7 @@ class OrderController extends Controller
             'order_number' => $order->order_number,
             'status' => $order->status,
 
-            // ✅ Use REAL calculated values
+
             'original_price' => round($originalSubtotal, 2),
             'sub_total_price' => round($finalSubtotal, 2),
 
@@ -505,7 +554,7 @@ class OrderController extends Controller
             'shipping_fee' => $shipping,
             'total_price' => round($totalPayment, 2),
 
-            // ✅ Correct save
+
             'save' => round($productDiscount + $couponDiscount, 2),
 
             'coupon' => [
@@ -543,10 +592,9 @@ class OrderController extends Controller
                     'id' => $item->id,
                     'quantity' => $item->quantity,
 
-                    // ✅ FIXED item discount
+
                     'discount' => round(max(0, $originalPrice - $finalPrice), 2),
 
-                    // ✅ FIXED subtotal
                     'subtotal' => round($finalPrice * $item->quantity, 2),
 
                     'variant' => [

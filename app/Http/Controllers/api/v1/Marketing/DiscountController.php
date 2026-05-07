@@ -11,11 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 class DiscountController extends Controller
 {
- 
+
     public function index(Request $request)
     {
 
         $discounts = Discount::with('products')
+            
             ->orderBy('id', 'asc')
             ->get();
 
@@ -68,7 +69,7 @@ class DiscountController extends Controller
             'status'
         ]);
 
-        // 1. Check for overlapping discounts for ANY of the products in the array
+        // 1. Check for  discounts for ANY of the products in the array
         $exists = Discount::whereIn('product_id', $validated['product_id'])
 
             ->where('start_date', $request->start_date)
@@ -81,15 +82,11 @@ class DiscountController extends Controller
         }
 
         return DB::transaction(function () use ($validated) {
-            // 2. Create the Discount Rule
-            // If your DB still requires product_id, we use the first one from the array
-            // If you fixed your DB to be nullable, remove 'product_id' from this create call
             $discountData = $validated;
-            $discountData['product_id'] = $validated['product_id'][0]; // Temporary fix for your DB constraint
+            $discountData['product_id'] = $validated['product_id'][0];
 
             $discount = Discount::create($discountData);
 
-            // 3. Update ALL products in the array
             $products = Product::whereIn('id', $validated['product_id'])->get();
 
             foreach ($products as $product) {
@@ -112,53 +109,51 @@ class DiscountController extends Controller
             ], 201);
         });
     }
-    public function update(Request $request, $id)
-    {
-        // 1. Load the discount with all associated products
-        $discount = Discount::with('products')->find($id);
+    // public function update(Request $request, $id)
+    // {
+    //     // 1. Load the discount with all associated products
+    //     $discount = Discount::with('products')->find($id);
 
-        if (!$discount) {
-            return response()->json(['message' => 'Discount not found'], 404);
-        }
+    //     if (!$discount) {
+    //         return response()->json(['message' => 'Discount not found'], 404);
+    //     }
 
-        $validated = $request->validate([
-            'product_id' => 'sometimes|exists:products,id',
-            'discount_category_id' => 'nullable|exists:discount_categories,id',
-            'name' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'amount' => 'sometimes|numeric|min:0',
-            'type' => 'sometimes|in:percent,fixed',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date|after_or_equal:start_date',
-        ]);
+    //     $validated = $request->validate([
+    //         'product_id'=>'sometime|array',
+    //         'product_id.*'=>'exists:product,id',
+    //         'discount_category_id' => 'nullable|exists:discount_categories,id',
+    //         'name' => 'nullable|string|max:255',
+    //         'description' => 'nullable|string',
+    //         'amount' => 'sometimes|numeric|min:0',
+    //         'type' => 'sometimes|in:percent,fixed',
+    //         'start_date' => 'nullable|date',
+    //         'end_date' => 'nullable|date|after_or_equal:start_date',
+    //     ]);
 
-        // 2. Use a Transaction to ensure data consistency
-        return DB::transaction(function () use ($discount, $validated) {
+    //     // 2. Use a Transaction to ensure data consistency
+    //     return DB::transaction(function () use ($discount, $validated) {
 
-            // Update the Discount record
-            $discount->update($validated);
+    //         // Update the Discount record
+    //         $discount->update($validated);
+    //         foreach ($discount->products as $product) {
+    //             $price = (float) $product->price;
+    //             $amount = (float) $discount->amount;
 
-            // 3. Loop through EVERY product attached to this discount
-            // This ensures IDs 4, 1, and 2 from your JSON all get the new price
-            foreach ($discount->products as $product) {
-                $price = (float) $product->price;
-                $amount = (float) $discount->amount;
+    //             $discountPrice = $discount->type === 'percent'
+    //                 ? $price - ($price * $amount / 100)
+    //                 : $price - $amount;
 
-                $discountPrice = $discount->type === 'percent'
-                    ? $price - ($price * $amount / 100)
-                    : $price - $amount;
+    //             $product->update([
+    //                 'discount_price' => max(0, round($discountPrice, 2))
+    //             ]);
+    //         }
 
-                $product->update([
-                    'discount_price' => max(0, round($discountPrice, 2))
-                ]);
-            }
-
-            return response()->json([
-                'message' => 'Discount and all associated products updated successfully',
-                'data' => $discount->load('products')
-            ]);
-        });
-    }
+    //         return response()->json([
+    //             'message' => 'Discount and all associated products updated successfully',
+    //             'data' => $discount->load('products')
+    //         ]);
+    //     });
+    // }
 
     // public function update(Request $request, $id)
     // {
@@ -209,6 +204,66 @@ class DiscountController extends Controller
     //     ]);
     // }
 
+    public function update(Request $request, $id)
+    {
+        $discount = Discount::with('products')->find($id);
+
+        if (!$discount) {
+            return response()->json([
+                'message' => 'Discount not found'
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'product_id' => 'sometimes|array',
+            'product_id.*' => 'exists:products,id',
+
+            'discount_category_id' => 'nullable|exists:discount_categories,id',
+            'name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
+            'amount' => 'sometimes|numeric|min:0',
+            'type' => 'sometimes|in:percent,fixed',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        return DB::transaction(function () use ($discount, $validated) {
+            $discountData = $validated;
+
+            // save first product_id only
+            if (isset($validated['product_id'])) {
+                $discountData['product_id'] = $validated['product_id'][0];
+            }
+
+            $discount->update($discountData);
+
+            // Add new products
+            if (isset($validated['product_id'])) {
+
+                $products = Product::whereIn('id', $validated['product_id'])->get();
+
+                foreach ($products as $product) {
+
+                    $price = (float) $product->price;
+                    $amount = (float) $discount->amount;
+
+                    $discountPrice = $discount->type === 'percent'
+                        ? $price - ($price * $amount / 100)
+                        : $price - $amount;
+
+                    $product->update([
+                        'discount_id' => $discount->id,
+                        'discount_price' => max(0, round($discountPrice, 2))
+                    ]);
+                }
+            }
+            // Response
+            return response()->json([
+                'message' => 'Discount updated successfully',
+                'data' => $discount->fresh()->load('products')
+            ]);
+        });
+    }
     public function destroy($id)
     {
         $discount = Discount::findOrFail($id);

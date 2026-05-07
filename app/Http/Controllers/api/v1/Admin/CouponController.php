@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
+use Auth;
 use Illuminate\Http\Request;
 use ImageKit\ImageKit;
 
@@ -64,6 +65,12 @@ class CouponController extends Controller
     }
     public function store(Request $request)
     {
+        $user = Auth::user();
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only admin can action this.'
+            ]);
+        }
         $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:coupons,code',
@@ -112,6 +119,7 @@ class CouponController extends Controller
             'value' => $request->value,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
+            'used' => 0,
             'min_amount' => $request->min_amount,
             'max_discount' => $request->max_discount,
             'usage_limit' => $request->usage_limit,
@@ -119,7 +127,7 @@ class CouponController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $request->status,
-            'discount_category_id'=>$request->discount_category_id
+            'discount_category_id' => $request->discount_category_id
 
         ]);
 
@@ -194,7 +202,7 @@ class CouponController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $request->status,
-            'discount_category_id'=>$request->discount_category_id
+            'discount_category_id' => $request->discount_category_id
         ]);
 
         return response()->json([
