@@ -301,16 +301,18 @@ class ProductController extends Controller
             ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->join('payments', 'orders.id', '=', 'payments.order_id')
-            ->where('orders.status', 'completed')
-            ->where('payments.status', 'paid')
-
+            ->leftJoin('payments', 'orders.id', '=', 'payments.order_id')
             ->select(
                 'products.id',
                 'products.productName',
+                'products.image',
                 DB::raw('SUM(order_items.quantity) as total_sold')
             )
-            ->groupBy('products.id', 'products.productName')
+            ->groupBy(
+                'products.id',
+                'products.productName',
+                'products.image'
+            )
             ->orderByDesc('total_sold')
             ->take(5)
             ->get();
