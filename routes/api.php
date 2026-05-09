@@ -84,7 +84,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
-
+        // popular products
+        Route::get('/most-sold-products',[ProductController::class,'mostSoldProducts']);
         // Products
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
