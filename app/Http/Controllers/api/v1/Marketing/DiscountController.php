@@ -5,6 +5,7 @@ namespace App\Http\Controllers\api\v1\Marketing;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\Discount;
+use App\Models\DiscountItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -240,114 +241,57 @@ class DiscountController extends Controller
             'product_ids.*' => 'exists:products,id',
         ]);
 
-        // Find discount
-        $discount = Discount::find($validated['discount_id']);
+        $discount = Discount::findOrFail($validated['discount_id']);
 
-        if (!$discount) {
+        // attach products without duplicates
+        $discount->products()->syncWithoutDetaching(
+            $validated['product_ids']
+        );
+
+        return response()->json([
+            'message' => 'Products added to discount successfully',
+            'discount' => $discount->load('products')
+        ]);
+    }
+    public function removeProductFromDiscount($discountId, $productId)
+    {
+        $product = Product::where('id', $productId)
+            ->where('discount_id', $discountId)
+            ->first();
+
+        if (!$product) {
             return response()->json([
-                'message' => 'Discount not found'
+                'message' => 'Product not found or not associated with this discount.'
             ], 404);
         }
 
-        // Check existing products
-        if ($discount->products()->whereIn('products.id', $validated['product_ids'])->exists()) {
+        $product->update([
+            'discount_id' => null,
+            'discount_price' => null
+        ]);
+
+        return response()->json([
+            'message' => 'Product removed from discount successfully.',
+            'data' => $product
+        ]);
+    }
+    public function removeProductId($productId)
+    {
+        $discountItem = DiscountItem::where('product_id', $productId)
+            ->first();
+
+        if (!$discountItem) {
             return response()->json([
-                'message' => 'Some products already have this discount'
-            ], 409);
+                'message' => 'Product not found in any discount'
+            ], 404);
         }
 
-        return DB::transaction(function () use ($validated, $discount) {
+        $discountItem->delete();
 
-            $products = Product::whereIn('id', $validated['product_ids'])->get();
-
-            // $addedCount = 0;
-
-            foreach ($products as $product) {
-
-                if ($product->discount_id == $discount->id) {
-                    continue;
-                }
-
-                $price = (float) $product->price;
-                $amount = (float) $discount->amount;
-
-                // Calculate discounted price
-                $discountPrice = $discount->type === 'percent'
-                    ? $price - ($price * $amount / 100)
-                    : $price - $amount;
-
-                $product->update([
-                    'discount_id' => $discount->id,
-                    'discount_price' => max(0, round($discountPrice, 2))
-                ]);
-
-                // $addedCount++;
-            }
-
-            return response()->json([
-                'message' => 'Add new product to discount successfully',
-                'discount' => $discount->load('products')
-            ], 200);
-        });
+        return response()->json([
+            'message' => 'Product removed from discount successfully'
+        ]);
     }
-    // public function addProducts(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'discount_id' => 'required|exists:discounts,id',
-    //         'product_ids' => 'required|array',
-    //         'product_ids.*' => 'exists:products,id',
-    //     ]);
-
-    //     // Find discount
-    //     $discount = Discount::find($validated['discount_id']);
-
-    //     if (!$discount) {
-    //         return response()->json([
-    //             'message' => 'Discount not found'
-    //         ], 404);
-    //     }
-
-    //     // Check existing products
-    //     if ($discount->products()->whereIn('products.id', $validated['product_ids'])->exists()) {
-    //         return response()->json([
-    //             'message' => 'Some products already have this discount'
-    //         ], 409);
-    //     }
-
-    //     return DB::transaction(function () use ($validated, $discount) {
-
-    //         $products = Product::whereIn('id', $validated['product_ids'])->get();
-
-    //         $addedCount = 0;
-
-    //         foreach ($products as $product) {
-
-    //             if ($product->discount_id == $discount->id) {
-    //                 continue;
-    //             }
-
-    //             $price = (float) $product->price;
-    //             $amount = (float) $discount->amount;
-
-    //             // Calculate discounted price
-    //             $discountPrice = $discount->type === 'percent'
-    //                 ? $price - ($price * $amount / 100)
-    //                 : $price - $amount;
-
-    //             $product->update([
-    //                 'discount_id' => $discount->id,
-    //                 'discount_price' => max(0, round($discountPrice, 2))
-    //             ]);
-
-    //             $addedCount++;
-    //         }
-
-    //         return response()->json([
-    //             'message' => 'Add new product to discount successfully',
-    //             'discount' => $discount->load('products')
-    //         ], 200);
-    //     });
-    // }
     public function removeProduct(Request $request, $discountId)
     {
         $validated = $request->validate([

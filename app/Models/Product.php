@@ -23,7 +23,7 @@ class Product extends Model
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
     ];
-    protected $hidden = ['created_at', 'updated_at', 'discount_id'];
+    protected $hidden = ['pivot','created_at', 'updated_at', 'discount_id'];
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -67,5 +67,12 @@ class Product extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+    public function discounts()
+    {
+        return $this->belongsToMany(
+            Discount::class,
+            'discount_items'
+        );
     }
 }

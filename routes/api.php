@@ -85,7 +85,7 @@ Route::prefix('v1')->group(function () {
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
         // popular products
-        Route::get('/most-sold-products',[ProductController::class,'mostSoldProducts']);
+        Route::get('/most-sold-products', [ProductController::class, 'mostSoldProducts']);
         // Products
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
@@ -211,7 +211,8 @@ Route::prefix('v1')->group(function () {
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
             Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
-
+            Route::delete('/discounts/{discountId}/remove-product/{productId}', [DiscountController::class, 'removeProductFromDiscount']);
+            Route::delete('/discounts/remove-product/{productId}',[DiscountController::class, 'removeProductId']);
             // Carousels
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
             Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
