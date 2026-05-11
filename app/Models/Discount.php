@@ -18,23 +18,32 @@ class Discount extends Model
         'image_file_id',
         'slug',
         'is_active',
+
     ];
-    protected $hidden = ['created_at', 'updated_at', 'discount_price','image_file_id'];
+    protected $hidden = ['created_at', 'updated_at', 'discount_price', 'image_file_id','pivot'];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
-        'is_active'=>'boolean'
+        'is_active' => 'boolean'
     ];
     public function discountCategory()
     {
         return $this->belongsTo(DiscountCategory::class, 'discount_category_id');
     }
+    // public function products()
+    // {
+    //     return $this->hasMany(Product::class);
+    // }
+    public function coupon()
+    {
+        return $this->hasOne(Coupon::class, 'discount_id');
+    }
     public function products()
     {
-        return $this->hasMany(Product::class);
-    }
-    public function coupon(){
-        return $this->hasOne(Coupon::class,'discount_id');
+        return $this->belongsToMany(
+            Product::class,
+            'discount_items'
+        );
     }
 
 
