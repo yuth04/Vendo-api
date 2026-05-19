@@ -323,45 +323,22 @@ class DiscountController extends Controller
             'message' => "Product {$product->id} removed from discount successfully."
         ]);
     }
+    public function removeProductId($productId)
+    {
+        $discountItem = DiscountItem::where('product_id', $productId)
+            ->first();
 
-    // public function removeProductFromDiscount($discountId, $productId)
-    // {
-    //     $product = Product::where('id', $productId)
-    //         ->where('discount_id', $discountId)
-    //         ->first();
+        if (!$discountItem) {
+            return response()->json([
+                'message' => 'Product not found in any discount'
+            ], 404);
+        }
 
-    //     if (!$product) {
-    //         return response()->json([
-    //             'message' => 'Product not found or not associated with this discount.'
-    //         ], 404);
-    //     }
+        $discountItem->delete();
 
-    //     $product->update([
-    //         'discount_id' => null,
-    //         'discount_price' => null
-    //     ]);
-
-    //     return response()->json([
-    //         'message' => 'Product removed from discount successfully.',
-    //         'data' => $product
-    //     ]);
-    // }
-    // public function removeProductId($productId)
-    // {
-    //     $discountItem = DiscountItem::where('product_id', $productId)
-    //         ->first();
-
-    //     if (!$discountItem) {
-    //         return response()->json([
-    //             'message' => 'Product not found in any discount'
-    //         ], 404);
-    //     }
-
-    //     $discountItem->delete();
-
-    //     return response()->json([
-    //         'message' => 'Product removed from discount successfully'
-    //     ]);
-    // }
+        return response()->json([
+            'message' => 'Product removed from discount successfully'
+        ]);
+    }
 
 }

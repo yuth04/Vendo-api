@@ -211,7 +211,6 @@ Route::prefix('v1')->group(function () {
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
             Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
-            Route::delete('/discounts/{discountId}/remove-product/{productId}', [DiscountController::class, 'removeProductFromDiscount']);
             Route::delete('/discounts/remove-product/{productId}',[DiscountController::class, 'removeProductId']);
             // Carousels
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
