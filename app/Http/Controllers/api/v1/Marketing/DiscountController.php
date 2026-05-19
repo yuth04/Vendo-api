@@ -14,7 +14,17 @@ use ImageKit\ImageKit;
 
 class DiscountController extends Controller
 {
+    private function calculateDiscountPrice($price, $discount)
+    {
+        $price = (float) $price;
+        $amount = (float) $discount->amount;
 
+        $discountPrice = $discount->type === 'percent'
+            ? $price - ($price * $amount / 100)
+            : $price - $amount;
+
+        return max(0, round($discountPrice, 2));
+    }
     public function index(Request $request)
     {
 
@@ -30,6 +40,7 @@ class DiscountController extends Controller
             'discount' => $discounts,
         ]);
     }
+    // Get all discounts regardless of active status
     public function getAll(Request $request)
     {
 
@@ -53,24 +64,17 @@ class DiscountController extends Controller
             return response()->json(['message' => 'Discount not found'], 404);
         }
 
-        $discountedProducts = $discount->products->map(function ($product) use ($discount) {
-            $price = (float) $product->price;
-            $amount = (float) $discount->amount;
-
-            $discountPrice = $discount->type === 'percent'
-                ? $price - ($price * $amount / 100)
-                : $price - $amount;
-
-            $product->discount_price = max(0, round($discountPrice, 2));
+        $discount->products->transform(function ($product) use ($discount) {
+            $product->discount_price = $this->calculateDiscountPrice($product->price, $discount);
             return $product;
         });
 
         return response()->json([
             'message' => 'Discount retrieved successfully',
-            'data' => $discount,
+            'data' => $discount
         ]);
     }
-
+    // Create a new discount
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -131,6 +135,7 @@ class DiscountController extends Controller
             'data' => $discount
         ], 201);
     }
+    // Update an existing discount
     public function update(Request $request, $id)
     {
         $discount = Discount::find($id);
@@ -219,6 +224,7 @@ class DiscountController extends Controller
             ]);
         });
     }
+    // Delete a discount
     public function destroy($id)
     {
         $discount = Discount::find($id);
@@ -233,6 +239,7 @@ class DiscountController extends Controller
             'message' => 'Discount deleted successfully'
         ]);
     }
+    // Add products to a discount
     public function addProducts(Request $request)
     {
         $validated = $request->validate([
@@ -241,57 +248,54 @@ class DiscountController extends Controller
             'product_ids.*' => 'exists:products,id',
         ]);
 
-        $discount = Discount::findOrFail($validated['discount_id']);
+        $discount = Discount::with('products')->findOrFail($validated['discount_id']);
 
-        // attach products without duplicates
-        $discount->products()->syncWithoutDetaching(
-            $validated['product_ids']
-        );
+        // attach products
+        $discount->products()->syncWithoutDetaching($validated['product_ids']);
+
+        // reload products after attach
+        $discount->load('products');
+
+        foreach ($discount->products as $product) {
+
+            $price = (float) $product->price;
+            $amount = (float) $discount->amount;
+
+            $discountPrice = $discount->type === 'percent'
+                ? $price - ($price * $amount / 100)
+                : $price - $amount;
+
+            $product->update([
+                'discount_price' => max(0, round($discountPrice, 2))
+            ]);
+        }
 
         return response()->json([
             'message' => 'Products added to discount successfully',
             'discount' => $discount->load('products')
         ]);
     }
-    public function removeProductFromDiscount($discountId, $productId)
-    {
-        $product = Product::where('id', $productId)
-            ->where('discount_id', $discountId)
-            ->first();
+    // public function addProducts(Request $request)
+    // {
+    //     $validated = $request->validate([
+    //         'discount_id' => 'required|exists:discounts,id',
+    //         'product_ids' => 'required|array',
+    //         'product_ids.*' => 'exists:products,id',
+    //     ]);
 
-        if (!$product) {
-            return response()->json([
-                'message' => 'Product not found or not associated with this discount.'
-            ], 404);
-        }
+    //     $discount = Discount::findOrFail($validated['discount_id']);
 
-        $product->update([
-            'discount_id' => null,
-            'discount_price' => null
-        ]);
+    //     // attach products without duplicates
+    //     $discount->products()->syncWithoutDetaching(
+    //         $validated['product_ids']
+    //     );
 
-        return response()->json([
-            'message' => 'Product removed from discount successfully.',
-            'data' => $product
-        ]);
-    }
-    public function removeProductId($productId)
-    {
-        $discountItem = DiscountItem::where('product_id', $productId)
-            ->first();
-
-        if (!$discountItem) {
-            return response()->json([
-                'message' => 'Product not found in any discount'
-            ], 404);
-        }
-
-        $discountItem->delete();
-
-        return response()->json([
-            'message' => 'Product removed from discount successfully'
-        ]);
-    }
+    //     return response()->json([
+    //         'message' => 'Products added to discount successfully',
+    //         'discount' => $discount->load('products')
+    //     ]);
+    // }
+    // Remove a product from a discount
     public function removeProduct(Request $request, $discountId)
     {
         $validated = $request->validate([
@@ -319,5 +323,45 @@ class DiscountController extends Controller
             'message' => "Product {$product->id} removed from discount successfully."
         ]);
     }
+
+    // public function removeProductFromDiscount($discountId, $productId)
+    // {
+    //     $product = Product::where('id', $productId)
+    //         ->where('discount_id', $discountId)
+    //         ->first();
+
+    //     if (!$product) {
+    //         return response()->json([
+    //             'message' => 'Product not found or not associated with this discount.'
+    //         ], 404);
+    //     }
+
+    //     $product->update([
+    //         'discount_id' => null,
+    //         'discount_price' => null
+    //     ]);
+
+    //     return response()->json([
+    //         'message' => 'Product removed from discount successfully.',
+    //         'data' => $product
+    //     ]);
+    // }
+    // public function removeProductId($productId)
+    // {
+    //     $discountItem = DiscountItem::where('product_id', $productId)
+    //         ->first();
+
+    //     if (!$discountItem) {
+    //         return response()->json([
+    //             'message' => 'Product not found in any discount'
+    //         ], 404);
+    //     }
+
+    //     $discountItem->delete();
+
+    //     return response()->json([
+    //         'message' => 'Product removed from discount successfully'
+    //     ]);
+    // }
 
 }
