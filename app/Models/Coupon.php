@@ -36,19 +36,24 @@ class Coupon extends Model
     {
         return $this->belongsTo(Discount::class);
     }
+
     public function isValid($total)
     {
-        if (!$this->is_active)
+        if (!$this->status) {
             return false;
+        }
 
-        if ($this->expires_at && now()->gt($this->expires_at))
+        if ($this->end_date && now()->gt($this->end_date)) {
             return false;
+        }
 
-        if ($this->usage_limit && $this->used >= $this->usage_limit)
+        if ($this->usage_limit && $this->used >= $this->usage_limit) {
             return false;
+        }
 
-        if ($this->min_amount && $total < $this->min_amount)
+        if ($this->min_amount && $total < $this->min_amount) {
             return false;
+        }
 
         return true;
     }
@@ -71,5 +76,21 @@ class Coupon extends Model
 
         return 0;
     }
+    // public function isValid($total)
+    // {
+    //     if (!$this->is_active)
+    //         return false;
+
+    //     if ($this->expires_at && now()->gt($this->expires_at))
+    //         return false;
+
+    //     if ($this->usage_limit && $this->used >= $this->usage_limit)
+    //         return false;
+
+    //     if ($this->min_amount && $total < $this->min_amount)
+    //         return false;
+
+    //     return true;
+    // }
 
 }
