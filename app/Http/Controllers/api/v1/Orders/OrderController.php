@@ -21,125 +21,21 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
-    private function calculateShipping($province)
+    private function calculateShipping(?string $province): float
     {
-        $province = strtolower($province);
-        if (in_array($province, ['phnom penh', 'ភ្នំពេញ', 'pp'])) {
-            return 1.5;
+        if (!$province) {
+            return 1.50; // default preview rate
         }
-        return 2.0;
+
+        $province = strtolower(trim($province));
+
+        if (in_array($province, ['phnom penh', 'ភ្នំពេញ', 'pp'])) {
+            return 1.50;
+        }
+
+        return 2.00;
     }
     // Checkout
-    // public function checkout(Request $request)
-    // {
-    //     if (!Auth::check()) {
-    //         return response()->json(['message' => 'login required'], 400);
-    //     }
-
-    //     $request->validate([
-    //         'address_id' => 'nullable|exists:addresses,id',
-    //         'first_name' => 'required_without:address_id|string|max:255',
-    //         'last_name' => 'nullable|string|max:255',
-    //         'address_line' => 'required_without:address_id|string|max:500',
-    //         'city' => 'required_without:address_id|string|max:255',
-    //         'coupon_code' => 'nullable|string',
-    //         'province' => 'required_without:address_id|string|max:255',
-    //         'phone' => 'required_without:address_id|string|max:20',
-    //         'payment_method' => 'required|in:Cash on Delivery,ABA,Bakong,Credit Card',
-    //         'note' => 'nullable|string',
-    //         'items' => 'required|array|min:1',
-    //         'items.*.product_variant_id' => 'required|exists:product_variants,id',
-    //         'items.*.quantity' => 'required|integer|min:1',
-    //     ]);
-
-    //     $user = Auth::user();
-
-    //     try {
-    //         $orderModel = null;
-    //         $coupon = null;
-    //         $couponDiscount = 0;
-    //         $result = DB::transaction(function () use ($user, $request, &$orderModel, &$coupon, &$couponDiscount) {
-    //             $address = $this->resolveOrderAddress($user, $request);
-    //             $order = $this->initializeOrder($user, $address);
-
-    //             // Set the note if provided
-    //             if ($request->has('note')) {
-    //                 $order->update(['note' => $request->note]);
-    //             }
-
-    //             $subtotal = $this->processOrderItems($order, $request->items);
-    //             $shipping = (float) $this->calculateShipping($address->province);
-
-    //             if ($request->filled('coupon_code')) {
-
-    //                 $coupon = Coupon::where('code', $request->coupon_code)->first();
-
-    //                 if (!$coupon) {
-    //                     throw new \Exception("Invalid coupon code");
-    //                 }
-
-    //                 if ($coupon->start_date && now()->lt($coupon->start_date)) {
-    //                     throw new \Exception("Coupon not active yet");
-    //                 }
-
-    //                 if ($coupon->end_date && now()->gt($coupon->end_date)) {
-    //                     throw new \Exception("Coupon expired");
-    //                 }
-
-    //                 if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
-    //                     throw new \Exception("Coupon usage limit reached");
-    //                 }
-
-    //                 if ($coupon->min_amount && $subtotal < $coupon->min_amount) {
-    //                     throw new \Exception("Minimum order not reached");
-    //                 }
-
-    //                 $couponDiscount = $coupon->calculateDiscount($subtotal);
-
-    //                 // ✅ prevent discount > subtotal
-    //                 $couponDiscount = min($couponDiscount, $subtotal);
-
-    //                 $coupon->increment('used');
-    //             }
-    //             $totalAmount = round(($subtotal - $couponDiscount) + $shipping, 2);
-    //             $order->update([
-    //                 'total_price' => $totalAmount,
-    //                 'shipping_fee' => $shipping,
-    //                 'coupon_code' => $request->coupon_code,
-    //                 'coupon_discount' => $couponDiscount,
-    //             ]);
-
-    //             $payment = Payment::create([
-    //                 'order_id' => $order->id,
-    //                 'payment_method' => $request->payment_method,
-    //                 'amount' => $totalAmount,
-    //                 'status' => 'unpaid',
-    //                 'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
-    //                 'paid_at' => null,
-    //             ]);
-
-    //             $orderModel = $order;
-    //             return $this->prepareCheckoutResponse($order, $payment);
-    //         });
-
-    //         if ($orderModel) {
-    //             $orderModel->load(['items.variant.product', 'user', 'address', 'payment']);
-    //             Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($orderModel));
-    //             Mail::to($user->email)->send(new OrderPlaced($orderModel));
-    //         }
-
-    //         return response()->json([
-    //             'message' => $result['message'],
-    //             'order' => $result['order']
-    //         ], 201);
-
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'message' => 'checkout failed',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
     public function checkout(Request $request)
     {
         if (!Auth::check()) {
