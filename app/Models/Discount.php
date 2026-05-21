@@ -24,8 +24,8 @@ class Discount extends Model
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
-        // 'start_date' => 'datetime:d-m-Y h:i:s A',
-        // 'end_date' => 'datetime:d-m-Y h:i:s A',
+        'start_date' => 'datetime:d-m-Y h:i:s A',
+        'end_date' => 'datetime:d-m-Y h:i:s A',
         'is_active' => 'boolean'
     ];
     public function discountCategory()

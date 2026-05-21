@@ -256,11 +256,11 @@ class ReviewController extends Controller
         ]);
 
         $parent = Review::findOrFail($id);
-        if ($parent->parent_id !== null) {
-            return response()->json([
-                'message' => 'Cannot reply to a reply'
-            ], 400);
-        }
+        // if ($parent->parent_id !== null) {
+        //     return response()->json([
+        //         'message' => 'Cannot reply to a reply'
+        //     ], 400);
+        // }
         $reply = Review::create([
             'user_id' => auth()->id(),
             'product_id' => $parent->product_id,
@@ -291,11 +291,11 @@ class ReviewController extends Controller
         }
 
         // Optional: only allow owner/admin
-        if (auth()->id() !== $review->user_id) {
-            return response()->json([
-                'message' => 'Unauthorized'
-            ], 403);
-        }
+        // if (auth()->id() !== $review->user_id) {
+        //     return response()->json([
+        //         'message' => 'Unauthorized'
+        //     ], 403);
+        // }
 
         $review->update([
             'comment' => $request->comment
