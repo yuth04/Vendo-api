@@ -128,6 +128,7 @@ class DiscountController extends Controller
             'end_date' => $validated['end_date'],
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
+            'is_active' => $validated['is_active'] ?? false,
 
         ]);
         return response()->json([

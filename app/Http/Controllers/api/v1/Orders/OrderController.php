@@ -192,15 +192,19 @@ class OrderController extends Controller
                 // -------------------------
                 $shipping = (float) $this->calculateShipping($address->province);
 
-                // -------------------------
-                // COUPON
-                // -------------------------
+
+                // ── COUPON ─────────────────────────────────────────
                 $couponDiscount = 0;
                 $couponCode = null;
 
-                if ($request->filled('coupon_code')) {
+                // auto-read from cache if not passed in request
+                $couponInput = $request->filled('coupon_code')
+                    ? $request->coupon_code
+                    : cache()->get('coupon_' . $user->id);
 
-                    $coupon = Coupon::where('code', $request->coupon_code)->first();
+                if ($couponInput) {
+
+                    $coupon = Coupon::where('code', $couponInput)->first();
 
                     if (!$coupon) {
                         throw new \Exception("Invalid coupon code");
@@ -222,15 +226,14 @@ class OrderController extends Controller
                         throw new \Exception("Minimum order not reached");
                     }
 
-                    $couponDiscount = $coupon->calculateDiscount($subtotal);
-
-                    // prevent over-discount
-                    $couponDiscount = min($couponDiscount, $subtotal);
-
+                    $couponDiscount = min($coupon->calculateDiscount($subtotal), $subtotal);
                     $coupon->increment('used');
-
                     $couponCode = $coupon->code;
+
+                    // ── Clear cache after successful use ───────────
+                    cache()->forget('coupon_' . $user->id);
                 }
+
 
                 // -------------------------
                 // TOTAL CALCULATION
@@ -290,45 +293,13 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    //     public function apply(Request $request)
-    // {
-    //     $request->validate([
-    //         'code' => 'required|string',
-    //         'cart_total' => 'required|numeric|min:0'
-    //     ]);
 
-    //     $coupon = Coupon::where('code', $request->code)
-    //         ->where('is_active', true)
-    //         ->first();
-
-    //     if (!$coupon) {
-    //         return response()->json([
-    //             'message' => 'Invalid coupon code'
-    //         ], 404);
-    //     }
-
-    //     $cartTotal = $request->cart_total;
-
-
-    //     if ($coupon->type === 'percent') {
-    //         $discount = $cartTotal * $coupon->value / 100;
-    //     } else {
-    //         $discount = $coupon->value;
-    //     }
-
-    //     // prevent negative price
-    //     $discount = min($discount, $cartTotal);
-
-    //     $newTotal = $cartTotal - $discount;
-
-    //     return response()->json([
-    //         'message' => 'Coupon applied successfully',
-    //         'discount' => round($discount, 2),
-    //         'total' => round($newTotal, 2)
-    //     ]);
-    // }
     public function apply(Request $request)
     {
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Login required'], 401);
+        }
+
         $request->validate([
             'code' => 'required|string',
             'items' => 'required|array|min:1',
@@ -336,46 +307,74 @@ class OrderController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        //  1. Calculate subtotal
+        // ── 1. Calculate subtotal ──────────────────────────────────
         $subtotal = 0;
 
         foreach ($request->items as $item) {
-            $variant = ProductVariant::with('product')
-                ->findOrFail($item['product_variant_id']);
-
+            $variant = ProductVariant::with('product')->findOrFail($item['product_variant_id']);
             $price = $variant->product->getFinalPrice();
             $subtotal += $price * $item['quantity'];
         }
 
-        //  2. Validate coupon
+        // ── 2. Find coupon ─────────────────────────────────────────
         $coupon = Coupon::where('code', $request->code)->first();
 
         if (!$coupon) {
-            return response()->json(['message' => 'Invalid coupon'], 404);
+            return response()->json(['message' => 'Invalid coupon code'], 404);
         }
 
-        // if (!$coupon->isValid($subtotal)) {
-        //     return response()->json(['message' => 'Coupon not valid'], 400);
-        // }
+        // ── 3. Validate coupon ─────────────────────────────────────
+        if ($coupon->start_date && now()->lt($coupon->start_date)) {
+            return response()->json(['message' => 'Coupon not active yet'], 400);
+        }
 
-        //  3. Calculate discount
-        $discount = $coupon->calculateDiscount($subtotal);
-        $discount = min($discount, $subtotal);
+        if ($coupon->end_date && now()->gt($coupon->end_date)) {
+            return response()->json(['message' => 'Coupon expired'], 400);
+        }
 
-        //  optional shipping (same logic as checkout)
-        $shipping = 1.50;
+        if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
+            return response()->json(['message' => 'Coupon usage limit reached'], 400);
+        }
 
-        $total = max(0, ($subtotal - $discount) + $shipping);
+        if ($coupon->min_amount && $subtotal < $coupon->min_amount) {
+            return response()->json([
+                'message' => 'Minimum order amount is ' . $coupon->min_amount,
+                'min_amount' => $coupon->min_amount,
+            ], 400);
+        }
+
+        // ── 4. Calculate discount ──────────────────────────────────
+        $discount = min($coupon->calculateDiscount($subtotal), $subtotal);
+
+        // ── 5. Shipping preview (no address yet) ───────────────────
+        $shipping = (float) $this->calculateShipping(null);
+
+        // ── 6. Final total ─────────────────────────────────────────
+        $total = max(0, round(($subtotal - $discount) + $shipping, 2));
+
+        // ── 7. Store coupon in cache (1 hour) ──────────────────────
+        cache()->put('coupon_' . Auth::id(), $coupon->code, now()->addHour());
 
         return response()->json([
-            'message'=>'Apply coupon success',
+            'message' => 'Coupon applied successfully',
             'coupon' => $coupon->code,
             'subtotal' => round($subtotal, 2),
-            'save' => round($discount, 2),
-            
+            'discount' => round($discount, 2),
             'shipping' => $shipping,
-            'total_price' => round($total, 2), 
+            'total_price' => $total,
         ]);
+    }
+
+    // remove coupon
+    public function clear()
+    {
+        if (!Auth::check()) {
+            return response()->json(['message' => 'Login required'], 401);
+        }
+
+        cache()->forget('coupon_' . Auth::id());
+
+        return response()->json(['message' => 'Coupon removed successfully']);
     }
     private function resolveOrderAddress($user, Request $request)
     {
@@ -583,11 +582,10 @@ class OrderController extends Controller
             'order_number' => $order->order_number,
             'status' => $order->status,
 
-
             'original_price' => round($originalSubtotal, 2),
+            'product_discount' => round($productDiscount, 2),
             'sub_total_price' => round($finalSubtotal, 2),
 
-            'product_discount' => round($productDiscount, 2),
             'coupon_discount' => round($couponDiscount, 2),
 
             'shipping_fee' => $shipping,
@@ -653,7 +651,7 @@ class OrderController extends Controller
             })
         ];
     }
-   
+
     public function filterByStatus(Request $request)
     {
         $status = $request->query('status');

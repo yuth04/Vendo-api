@@ -128,6 +128,7 @@ Route::prefix('v1')->group(function () {
         });
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);
+        Route::post('coupon/clear', [CouponController::class, 'clear']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
