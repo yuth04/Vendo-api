@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -13,26 +12,38 @@ class DiscountExpiredMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public $discount;
+
     /**
      * Create a new message instance.
      */
-    public $discount;
-
     public function __construct($discount)
     {
         $this->discount = $discount;
     }
 
-    public function build()
+    /**
+     * Get the message envelope.
+     */
+    public function envelope(): Envelope
     {
-        return $this->subject('Discount Expired')
-            ->view('emails.admin.discount_expired');
+        return new Envelope(
+            subject: '🚨 Discount Expired - ' . $this->discount->name,
+        );
+    }
+
+    /**
+     * Get the message content definition.
+     */
+    public function content(): Content
+    {
+        return new Content(
+            view: 'emails.admin.discount-expired',
+        );
     }
 
     /**
      * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
      */
     public function attachments(): array
     {

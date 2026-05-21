@@ -84,7 +84,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
-
+        // popular products
+        Route::get('/most-sold-products', [ProductController::class, 'mostSoldProducts']);
         // Products
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
@@ -125,6 +126,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
+        // Coupon
+        Route::post('/apply-coupon', [OrderController::class, 'apply']);
+        Route::post('coupon/clear', [CouponController::class, 'clear']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
@@ -172,8 +176,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [AddressController::class, 'update']);
             Route::delete('/{id}', [AddressController::class, 'destroy']);
         });
-        // Coupon
-        Route::post('/apply-coupon', [CouponController::class, 'apply']);
+
         // ------------------- ADMIN ROUTES -------------------
         Route::middleware(['role:admin'])->prefix('admin')->group(function () {
             //  Updater Status
@@ -197,6 +200,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
 
             // Discounts
+            Route::get('/discounts', [DiscountController::class, 'getAll']);
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
@@ -206,9 +210,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
             Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
-            Route::post('/discounts/add-product/{id}', [DiscountController::class, 'addProducts']);
+            Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
-
+            Route::delete('/discounts/remove-product/{productId}',[DiscountController::class, 'removeProductId']);
             // Carousels
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
             Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);

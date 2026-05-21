@@ -133,12 +133,6 @@ class ParentCategoryController extends Controller
             ], 422);
         }
         $parentCategory->update($validated->validated());
-        // $parentCategory->update([
-        //     'name' => $validated['name'],
-        //     'status' => $validated['status'],
-
-        // ]);
-
         return response()->json([
             'message' => 'Updated successfully',
             'Data' => $parentCategory

@@ -11,21 +11,24 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('discounts', function (Blueprint $table) {
-            $table->foreignId('discount_category_id')
-                ->nullable()
-                ->constrained('discount_categories')
-                ->nullOnDelete();
+            $table->string('banner_image')->nullable();
+            $table->string('image_file_id')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->string('slug')->unique()->nullable();
+
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('discounts', function (Blueprint $table) {
-            $table->dropForeign('discount_categories_id');
-            $table->dropColumn('discount_categories_id');
+            $table->dropColumn([
+                'banner_image',
+                'image_file_id',
+                'is_active',
+                'slug'
+            ]);
+
         });
     }
 };

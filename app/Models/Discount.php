@@ -8,42 +8,46 @@ class Discount extends Model
 {
 
     protected $fillable = [
-        'product_id',
         'name',
         'description',
         'amount',
         'type',
         'start_date',
         'end_date',
-        'discount_category_id'
+        'banner_image',
+        'image_file_id',
+        'slug',
+        'is_active',
+
     ];
-    protected $hidden = ['created_at', 'updated_at', 'discount_price', 'product_id'];
+    protected $hidden = ['created_at', 'updated_at', 'discount_price', 'image_file_id', 'pivot'];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y h:i:s A',
         'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'start_date' => 'datetime:d-m-Y h:i:s A',
+        'end_date' => 'datetime:d-m-Y h:i:s A',
+        'is_active' => 'boolean'
     ];
-    public function products()
-    {
-        return $this->hasMany(Product::class);
-    }
-
     public function discountCategory()
     {
         return $this->belongsTo(DiscountCategory::class, 'discount_category_id');
     }
-
-    // public function scopeActive($query)
+    // public function products()
     // {
-    //     $now = now(); // Gets current date and time
-
-    //     return $query->where('is_active', true)
-    //         ->where(function ($q) use ($now) {
-    //             $q->whereNull('start_date')
-    //                 ->orWhere('start_date', '<=', $now);
-    //         })
-    //         ->where(function ($q) use ($now) {
-    //             $q->whereNull('end_date')
-    //                 ->orWhere('end_date', '>=', $now);
-    //         });
+    //     return $this->hasMany(Product::class);
     // }
+    public function coupon()
+    {
+        return $this->hasOne(Coupon::class, 'discount_id');
+    }
+    public function products()
+    {
+        return $this->belongsToMany(
+            Product::class,
+            'discount_items'
+        );
+    }
+
+
+
 }
