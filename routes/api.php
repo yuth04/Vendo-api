@@ -90,7 +90,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
         Route::get('/products/slug/{slug}', [ProductController::class, 'searchBySlug']);
-
+        // Top sale products
+        Route::get('top-sales',[ProductController::class, 'topSales']);
         // Categories
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{id}', [CategoryController::class, 'showById']);
@@ -128,7 +129,7 @@ Route::prefix('v1')->group(function () {
         });
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);
-        Route::post('/clear-coupon', [CouponController::class, 'clear']);
+        Route::post('/clear-coupon', [OrderController::class, 'clear']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);

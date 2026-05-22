@@ -322,5 +322,33 @@ class ProductController extends Controller
             'data' => $topProducts
         ]);
     }
+    // Top saled products
+    public function topSales()
+    {
+        $products = Product::select(
+            'products.id',
+            'products.productName',
+            'products.slug',
+            'products.image',
+            'products.price',
+            DB::raw('SUM(order_items.quantity) as total_sales')
+        )
+            ->join('order_items', 'products.id', '=', 'order_items.product_variant_id')
+            ->groupBy(
+                'products.id',
+                'products.productName',
+                'products.slug',
+                'products.image',
+                'products.price'
+            )
+            ->orderByDesc('total_sales')
+            ->take(8)
+            ->get();
+
+        return response()->json([
+            'message' => 'Top sale products retrieved successfully',
+            'products' => $products
+        ]);
+    }
 }
 
