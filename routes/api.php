@@ -191,8 +191,8 @@ Route::prefix('v1')->group(function () {
         Route::delete('/orders/{orderId}',        [OrderController::class, 'destroy']);
 
         // Coupon
-        Route::post('/coupon/apply',   [OrderController::class, 'apply']);
-        Route::post('/coupon/clear',   [CouponController::class, 'clear']);
+        Route::post('/apply-coupon',   [OrderController::class, 'apply']);
+        Route::post('/clear-coupon',   [OrderController::class, 'clear']);
 
         // Return Orders
         Route::prefix('return-orders')->group(function () {
