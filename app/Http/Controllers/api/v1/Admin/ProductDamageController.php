@@ -41,31 +41,43 @@ class ProductDamageController extends Controller
     }
     public function getById($id)
     {
-        $damages = ProductDamage::with(['product', 'user'])->findOrFail($id);
+        $damage = ProductDamage::with([
+            'product',
+            'user'
+        ])->find($id);
+        if (!$damage) {
+            return response()->json([
+                'message' => 'Product damage not found'
+            ], 404);
+        }
 
         return response()->json([
-            'message' => 'Retrieved product damage successfully ',
-            'data' => $damages->map(function ($damage) {
-                return [
-                    'id' => $damage->id,
-                    'product' => [
-                        'name' => $damage->product->productName ?? 'N/A',
-                        'slug' => $damage->product->slug ?? 'N/A',
-                        'image' => $damage->product->image ?? null,
-                    ],
-                    'reason' => $damage->reason,
-                    'quantity' => $damage->quantity,
-                    'current_stock' => $damage->product->variant->stock,
-                    'status' => $damage->status,
-                    'image_proof' => $damage->image,
-                    'reported_by' => [
-                        'first_name' => $damage->user->first_name ?? 'Unknown',
-                        'last_name' => $damage->user->last_name ?? 'Unknown',
-                        'date' => $damage->created_at->format('d-m-Y'),
-                        'time' => $damage->created_at->format('h-i-s A'),
-                    ],
-                ];
-            }),
+            'message' => 'Retrieved product damage successfully',
+            'data' => [
+                'id' => $damage->id,
+
+                'product' => [
+                    'name' => $damage->product->productName ?? 'N/A',
+                    'slug' => $damage->product->slug ?? 'N/A',
+                    'image' => $damage->product->image ?? null,
+                ],
+
+                'reason' => $damage->reason,
+                'quantity' => $damage->quantity,
+
+                'current_stock' => $damage->product->variant->stock ?? 0,
+
+                'status' => $damage->status,
+
+                'image_proof' => $damage->image,
+
+                'reported_by' => [
+                    'first_name' => $damage->user->first_name ?? 'Unknown',
+                    'last_name' => $damage->user->last_name ?? 'Unknown',
+                    'date' => $damage->created_at->format('d-m-Y'),
+                    'time' => $damage->created_at->format('h:i:s A'),
+                ],
+            ],
         ]);
     }
     // Store
