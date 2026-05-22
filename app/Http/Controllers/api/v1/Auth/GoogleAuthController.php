@@ -49,7 +49,7 @@ class GoogleAuthController extends Controller
                     'role' => 'customer',
                     'created_at'=>now()->format('d-m-Y h:i:s A')
                 ]);
-                Mail::to($user->email)->send(new GoogleWelcomeMail($user));
+                // Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {
                 if (!$user->google_id) {
                     $user->update([

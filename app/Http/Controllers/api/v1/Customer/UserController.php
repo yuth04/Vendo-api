@@ -53,7 +53,7 @@ class UserController extends Controller
     }
     public function getAllAdmin()
     {
-        $users = User::where('role',"admin")->orderBy('id', 'asc')->get();
+        $users = User::where('role',["admin","customer_support","staff","store_manager"])->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Retrieved admin success',
             'users' => $users
