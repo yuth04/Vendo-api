@@ -212,7 +212,7 @@ Route::prefix('v1')->group(function () {
             Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
             Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
             Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
-            Route::delete('/discounts/remove-product/{productId}',[DiscountController::class, 'removeProductId']);
+            Route::delete('/discounts/remove-product/{productId}', [DiscountController::class, 'removeProductId']);
             // Carousels
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
             Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
@@ -313,6 +313,154 @@ Route::prefix('v1')->group(function () {
             Route::delete('reviews-reply/{id}', [ReviewController::class, 'delete']);
 
 
+        });
+
+        // ------------------- STORE MANAGER ROUTES -------------------
+        Route::middleware(['role:store_manager'])->prefix('store-manager')->group(function () {
+            // Products
+            Route::get('/products', [ProductPermissionController::class, 'index']);
+            Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
+            Route::post('/products', [ProductController::class, 'store']);
+            Route::post('/products/{id}', [ProductController::class, 'update']);
+            Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+
+            // Product Variants
+            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
+            Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
+            Route::post('/product-variants', [ProductVariantController::class, 'store']);
+            Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
+            Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
+
+            // Categories
+            Route::get('/categories', [ProductPermissionController::class, 'category']);
+            Route::get('/categories/{id}', [ProductPermissionController::class, 'categoryId']);
+            Route::post('/categories', [CategoryController::class, 'store']);
+            Route::post('/categories/{id}', [CategoryController::class, 'update']);
+            Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+            // Brands
+            Route::get('/brands', [ProductPermissionController::class, 'brand']);
+            Route::get('/brands/{id}', [ProductPermissionController::class, 'brandId']);
+            Route::post('/brands', [BrandController::class, 'store']);
+            Route::post('/brands/{id}', [BrandController::class, 'update']);
+            Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
+
+            // Parent Categories
+            Route::get('/parent-categories', [ProductPermissionController::class, 'parentCategory']);
+            Route::get('/parent-categories/{id}', [ProductPermissionController::class, 'parentCategoryId']);
+            Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
+            Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
+            Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
+
+            // Discounts
+            Route::get('/discounts', [DiscountController::class, 'getAll']);
+            Route::get('/discounts/{id}', [DiscountController::class, 'show']);
+            Route::post('/discounts', [DiscountController::class, 'store']);
+            Route::put('/discounts/{id}', [DiscountController::class, 'update']);
+            Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
+
+            // Coupons
+            Route::get('/coupons', [CouponController::class, 'index']);
+            Route::get('/coupons/{id}', [CouponController::class, 'getById']);
+            Route::post('/coupons', [CouponController::class, 'store']);
+            Route::post('/coupons/{id}', [CouponController::class, 'update']);
+            Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
+
+            // Product Damages
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::get('/product-damages/{id}', [ProductDamageController::class, 'getById']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
+            Route::post('/product-damages/{id}', [ProductDamageController::class, 'update']);
+            Route::delete('/product-damages/{id}', [ProductDamageController::class, 'destroy']);
+
+            // Dashboard & Reports
+            Route::prefix('/dashboard')->group(function () {
+                Route::get('/', [DashboardController::class, 'dashboard']);
+                Route::get('/stats', [DashboardController::class, 'stats']);
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+                Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
+            });
+            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
+            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+
+            // Carousels
+            Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
+            Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
+            Route::post('/carousels', [CarouselController::class, 'store']);
+            Route::post('/carousels/{id}', [CarouselController::class, 'update']);
+            Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
+        });
+
+        // ------------------- STAFF ROUTES -------------------
+        Route::middleware(['role:staff'])->prefix('staff')->group(function () {
+            // View orders & update status
+            // Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
+            Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
+            Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
+            Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
+            Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
+
+            // Returns (view only + process)
+            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
+            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
+            Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
+            Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
+            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+
+            // POS orders
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+
+            // Product Damages (view + report)
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
+
+            // Stock view
+            Route::prefix('/dashboard')->group(function () {
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+            });
+
+            // View products & variants (read only)
+            Route::get('/products', [ProductPermissionController::class, 'index']);
+            Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
+            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
+            Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
+        });
+
+        // ------------------- CUSTOMER SUPPORT ROUTES -------------------
+        Route::middleware(['role:customer_support'])->prefix('support')->group(function () {
+            // View & manage orders
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
+
+            // Returns (view + approve/reject)
+            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
+            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
+            Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
+            Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
+
+            // View users
+            Route::get('/users', [UserController::class, 'getAllUser']);
+            Route::get('/users/{id}', [UserController::class, 'searchUser']);
+
+            // Reviews
+            Route::get('reviews-reply', [ReviewController::class, 'getAll']);
+            Route::get('reviews-reply/{id}', [ReviewController::class, 'getById']);
+            Route::post('reviews-reply/{id}', [ReviewController::class, 'reply']);
+            Route::put('reviews-reply/{id}', [ReviewController::class, 'updateReply']);
+            Route::patch('reviews/approve/{id}', [ReviewController::class, 'approved']);
+
+            // Notifications (view only)
+            Route::get('/notifications', [NotificationController::class, 'notifications']);
+            Route::get('/notifications/{id}', [NotificationController::class, 'getById']);
+            Route::post('/notifications/{id}', [NotificationController::class, 'markAsSeen']);
+
+            // Coupons (view only)
+            Route::get('/coupons', [CouponController::class, 'index']);
+            Route::get('/coupons/{id}', [CouponController::class, 'getById']);
         });
 
     });
