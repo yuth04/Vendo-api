@@ -520,22 +520,17 @@ class OrderController extends Controller
             'items' => $order->items->map(function ($item) {
                 $originalPrice = (float) ($item->variant->product->price ?? 0);
                 $finalPrice = (float) $item->price;
-
                 return [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-
-
                     'discount' => round(max(0, $originalPrice - $finalPrice), 2),
-
                     'subtotal' => round($finalPrice * $item->quantity, 2),
-
                     'variant' => [
                         'id' => $item->product_variant_id,
                         'size' => $item->size,
                         'color' => $item->color,
                         'price' => $originalPrice,
-
+                        'discount_price' => round($item->price, 2) ?? 0,
                         'product' => [
                             'id' => $item->variant->product->id ?? null,
                             'name' => $item->product_name,

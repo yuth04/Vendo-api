@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
     })
+    // ->withMiddleware(function (Middleware $middleware) {
+    //     $middleware->alias([
+    //         'staff' => \App\Http\Middleware\StaffMiddleware::class,
+    //     ]);
+    // })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'check.status' => CheckUserStatus::class,
