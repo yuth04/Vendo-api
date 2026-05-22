@@ -42,7 +42,10 @@ class AddressController extends Controller
             ]);
 
             $user = Auth::user();
-
+            if ($request->is_default) {
+                Address::where('user_id', $user->id)
+                    ->update(['is_default' => false]);
+            }
             $address = Address::create([
                 'user_id' => $user->id,
                 'first_name' => $request->first_name,
@@ -51,7 +54,7 @@ class AddressController extends Controller
                 'city' => $request->city,
                 'province' => $request->province,
                 'postal_code' => $request->postal_code,
-                 'phone' => $request->phone,
+                'phone' => $request->phone,
                 'is_default' => $request->is_default
 
             ]);
@@ -87,6 +90,10 @@ class AddressController extends Controller
         $address = Address::where('id', $id)
             ->where('user_id', $user->id)
             ->first();
+        if ($request->is_default) {
+            Address::where('user_id', $user->id)
+                ->update(['is_default' => false]);
+        }
         if (!$address) {
             return response()->json([
                 'message' => 'Address not found'
