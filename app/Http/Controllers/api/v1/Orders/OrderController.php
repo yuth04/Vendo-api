@@ -241,9 +241,10 @@ class OrderController extends Controller
 
         // ── 4. Calculate discount ──────────────────────────────────
         $discount = min($coupon->calculateDiscount($subtotal), $subtotal);
-
+        //   Get province from user
+        $province = Auth::user()->address?->province ?? null;
         // ── 5. Shipping preview (no address yet) ───────────────────
-        $shipping = (float) $this->calculateShipping(null);
+        $shipping = (float) $this->calculateShipping($province);
 
         // ── 6. Final total ─────────────────────────────────────────
         $total = max(0, round(($subtotal - $discount) + $shipping, 2));
