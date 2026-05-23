@@ -13,7 +13,7 @@ class AddressController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $adddress = Address::where('user_id', $user->id)->get();
+        $adddress = Address::where('user_id', $user->id)->orderBy('is_default', 'desc')->get();
 
         if ($adddress->isEmpty()) {
             return response()->json([
