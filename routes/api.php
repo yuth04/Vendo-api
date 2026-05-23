@@ -142,13 +142,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile/images', [ProfileController::class, 'getProfileImage']);
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
 
-        Route::prefix('cart')->group(function () {
+        // Route::prefix('cart')->group(function () {
 
-            Route::post('/', [CartController::class, 'store']);
-            Route::put('/item/{id}', [CartController::class, 'updateItem']);
-            Route::delete('/item/{id}', [CartController::class, 'destroy']);
-            Route::delete('/clear', [CartController::class, 'clearCart']);
-        });
+        //     Route::post('/', [CartController::class, 'store']);
+        //     Route::put('/item/{id}', [CartController::class, 'updateItem']);
+        //     Route::delete('/item/{id}', [CartController::class, 'destroy']);
+        //     Route::delete('/clear', [CartController::class, 'clearCart']);
+        // });
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
