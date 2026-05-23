@@ -56,6 +56,30 @@ class ReturnOrderController extends Controller
             ->get();
 
         $data = $returns->map(function ($return) {
+            $order = $return->order;
+
+            // -------------------------
+            // ORIGINAL SUBTOTAL (before discount)
+            // -------------------------
+            $originalSubtotal = $order->items->sum(function ($item) {
+                return (float) ($item->variant->product->price ?? 0) * $item->quantity;
+            });
+
+            // -------------------------
+            // FINAL SUBTOTAL (after product discount)
+            // -------------------------
+            $finalSubtotal = $order->items->sum(function ($item) {
+                return (float) $item->price * $item->quantity;
+            });
+
+            // -------------------------
+            // DISCOUNTS
+            // -------------------------
+            $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
+            $couponDiscount = (float) ($order->coupon_discount ?? 0);
+            $shipping = (float) ($order->shipping_fee ?? 0);
+            $totalPayment = max(0, ($finalSubtotal - $couponDiscount) + $shipping);
+
             return [
                 'return_id' => $return->id,
                 'order_id' => $return->order_id,
@@ -63,18 +87,26 @@ class ReturnOrderController extends Controller
                 'order_number' => $return->order->order_number,
                 'reason' => $return->reason,
                 'note' => $return->note,
-                'original_price' => $return->order->original_price ?? 'N/A',
-                'product_discount'=>$return->order->sub_total_price ?? 'N/A',
-                'coupon_discount'=>$return->order->coupon_discount ?? 'N/A',
-                'shipping_fee' => $return->order->shipping_fee ?? 'N/A',
-                'total_price' => $return->order->total_price,
+                'original_price' => round($originalSubtotal, 2),         // added
+                'product_discount' => round($productDiscount, 2),          // fixed
+                'sub_total_price' => round($finalSubtotal, 2),            // fixed
+                'coupon_discount' => round($couponDiscount, 2),
+                'shipping_fee' => $shipping,
+                'total_price' => round($totalPayment, 2),             // fixed
+                'save' => round($productDiscount + $couponDiscount, 2), // added
+                'coupon' => [                                               // added
+                    'code' => $order->coupon_code,
+                    'discount' => $couponDiscount,
+                ],
                 'created_at' => $return->created_at->format('d-m-Y H:i:s'),
                 'image' => $return->image,
                 'payment' => [
                     'payment_method' => optional($return->order->payment)->payment_method ?? 'N/A',
                     'payment_status' => optional($return->order->payment)->status ?? 'N/A',
                     'reference' => $return->order->payment->payment_reference ?? 'N/A',
-                    'paid_at' => optional($return->order->payment)->paid_at ? $return->order->payment->paid_at->format('d-m-Y H:i:s') : 'N/A',
+                    'paid_at' => optional($return->order->payment)->paid_at
+                        ? $return->order->payment->paid_at->format('d-m-Y H:i:s')
+                        : 'N/A',
                 ],
                 'customer' => [
                     'first_name' => $return->user->first_name,
@@ -84,30 +116,32 @@ class ReturnOrderController extends Controller
                 ],
                 'address' => $return->order->address,
                 'items' => $return->items->map(function ($item) {
+                    $originalPrice = (float) ($item->orderItem->productVariant->product->price ?? 0);
+                    $finalPrice = (float) $item->orderItem->price;
+
                     return [
                         'return_item_id' => $item->id,
                         'quantity' => $item->quantity,
+                        'discount' => round(max(0, $originalPrice - $finalPrice), 2), // added
+                        'subtotal' => round($finalPrice * $item->quantity, 2),        // added
                         'product' => [
                             'product_id' => $item->orderItem->productVariant->product->id,
                             'name' => $item->orderItem->product_name,
-                            'price' => $item->orderItem->productVariant->product->price ?? null,
-                            'discount_price'=>$item->orderItem->productVariant->product->discount_price ?? null,
+                            'price' => $originalPrice,
+                            'discount_price' => round($finalPrice, 2),
                             'size' => $item->orderItem->size,
                             'color' => $item->orderItem->color,
                             'image' => $item->orderItem->product_image,
-
-                        ]
+                        ],
                     ];
                 }),
-
-
             ];
         });
+
         return response()->json([
             'message' => 'Return orders retrieved successfully',
-            'data' => $data
+            'data' => $data,
         ]);
-
     }
     public function show($id)
     {
@@ -291,7 +325,7 @@ class ReturnOrderController extends Controller
     public function approve($id)
     {
         $return = ReturnOrder::with('items.orderItem')->findOrFail($id);
-        if($return->status === 'approved') {
+        if ($return->status === 'approved') {
             return response()->json([
                 'message' => 'Return request is already approved'
             ], 400);
