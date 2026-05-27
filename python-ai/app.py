@@ -8,35 +8,32 @@ import requests
 from io import BytesIO
 import os
 from dotenv import load_dotenv
-load_dotenv() 
+
+load_dotenv()
+
 app = Flask(__name__)
 
-# --- ImageKit config ---
-IMAGEKIT_PRIVATE_KEY = os.environ["IMAGEKIT_PRIVATE_KEY"]  # your private API key
-IMAGEKIT_URL_ENDPOINT = os.environ["IMAGEKIT_URL_ENDPOINT"]  # e.g. https://ik.imagekit.io/your_id
+LARAVEL_API_URL = os.environ["LARAVEL_API_URL"]  # e.g. http://localhost:8000
 
 model, _, preprocess = open_clip.create_model_and_transforms(
     'ViT-B-32',
     pretrained='laion2b_s34b_b79k'
 )
 model.eval()
+tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
 image_features = []
-image_names = []
 image_urls = []
 
 
-def fetch_imagekit_files(folder="/variant_images"):
-    """Fetch all image file metadata from an ImageKit folder."""
-    url = "https://api.imagekit.io/v1/files"
-    params = {"path": folder, "fileType": "image", "limit": 500}
-    resp = requests.get(url, params=params, auth=(IMAGEKIT_PRIVATE_KEY, ""))
+def fetch_images_from_db():
+    """Fetch all product image URLs from Laravel DB endpoint."""
+    resp = requests.get(f"{LARAVEL_API_URL}/public/product-images/all")
     resp.raise_for_status()
-    return resp.json()
+    return resp.json()  # returns list of { id, image }
 
 
 def load_image_from_url(url):
-    """Download and preprocess an image from a URL."""
     resp = requests.get(url)
     resp.raise_for_status()
     image = Image.open(BytesIO(resp.content)).convert("RGB")
@@ -44,22 +41,23 @@ def load_image_from_url(url):
 
 
 def build_index():
-    """Download all images from ImageKit and encode them."""
-    files = fetch_imagekit_files(folder="/variant_images")
-    print(f"Found {len(files)} images in ImageKit")
+    global image_features, image_urls
+    image_features, image_urls = [], []
 
-    for file in files:
+    images = fetch_images_from_db()
+    print(f"Found {len(images)} images in DB")
+
+    for item in images:
         try:
-            image_tensor = load_image_from_url(file["url"])
+            image_tensor = load_image_from_url(item["image"])
             with torch.no_grad():
                 feature = model.encode_image(image_tensor, normalize=True)
             image_features.append(feature.numpy())
-            image_names.append(file["name"])
-            image_urls.append(file["url"])
+            image_urls.append(item["image"])
         except Exception as e:
-            print(f"Skipping {file['name']}: {e}")
+            print(f"Skipping {item['image']}: {e}")
 
-    print("Index built.")
+    print(f"Index built with {len(image_urls)} images.")
 
 
 build_index()
@@ -68,6 +66,9 @@ index_matrix = np.vstack(image_features) if image_features else np.array([])
 
 @app.route('/search', methods=['POST'])
 def search():
+    if index_matrix.size == 0:
+        return jsonify({"error": "Index is empty"}), 503
+
     if 'image' not in request.files:
         return jsonify({"error": "No image provided"}), 400
 
@@ -84,7 +85,7 @@ def search():
 
         results = [
             {
-                "name": image_names[i],
+                "name": image_urls[i],
                 "url": image_urls[i],
                 "similarity": round(float(similarities[i]), 4)
             }
@@ -98,21 +99,20 @@ def search():
 
 @app.route('/search/text', methods=['POST'])
 def search_by_text():
-    query = request.json.get("query", "").strip()
-    if not query:
+    data = request.get_json()
+    if not data or not data.get("query", "").strip():
         return jsonify({"error": "No query provided"}), 400
 
-    tokenizer = open_clip.get_tokenizer('ViT-B-32')
-    text = tokenizer([query])
+    text = tokenizer([data["query"].strip()])
     with torch.no_grad():
-        text_feature = model.encode_text(text).numpy()
+        text_feature = model.encode_text(text, normalize=True).numpy()
 
     similarities = cosine_similarity(text_feature, index_matrix)[0]
     top_indices = similarities.argsort()[-5:][::-1]
 
     results = [
         {
-            "name": image_names[i],
+            "name": image_urls[i],
             "url": image_urls[i],
             "similarity": round(float(similarities[i]), 4)
         }
@@ -121,5 +121,13 @@ def search_by_text():
     return jsonify(results)
 
 
+@app.route('/refresh', methods=['POST'])
+def refresh():
+    global index_matrix
+    build_index()
+    index_matrix = np.vstack(image_features) if image_features else np.array([])
+    return jsonify({"message": f"Index rebuilt with {len(image_urls)} images"})
+
+
 if __name__ == '__main__':
-    app.run(port=5000)
+    app.run(host='0.0.0.0', port=8000)

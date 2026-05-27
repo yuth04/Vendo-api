@@ -83,6 +83,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('public')->group(function () {
         // Image search
         Route::post('/search-image', [ProductController::class, 'searchImage']);
+        Route::get('/product-images/all', [ProductController::class, 'allImages']);
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);

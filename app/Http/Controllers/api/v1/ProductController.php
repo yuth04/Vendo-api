@@ -5,6 +5,8 @@ namespace App\Http\Controllers\api\v1;
 use App\Http\Controllers\Controller;
 
 use App\Models\Product;
+use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -427,6 +429,52 @@ class ProductController extends Controller
             ], 500);
         }
     }
+    // public function searchImage(Request $request)
+    // {
+    //     $request->validate([
+    //         'image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+    //     ]);
+
+    //     try {
+
+    //         $response = Http::attach(
+    //             'image',
+    //             fopen($request->file('image')->getRealPath(), 'r'),
+    //             $request->file('image')->getClientOriginalName()
+    //         )->post('http://127.0.0.1:5000/search');
+
+    //         if ($response->failed()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Python AI server error',
+    //                 'error' => $response->body(),
+    //             ], 500);
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Image search completed successfully',
+    //             'data' => $response->json(),
+    //         ]);
+
+    //     } catch (\Exception $e) {
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Connection failed',
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+
+    public function allImages()
+    {
+        $images = Product::whereNotNull('image')
+            ->select('id', 'image')
+            ->get();
+
+        return response()->json($images);
+    }
     public function searchImage(Request $request)
     {
         $request->validate([
@@ -434,12 +482,11 @@ class ProductController extends Controller
         ]);
 
         try {
-
             $response = Http::attach(
                 'image',
-                fopen($request->file('image')->getRealPath(), 'r'),
+                file_get_contents($request->file('image')->path()),
                 $request->file('image')->getClientOriginalName()
-            )->post('http://127.0.0.1:5000/search');
+            )->post(env('PYTHON_AI_URL') . '/search');
 
             if ($response->failed()) {
                 return response()->json([
@@ -449,14 +496,44 @@ class ProductController extends Controller
                 ], 500);
             }
 
+            $results = $response->json();
+
+            if (empty($results)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No results from AI',
+                ], 404);
+            }
+
+            // Match returned URLs against products.image
+            $imageUrls = collect($results)->pluck('name');
+
+            $products = Product::with('variants')->whereIn('image', $imageUrls)
+                ->get()
+                ->keyBy('image');
+
+            $data = collect($results)->map(function ($result) use ($products) {
+                $product = $products->get($result['name']);
+                if (!$product)
+                    return null;
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->productName,
+                    'price' => $product->price,
+                    'size'=> $product->variants->first()->size,
+                    'image' => $product->image,
+                    'similarity' => $result['similarity'],
+                ];
+            })->filter()->values();
+
             return response()->json([
-                'success' => true,
+         
                 'message' => 'Image search completed successfully',
-                'data' => $response->json(),
+                'data' => $data,
             ]);
 
         } catch (\Exception $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Connection failed',
