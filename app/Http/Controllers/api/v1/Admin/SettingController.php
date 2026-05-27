@@ -15,6 +15,7 @@ class SettingController extends Controller
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
+            
         ]);
         $user = auth()->user();
         $user->update([

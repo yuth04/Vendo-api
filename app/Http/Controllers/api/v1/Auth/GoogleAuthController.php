@@ -47,7 +47,7 @@ class GoogleAuthController extends Controller
                     'is_verified' => true,
                     'email_verified_at' => now()->format('d-m-Y h:i:s A'),
                     'role' => 'customer',
-                    'created_at'=>now()->format('d-m-Y h:i:s A')
+                    'created_at' => now()->format('d-m-Y h:i:s A')
                 ]);
                 // Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {
@@ -62,7 +62,11 @@ class GoogleAuthController extends Controller
             }
 
             // Delete old tokens
-            $user->tokens()->delete();
+            // $user->tokens()->delete();
+            $device = request()->userAgent() ?? 'google-login';
+            $user->tokens()
+                ->where('name', $device)
+                ->delete();
 
             // Create token
             $token = $user->createToken('auth-token')->plainTextToken;
