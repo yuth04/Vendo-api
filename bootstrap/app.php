@@ -19,18 +19,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             // 'auth.api' => EnsureApiUserIsAuthenticated::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
-        ]);
-    })
-    // ->withMiddleware(function (Middleware $middleware) {
-    //     $middleware->alias([
-    //         'staff' => \App\Http\Middleware\StaffMiddleware::class,
-    //     ]);
-    // })
-    ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias([
             'check.status' => CheckUserStatus::class,
         ]);
     })
+
+    // ->withMiddleware(function (Middleware $middleware) {
+    //     $middleware->alias([
+    //         'check.status' => CheckUserStatus::class,
+    //     ]);
+    // })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (AuthenticationException $e) {
             return response()->json([

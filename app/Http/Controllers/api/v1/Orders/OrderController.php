@@ -527,7 +527,7 @@ class OrderController extends Controller
                 return [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-                    'discount' => round(max(0, $originalPrice - $finalPrice), 2),
+                    'save' => round(max(0, $originalPrice - $finalPrice), 2),
                     'subtotal' => round($finalPrice * $item->quantity, 2),
                     'variant' => [
                         'id' => $item->product_variant_id,
