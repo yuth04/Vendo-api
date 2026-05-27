@@ -192,10 +192,10 @@ class OrderController extends Controller
 
     public function apply(Request $request)
     {
-        if (!Auth::check()) {
+        $user = Auth::user();
+        if (!$user) {
             return response()->json(['message' => 'Login required'], 401);
         }
-
         $request->validate([
             'code' => 'required|string',
             'items' => 'required|array|min:1',
@@ -241,22 +241,25 @@ class OrderController extends Controller
 
         // ── 4. Calculate discount ──────────────────────────────────
         $discount = min($coupon->calculateDiscount($subtotal), $subtotal);
-
+        //   Get province from user
+        $address = $user->addresses()->where('is_default',true)->first()
+        ?? $user->addresses()->latest()->first();
+        $province = $address->province ?? null;
         // ── 5. Shipping preview (no address yet) ───────────────────
-        $shipping = (float) $this->calculateShipping(null);
+        $shipping = (float) $this->calculateShipping($province);
 
         // ── 6. Final total ─────────────────────────────────────────
         $total = max(0, round(($subtotal - $discount) + $shipping, 2));
 
         // ── 7. Store coupon in cache (1 hour) ──────────────────────
-        cache()->put('coupon_' . Auth::id(), $coupon->code, now()->addHour());
+        cache()->put('coupon_' . $user->id, $coupon->code, now()->addHour());
 
         return response()->json([
             'message' => 'Coupon applied successfully',
             'coupon' => $coupon->code,
             'subtotal' => round($subtotal, 2),
             'discount' => round($discount, 2),
-            'shipping' => $shipping,
+            'shipping' => round($shipping, 2),
             'total_price' => $total,
         ]);
     }
@@ -264,11 +267,12 @@ class OrderController extends Controller
     // remove coupon
     public function clear()
     {
-        if (!Auth::check()) {
+        $user = Auth::user();
+        if (!$user) {
             return response()->json(['message' => 'Login required'], 401);
         }
 
-        cache()->forget('coupon_' . Auth::id());
+        cache()->forget('coupon_' . $user->id);
 
         return response()->json(['message' => 'Coupon removed successfully']);
     }
@@ -520,22 +524,17 @@ class OrderController extends Controller
             'items' => $order->items->map(function ($item) {
                 $originalPrice = (float) ($item->variant->product->price ?? 0);
                 $finalPrice = (float) $item->price;
-
                 return [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-
-
-                    'discount' => round(max(0, $originalPrice - $finalPrice), 2),
-
+                    'save' => round(max(0, $originalPrice - $finalPrice), 2),
                     'subtotal' => round($finalPrice * $item->quantity, 2),
-
                     'variant' => [
                         'id' => $item->product_variant_id,
                         'size' => $item->size,
                         'color' => $item->color,
                         'price' => $originalPrice,
-
+                        'discount_price' => round($item->price, 2) ?? 0,
                         'product' => [
                             'id' => $item->variant->product->id ?? null,
                             'name' => $item->product_name,

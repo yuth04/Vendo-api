@@ -90,7 +90,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
         Route::get('/products/slug/{slug}', [ProductController::class, 'searchBySlug']);
-
+        // Top sale products
+        Route::get('top-sales', [ProductController::class, 'topSales']);
         // Categories
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{id}', [CategoryController::class, 'showById']);
@@ -128,7 +129,7 @@ Route::prefix('v1')->group(function () {
         });
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);
-        Route::post('coupon/clear', [CouponController::class, 'clear']);
+        Route::post('/clear-coupon', [OrderController::class, 'clear']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
@@ -140,14 +141,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/profile/upload-image', [ProfileController::class, 'uploadProfileImage']);
         Route::get('/profile/images', [ProfileController::class, 'getProfileImage']);
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
-
-        Route::prefix('cart')->group(function () {
-
-            Route::post('/', [CartController::class, 'store']);
-            Route::put('/item/{id}', [CartController::class, 'updateItem']);
-            Route::delete('/item/{id}', [CartController::class, 'destroy']);
-            Route::delete('/clear', [CartController::class, 'clearCart']);
-        });
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
@@ -177,62 +170,163 @@ Route::prefix('v1')->group(function () {
             Route::delete('/{id}', [AddressController::class, 'destroy']);
         });
 
-        // ------------------- ADMIN ROUTES -------------------
-        Route::middleware(['role:admin'])->prefix('admin')->group(function () {
-            //  Updater Status
+        // -----------------------------------------------
+        // STAFF ROUTES
+        // -----------------------------------------------
+        Route::middleware(['role:staff'])->prefix('staff')->group(function () {
+
+            // Orders — update status
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
             Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
-            Route::put('/orders/payment/{id}', [UpdateStatusController::class, 'updatePaymentStatus']);
             Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
-            // Returns
+
+            // POS Orders
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+
+            // Return Orders — view & process
             Route::get('/returns', [ReturnOrderController::class, 'getAll']);
+            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
 
-            // Orders
-            Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
-            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
-            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
-            // Returns
-            Route::get('/returns', [PosController::class, 'returnHistory']);
-            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
+            // Product Damages — view & report only
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
 
-            // Discounts
+            // Stock — view only
+            Route::prefix('dashboard')->group(function () {
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+            });
+
+            // Products & Variants — read only
+            Route::get('/products', [ProductPermissionController::class, 'index']);
+            Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
+            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
+            Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
+        });
+
+        // -----------------------------------------------
+        // ADMIN ROUTES
+        // -----------------------------------------------
+        Route::middleware(['role:admin'])->prefix('administrator')->group(function () {
+
+            // Products — full CRUD
+            Route::get('/products', [ProductPermissionController::class, 'index']);
+            Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
+            Route::post('/products', [ProductController::class, 'store']);
+            Route::post('/products/{id}', [ProductController::class, 'update']);
+            Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+
+            // Product Variants — full CRUD
+            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
+            Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
+            Route::post('/product-variants', [ProductVariantController::class, 'store']);
+            Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
+            Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
+
+            // Categories — full CRUD
+            Route::get('/categories', [ProductPermissionController::class, 'category']);
+            Route::get('/categories/{id}', [ProductPermissionController::class, 'categoryId']);
+            Route::post('/categories', [CategoryController::class, 'store']);
+            Route::post('/categories/{id}', [CategoryController::class, 'update']);
+            Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+            // Brands — full CRUD
+            Route::get('/brands', [ProductPermissionController::class, 'brand']);
+            Route::get('/brands/{id}', [ProductPermissionController::class, 'brandId']);
+            Route::post('/brands', [BrandController::class, 'store']);
+            Route::post('/brands/{id}', [BrandController::class, 'update']);
+            Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
+
+            // Parent Categories — full CRUD
+            Route::get('/parent-categories', [ProductPermissionController::class, 'parentCategory']);
+            Route::get('/parent-categories/{id}', [ProductPermissionController::class, 'parentCategoryId']);
+            Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
+            Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
+            Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
+
+            // Discounts — full CRUD
             Route::get('/discounts', [DiscountController::class, 'getAll']);
             Route::get('/discounts/{id}', [DiscountController::class, 'show']);
             Route::post('/discounts', [DiscountController::class, 'store']);
             Route::put('/discounts/{id}', [DiscountController::class, 'update']);
             Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
-            Route::get('discount-categories', [ProductPermissionController::class, 'discountCategory']);
-            Route::get('discount-categories/{id}', [ProductPermissionController::class, 'discountCategoryId']);
-            Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
-            Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
-            Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
-            Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
-            Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
-            Route::delete('/discounts/remove-product/{productId}',[DiscountController::class, 'removeProductId']);
-            // Carousels
+
+            // Coupons — full CRUD
+            Route::get('/coupons', [CouponController::class, 'index']);
+            Route::get('/coupons/{id}', [CouponController::class, 'getById']);
+            Route::post('/coupons', [CouponController::class, 'store']);
+            Route::post('/coupons/{id}', [CouponController::class, 'update']);
+            Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
+
+            // Product Damages — full CRUD
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::get('/product-damages/{id}', [ProductDamageController::class, 'getById']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
+            Route::post('/product-damages/{id}', [ProductDamageController::class, 'update']);
+            Route::delete('/product-damages/{id}', [ProductDamageController::class, 'destroy']);
+
+            // Carousels — full CRUD
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
             Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
             Route::post('/carousels', [CarouselController::class, 'store']);
             Route::post('/carousels/{id}', [CarouselController::class, 'update']);
             Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
 
-            // Products
+            // Dashboard & Reports
+            Route::prefix('dashboard')->group(function () {
+                Route::get('/', [DashboardController::class, 'dashboard']);
+                Route::get('/stats', [DashboardController::class, 'stats']);
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+                Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
+            });
+            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
+            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+        });
+
+        // -----------------------------------------------
+        // SUPER ADMIN ROUTES
+        // -----------------------------------------------
+        Route::middleware(['role:super-admin'])->prefix('admin')->group(function () {
+
+            // Orders — full management
+            Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
+            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+            Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
+            Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
+            Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
+            Route::put('/orders/payment/{id}', [UpdateStatusController::class, 'updatePaymentStatus']);
+            Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
+
+            // Return Orders — full management
+            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
+            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
+            Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
+            Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
+            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+
+            // Products — full CRUD
             Route::get('/products', [ProductPermissionController::class, 'index']);
             Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
             Route::post('/products', [ProductController::class, 'store']);
             Route::post('/products/{id}', [ProductController::class, 'update']);
             Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-            // Product Variant images
+
+            // Product Variants — full CRUD
             Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
             Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
             Route::post('/product-variants', [ProductVariantController::class, 'store']);
             Route::post('/product-variants/{id}', [ProductVariantController::class, 'update']);
             Route::delete('/product-variants/{id}', [ProductVariantController::class, 'destroy']);
-            // Categories
+
+            // Categories — full CRUD
             Route::get('/categories', [ProductPermissionController::class, 'category']);
             Route::get('/categories/{id}', [ProductPermissionController::class, 'categoryId']);
             Route::post('/categories', [CategoryController::class, 'store']);
@@ -240,80 +334,101 @@ Route::prefix('v1')->group(function () {
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
             Route::post('/categories/upload-image/{id}', [CategoryController::class, 'uploadImageToCategory']);
 
-            // Brands
+            // Brands — full CRUD
             Route::get('/brands', [ProductPermissionController::class, 'brand']);
             Route::get('/brands/{id}', [ProductPermissionController::class, 'brandId']);
             Route::post('/brands', [BrandController::class, 'store']);
             Route::post('/brands/{id}', [BrandController::class, 'update']);
             Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
 
-            // Parent Categories
+            // Parent Categories — full CRUD
             Route::get('/parent-categories', [ProductPermissionController::class, 'parentCategory']);
             Route::get('/parent-categories/{id}', [ProductPermissionController::class, 'parentCategoryId']);
             Route::post('/parent-categories', [ParentCategoryController::class, 'store']);
             Route::put('/parent-categories/{id}', [ParentCategoryController::class, 'update']);
             Route::delete('/parent-categories/{id}', [ParentCategoryController::class, 'destroy']);
 
-            // Admin view of user orders
-            Route::get('/user/orders', [UserController::class, 'userOrder']);
-            Route::get('/orders', [OrderController::class, 'filterByStatus']);
-            Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
-            // Admin
-            Route::get('/users/admins', [UserController::class, 'getAllAdmin']);
-            // User
-            Route::get('/users', [UserController::class, 'getAllUser']);
-            Route::get('/users/{id}', [UserController::class, 'searchUser']);
-            Route::post('/users/{id}', [UserController::class, 'updateUser']);
-            Route::delete('/users/{id}', [UserController::class, 'destroy']);
-            // Admin Setting
-            Route::put('/settings/change-name', [SettingController::class, 'changeName']);
-            Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
-            Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
+            // Discounts — full CRUD
+            Route::get('/discounts', [DiscountController::class, 'getAll']);
+            Route::get('/discounts/{id}', [DiscountController::class, 'show']);
+            Route::post('/discounts', [DiscountController::class, 'store']);
+            Route::put('/discounts/{id}', [DiscountController::class, 'update']);
+            Route::delete('/discounts/{id}', [DiscountController::class, 'destroy']);
+            Route::post('/discounts/add-products', [DiscountController::class, 'addProducts']);
+            Route::post('/discounts/remove-product/{discountId}', [DiscountController::class, 'removeProduct']);
+            Route::delete('/discounts/remove-product/{productId}', [DiscountController::class, 'removeProductId']);
 
-            // Dashboard Stats
-            Route::prefix('/dashboard')->group(function () {
-                Route::get('/', [DashboardController::class, 'dashboard']);
-                Route::get('/stats', [DashboardController::class, 'stats']);
-                Route::get('/order-stats', [DashboardController::class, 'orderStat']);
-                Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
-                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
-                // Stocks
-                Route::get('/stocks', [DashboardController::class, 'stock']);
-                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
-            });
-            // Notificatons
-            Route::get('/notifications', [NotificationController::class, 'notifications']);
-            Route::get('/notifications/{id}', [NotificationController::class, 'getById']);
-            Route::post('/notifications/{id}', [NotificationController::class, 'markAsSeen']);
+            // Discount Categories — full CRUD
+            Route::get('/discount-categories', [ProductPermissionController::class, 'discountCategory']);
+            Route::get('/discount-categories/{id}', [ProductPermissionController::class, 'discountCategoryId']);
+            Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
+            Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
+            Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
 
-            // Product Damages
-            Route::get('/product-damages', [ProductDamageController::class, 'index']);
-            Route::post('/product-damages', [ProductDamageController::class, 'store']);
-            Route::post('/product-damages/{id}', [ProductDamageController::class, 'update']);
-            Route::delete('/product-damages/{id}', [ProductDamageController::class, 'destroy']);
+            // Carousels — full CRUD
+            Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
+            Route::get('/carousels/{id}', [ProductPermissionController::class, 'carouselId']);
+            Route::post('/carousels', [CarouselController::class, 'store']);
+            Route::post('/carousels/{id}', [CarouselController::class, 'update']);
+            Route::delete('/carousels/{id}', [CarouselController::class, 'destroy']);
 
-            // Sales report
-            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
-            // Products report
-            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
-            // Coupon
+            // Coupons — full CRUD
             Route::get('/coupons', [CouponController::class, 'index']);
             Route::get('/coupons/{id}', [CouponController::class, 'getById']);
             Route::post('/coupons', [CouponController::class, 'store']);
             Route::post('/coupons/{id}', [CouponController::class, 'update']);
             Route::delete('/coupons/{id}', [CouponController::class, 'destroy']);
-            // Reviews
-            Route::get('reviews-reply', [ReviewController::class, 'getAll']);
-            Route::get('reviews-reply/{id}', [ReviewController::class, 'getById']);
 
-            Route::post('reviews-reply/{id}', [ReviewController::class, 'reply']);
-            Route::put('reviews-reply/{id}', [ReviewController::class, 'updateReply']);
+            // Product Damages — full CRUD
+            Route::get('/product-damages', [ProductDamageController::class, 'index']);
+            Route::post('/product-damages', [ProductDamageController::class, 'store']);
+            Route::post('/product-damages/{id}', [ProductDamageController::class, 'update']);
+            Route::delete('/product-damages/{id}', [ProductDamageController::class, 'destroy']);
 
-            Route::patch('reviews/approve/{id}', [ReviewController::class, 'approved']);
-            Route::delete('reviews-reply/{id}', [ReviewController::class, 'delete']);
+            // Users & Admins — management
+            Route::get('/users', [UserController::class, 'getAllUser']);
+            Route::get('/users/{id}', [UserController::class, 'searchUser']);
+            Route::post('/users/{id}', [UserController::class, 'updateUser']);
+            Route::delete('/users/{id}', [UserController::class, 'destroy']);
+            Route::get('/users/admins', [UserController::class, 'getAllAdmin']);
+            Route::get('/user/orders', [UserController::class, 'userOrder']);
+            Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
 
+            // Admin Settings
+            Route::put('/settings/change-name', [SettingController::class, 'changeName']);
+            Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
+            Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
 
+            // Dashboard — full stats
+            Route::prefix('dashboard')->group(function () {
+                Route::get('/', [DashboardController::class, 'dashboard']);
+                Route::get('/stats', [DashboardController::class, 'stats']);
+                Route::get('/order-stats', [DashboardController::class, 'orderStat']);
+                Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
+                Route::get('/stocks', [DashboardController::class, 'stock']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+            });
+
+            // Reports
+            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
+            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+
+            // Notifications
+            Route::get('/notifications', [NotificationController::class, 'notifications']);
+            Route::get('/notifications/{id}', [NotificationController::class, 'getById']);
+            Route::post('/notifications/{id}', [NotificationController::class, 'markAsSeen']);
+
+            // Reviews — moderation
+            Route::get('/reviews-reply', [ReviewController::class, 'getAll']);
+            Route::get('/reviews-reply/{id}', [ReviewController::class, 'getById']);
+            Route::post('/reviews-reply/{id}', [ReviewController::class, 'reply']);
+            Route::put('/reviews-reply/{id}', [ReviewController::class, 'updateReply']);
+            Route::patch('/reviews/approve/{id}', [ReviewController::class, 'approved']);
+            Route::delete('/reviews-reply/{id}', [ReviewController::class, 'delete']);
         });
-
     });
+
+
+
 });

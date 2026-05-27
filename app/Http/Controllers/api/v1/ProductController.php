@@ -322,5 +322,108 @@ class ProductController extends Controller
             'data' => $topProducts
         ]);
     }
+    // Top saled products
+    public function topSales(){
+        try {
+
+            $products = DB::table('order_items')
+
+                ->join(
+                    'product_variants',
+                    'order_items.product_variant_id',
+                    '=',
+                    'product_variants.id'
+                )
+
+                ->join(
+                    'products',
+                    'product_variants.product_id',
+                    '=',
+                    'products.id'
+                )
+
+                ->join(
+                    'orders',
+                    'order_items.order_id',
+                    '=',
+                    'orders.id'
+                )
+
+                ->join(
+                    'payments',
+                    'orders.id',
+                    '=',
+                    'payments.order_id'
+                )
+
+                ->leftJoin(
+                    'categories',
+                    'products.category_id',
+                    '=',
+                    'categories.id'
+                )
+
+                ->where('payments.status', 'paid')
+
+                ->select(
+                    'products.id',
+                    'products.productName',
+                    'products.slug',
+                    'products.image',
+                    'products.price',
+                    'categories.name as category_name',
+
+                    DB::raw('SUM(order_items.quantity) as total_sales')
+                )
+
+                ->groupBy(
+                    'products.id',
+                    'products.productName',
+                    'products.slug',
+                    'products.image',
+                    'products.price',
+                    'categories.name'
+                )
+
+                ->orderByDesc('total_sales')
+
+                ->take(8)
+
+                ->get()
+
+                ->map(function ($product) {
+
+                    return [
+                        'id' => $product->id,
+
+                        'productName' => $product->productName,
+
+                        'slug' => $product->slug,
+
+                        'image' => $product->image ?? null,
+
+                        'price' => number_format($product->price, 2),
+
+                        'category' => $product->category_name,
+
+                        'total_sales' => (int) $product->total_sales,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Top sale products retrieved successfully',
+                'products' => $products,
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve top sale products',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
 
