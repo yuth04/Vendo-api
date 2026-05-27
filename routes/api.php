@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function () {
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
+
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
@@ -80,7 +81,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/', [CartController::class, 'index']);
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
-
+        // Image search
+        Route::post('/search-image', [ProductController::class, 'searchImage']);
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);

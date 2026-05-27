@@ -8,6 +8,7 @@ use App\Models\Product;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 class ProductController extends Controller
@@ -323,7 +324,8 @@ class ProductController extends Controller
         ]);
     }
     // Top saled products
-    public function topSales(){
+    public function topSales()
+    {
         try {
 
             $products = DB::table('order_items')
@@ -421,6 +423,43 @@ class ProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve top sale products',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+    public function searchImage(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        try {
+
+            $response = Http::attach(
+                'image',
+                fopen($request->file('image')->getRealPath(), 'r'),
+                $request->file('image')->getClientOriginalName()
+            )->post('http://127.0.0.1:5000/search');
+
+            if ($response->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Python AI server error',
+                    'error' => $response->body(),
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Image search completed successfully',
+                'data' => $response->json(),
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Connection failed',
                 'error' => $e->getMessage(),
             ], 500);
         }
