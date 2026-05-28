@@ -19,7 +19,12 @@
 /storage/*.key
 /storage/pail
 /vendor
+vendor/*
 Homestead.json
 Homestead.yaml
 Thumbs.db
+# Python
 /python-ai/venv
+__pycache__/
+*.pyc
+*.pyo
