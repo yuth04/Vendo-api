@@ -400,13 +400,15 @@ Route::prefix('v1')->group(function () {
 
             // Users & Admins — management
             Route::get('/users', [UserController::class, 'getAllUser']);
-            Route::post('/users/{id}', [UserController::class, 'updateUser']);
-            Route::delete('/users/{id}', [UserController::class, 'destroy']);
             Route::get('/users/admins', [UserController::class, 'getAllAdmin']);
+            Route::get('/users/staff', [UserController::class, 'getAllStaff']);
+            Route::post('/users/{id}', [UserController::class, 'updateUser']);
             Route::get('/users/admins/{id}', [UserController::class, 'searchAdmin']);
             Route::get('/users/{id}', [UserController::class, 'searchUser']);
+            Route::get('/users/staff/{id}', [UserController::class, 'searchStaff']);
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
+            Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
             // Admin Settings
             Route::put('/settings/change-name', [SettingController::class, 'changeName']);

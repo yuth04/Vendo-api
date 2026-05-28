@@ -170,6 +170,27 @@ class UserController extends Controller
             'user' => $user
         ]);
     }
+    public function getAllStaff()
+    {
+        $staffs = User::where('role', 'staff')->orderBy('id', 'asc')->get();
+        return response()->json([
+            'message' => 'Get all staff successfully',
+            'staffs' => $staffs
+        ]);
+    }
+    public function searchStaff($id)
+    {
+        $user = User::where('role', 'staff')->find($id);
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ]);
+        }
+        return response()->json([
+            'message' => 'Search user successfully',
+            'user' => $user
+        ]);
+    }
     public function destroy($id)
     {
         $user = User::find($id);

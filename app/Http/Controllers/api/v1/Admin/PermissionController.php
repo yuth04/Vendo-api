@@ -14,7 +14,7 @@ class PermissionController extends Controller
         $authUser = Auth::user();
 
         // Only admin can update roles
-        if ($authUser->role !== 'admin') {
+        if ($authUser->role !== 'admin' && $authUser->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only admin can action this.'
             ], 403);
@@ -22,7 +22,7 @@ class PermissionController extends Controller
 
         // Validate
         $request->validate([
-            'role' => 'required|string|in:admin,customer,manager'
+            'role' => 'required|string|in:super-admin,admin,staff,customer'
         ]);
 
         // Find user
