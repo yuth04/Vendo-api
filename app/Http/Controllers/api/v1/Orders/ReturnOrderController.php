@@ -24,7 +24,6 @@ class ReturnOrderController extends Controller
     {
         $returns = ReturnOrder::with([
             'items.orderItem'
-
         ])->get();
 
         return response()->json([

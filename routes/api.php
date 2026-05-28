@@ -82,11 +82,17 @@ Route::prefix('v1')->group(function () {
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
         // Image search
-        Route::get('/product-images/all',[ProductController::class, 'allImages']
+        Route::get(
+            '/product-images/all',
+            [ProductController::class, 'allImages']
         );
-        Route::post('/visual-search',[ProductController::class, 'searchImage']
+        Route::post(
+            '/visual-search',
+            [ProductController::class, 'searchImage']
         );
-        Route::post('/text-search',[ProductController::class, 'searchByText']
+        Route::post(
+            '/text-search',
+            [ProductController::class, 'searchByText']
         );
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
@@ -394,10 +400,11 @@ Route::prefix('v1')->group(function () {
 
             // Users & Admins — management
             Route::get('/users', [UserController::class, 'getAllUser']);
-            Route::get('/users/{id}', [UserController::class, 'searchUser']);
             Route::post('/users/{id}', [UserController::class, 'updateUser']);
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
             Route::get('/users/admins', [UserController::class, 'getAllAdmin']);
+            Route::get('/users/admins/{id}', [UserController::class, 'searchAdmin']);
+            Route::get('/users/{id}', [UserController::class, 'searchUser']);
             Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
 

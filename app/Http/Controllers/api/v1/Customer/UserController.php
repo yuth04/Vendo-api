@@ -22,7 +22,7 @@ class UserController extends Controller
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
                     'email' => $user->email,
-                    'status'=> $user->status,
+                    'status' => $user->status,
                     'orders' => $user->orders->map(function ($order) {
                         return [
                             'id' => $order->id,
@@ -45,31 +45,36 @@ class UserController extends Controller
     }
     public function getAllUser()
     {
-        $users = User::where('role','customer')->orderBy('id', 'asc')->get();
+        $users = User::where('role', 'customer')->orderBy('id', 'asc')->get();
         return response()->json([
-            'message' => 'Retrieved user success',
+            'message' => 'Users retrieved success',
             'users' => $users
         ]);
     }
     public function getAllAdmin()
     {
-        $users = User::whereIn('role',["super-admin","admin","staff"])->orderBy('id', 'asc')->get();
+        $users = User::whereIn('role', ["super-admin", "admin", "staff"])->orderBy('id', 'asc')->get();
         return response()->json([
-            'message' => 'Retrieved admin success',
+            'message' => 'Admins retrieved success',
             'users' => $users
         ]);
     }
     public function updateUser(Request $request, $id)
     {
-        $admin = Auth::user();
+        // $admin = Auth::user();
 
-        if ($admin->role !== 'admin') {
+        // if ($admin->role !== 'admin'||'super-admin') {
+        //     return response()->json([
+        //         'message' => 'Only admin can action this.'
+        //     ], 403);
+        // }
+
+        $user = User::find($id);
+        if (!$user) {
             return response()->json([
-                'message' => 'Only admin can action this.'
-            ], 403);
+                'message' => 'User not found.'
+            ]);
         }
-
-        $user = User::findOrFail($id);
 
         $request->validate([
             'first_name' => 'sometimes|string|max:255',
@@ -79,10 +84,10 @@ class UserController extends Controller
                 'email:rfc,dns',
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
-            'role' => 'sometimes|string|in:admin,customer',
+            'role' => 'sometimes|string|in:super-admin,admin,staff,customer',
             'status' => 'string|in:active,inactive',
             'image' => 'nullable|image|max:5120'
-            
+
         ]);
         $data = $request->only([
             'first_name',
@@ -140,7 +145,21 @@ class UserController extends Controller
     // search by id
     public function searchUser($id)
     {
-        $user = User::find($id);
+        $user = User::where('role', 'customer')->find($id);
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found'
+            ]);
+        }
+        return response()->json([
+            'message' => 'Search user successfully',
+            'user' => $user
+        ]);
+    }
+    // seatch admin by id
+    public function searchAdmin($id)
+    {
+        $user = User::whereIn('role', ['super-admin', 'admin', 'staff'])->find($id);
         if (!$user) {
             return response()->json([
                 'message' => 'User not found'
