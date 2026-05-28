@@ -82,8 +82,12 @@ Route::prefix('v1')->group(function () {
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
         // Image search
-        Route::post('/search-image', [ProductController::class, 'searchImage']);
-        Route::get('/product-images/all', [ProductController::class, 'allImages']);
+        Route::get('/product-images/all',[ProductController::class, 'allImages']
+        );
+        Route::post('/visual-search',[ProductController::class, 'searchImage']
+        );
+        Route::post('/text-search',[ProductController::class, 'searchByText']
+        );
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);

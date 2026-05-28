@@ -467,6 +467,10 @@ class ProductController extends Controller
     //     }
     // }
 
+    // =========================
+    // Get All Product Images
+    // =========================
+
     public function allImages()
     {
         $images = Product::whereNotNull('image')
@@ -475,71 +479,217 @@ class ProductController extends Controller
 
         return response()->json($images);
     }
+
+    // =========================
+    // Visual Search
+    // =========================
+
     public function searchImage(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+            'image' => 'nullable|image|max:5120',
         ]);
 
         try {
+
             $response = Http::attach(
                 'image',
-                file_get_contents($request->file('image')->path()),
-                $request->file('image')->getClientOriginalName()
-            )->post(env('PYTHON_AI_URL') . '/search');
+                file_get_contents(
+                    $request->file('image')->path()
+                ),
+                $request->file('image')
+                    ->getClientOriginalName()
+            )->post(
+                    env('PYTHON_AI_URL') . '/search'
+                );
 
             if ($response->failed()) {
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Python AI server error',
-                    'error' => $response->body(),
+                    'message' => 'Python server error',
+                    'error' => $response->body()
                 ], 500);
             }
 
             $results = $response->json();
 
-            if (empty($results)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No results from AI',
-                ], 404);
+            $productIds = collect($results)
+                ->pluck('id');
+
+            $products = Product::with('variants')
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            $data = collect($results)->map(
+                function ($result) use ($products) {
+
+                    $product = $products->get(
+                        $result['id']
+                    );
+
+                    if (!$product) {
+                        return null;
+                    }
+
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->productName,
+                        'price' => $product->price,
+                        'image' => $product->image,
+                        'size' => optional(
+                            $product->variants->first()
+                        )->size,
+                        'similarity' => $result['similarity']
+                    ];
+                }
+            )->filter()->values();
+
+            return response()->json([
+                'message' => 'Search completed',
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Connection failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // =========================
+    // Text Search
+    // =========================
+
+    public function searchByText(Request $request)
+    {
+        $request->validate([
+            'query' => 'required|string'
+        ]);
+
+        try {
+
+            $query = strtolower($request->input('query'));
+
+            // =====================
+            // SIZE
+            // =====================
+            $size = null;
+
+            if (preg_match('/size\s*([a-zA-Z0-9]+)/i', $query, $m)) {
+                $size = strtoupper($m[1]);
             }
 
-            // Match returned URLs against products.image
-            $imageUrls = collect($results)->pluck('name');
+            // =====================
+            // COLOR
+            // =====================
+            $color = null;
 
-            $products = Product::with('variants')->whereIn('image', $imageUrls)
-                ->get()
-                ->keyBy('image');
+            if (preg_match('/color\s*([a-zA-Z]+)/i', $query, $m)) {
+                $color = strtolower($m[1]);
+            }
 
+            // =====================
+            // CLEAN QUERY
+            // =====================
+            $cleanQuery = preg_replace('/size\s*[a-zA-Z0-9]+/i', '', $query);
+            $cleanQuery = preg_replace('/color\s*[a-zA-Z]+/i', '', $cleanQuery);
+            $cleanQuery = str_replace('with', '', $cleanQuery);
+            $cleanQuery = trim($cleanQuery);
+
+            // =====================
+            // PYTHON AI SEARCH
+            // =====================
+            $response = Http::post(
+                env('PYTHON_AI_URL') . '/search/text',
+                [
+                    'query' => $cleanQuery
+                ]
+            );
+
+            if ($response->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Python server error',
+                    'body' => $response->body()
+                ], 500);
+            }
+
+            $results = $response->json();
+
+            $productIds = collect($results)->pluck('id');
+
+            // =====================
+            // DB FILTER
+            // =====================
+            $productsQuery = Product::with('variants')
+                ->whereIn('id', $productIds);
+
+            $productsQuery->whereHas('variants', function ($q) use ($size, $color) {
+
+                if ($size) {
+                    $q->where('size', $size);
+                }
+
+                if ($color) {
+                    $q->where('color', $color);
+                }
+            });
+
+            $products = $productsQuery->get()->keyBy('id');
+
+            // =====================
+            // RESPONSE
+            // =====================
             $data = collect($results)->map(function ($result) use ($products) {
-                $product = $products->get($result['name']);
+
+                $product = $products->get($result['id']);
+
                 if (!$product)
                     return null;
 
                 return [
                     'id' => $product->id,
                     'name' => $product->productName,
+                    'category' => optional(
+                        $product->category
+                    )->name,
+                    'brand' => optional(
+                        $product->brand
+                    )->name,
+                    'description' => $product->description,
                     'price' => $product->price,
-                    'size'=> $product->variants->first()->size,
+                    'color' => optional(
+                        $product->variants->first()
+                    )->color,
                     'image' => $product->image,
-                    'similarity' => $result['similarity'],
+                    'size' => optional(
+                        $product->variants->first()
+                    )->size,
+                    'similarity' => $result['similarity']
                 ];
             })->filter()->values();
-
+            if ($data->isEmpty()) {
+                return response()->json([
+                    'message' => 'Item not found.',
+                ], 404);
+            }
             return response()->json([
-         
-                'message' => 'Image search completed successfully',
-                'data' => $data,
+                'message' => 'Search completed successfully',
+                'data' => $data
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Connection failed',
-                'error' => $e->getMessage(),
+                'message' => $e->getMessage()
             ], 500);
         }
     }
 }
+
 
