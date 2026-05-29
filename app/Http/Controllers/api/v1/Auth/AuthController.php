@@ -52,8 +52,6 @@ class AuthController extends Controller
                 'verification_code_expire' => $expire,
                 'is_verified' => false,
                 'role' => 'customer',
-                'created_by' => Auth::id() ?? null,
-                'updated_by' => Auth::id() ?? null,
             ];
 
             // store in cache
@@ -285,8 +283,13 @@ class AuthController extends Controller
             'role' => 'customer',
             'is_verified' => true,
             'email_verified_at' => now(),
-            'created_by' => $data['created_by'] ?? null,
-            'updated_by' => $data['updated_by'] ?? null,
+            'created_by' => [
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'created_at' => now()->format('d-m-Y h:i:s A'),
+            ],
+            'updated_by' => null,
         ]);
 
         Cache::forget('register_' . $request->email);

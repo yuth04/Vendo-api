@@ -45,18 +45,66 @@ class UserController extends Controller
     }
     public function getAllUser()
     {
-        $users = User::where('role', 'customer')->orderBy('id', 'asc')->get();
+        $user = User::where('role', 'customer')->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Users retrieved success',
-            'users' => $users
+              'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'status' => $user->status,
+                'image' => $user->image,
+                'created_by' => [
+                    'id' => $user->creator?->id,
+                    'first_name' => $user->creator?->first_name,
+                    'last_name' => $user->creator?->last_name,
+                    'email' => $user->creator?->email,
+                    'image' => $user->creator?->image,
+                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                ],
+
+                'updated_by' => [
+                    'id' => $user->updater?->id,
+                    'first_name' => $user->updater?->first_name,
+                    'last_name' => $user->updater?->last_name,
+                    'email' => $user->updater?->email,
+                    'image' => $user->updater?->image,
+                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                ],
+            ]
         ]);
     }
     public function getAllAdmin()
     {
-        $users = User::whereIn('role', ["super-admin", "admin", "staff"])->orderBy('id', 'asc')->get();
+        $user = User::whereIn('role', ["super-admin", "admin", "staff"])->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Admins retrieved success',
-            'users' => $users
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'status' => $user->status,
+                'image' => $user->image,
+                'created_by' => [
+                    'id' => $user->creator?->id,
+                    'first_name' => $user->creator?->first_name,
+                    'last_name' => $user->creator?->last_name,
+                    'email' => $user->creator?->email,
+                    'image' => $user->creator?->image,
+                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                ],
+
+                'updated_by' => [
+                    'id' => $user->updater?->id,
+                    'first_name' => $user->updater?->first_name,
+                    'last_name' => $user->updater?->last_name,
+                    'email' => $user->updater?->email,
+                    'image' => $user->updater?->image,
+                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                ],
+            ]
         ]);
     }
     public function updateUser(Request $request, $id)
@@ -92,14 +140,14 @@ class UserController extends Controller
         ]);
 
         $authUser = Auth::user();
-        $data['created_by'] = $authUser ? [
-            'id' => $authUser->id,
-            'first_name' => $authUser->first_name,
-            'last_name' => $authUser->last_name,
-            'email' => $authUser->email,
-            'image' => $authUser->image,
-            'created_at' => $authUser->created_at->format('d-m-Y h:i:s A'),
-        ] : null;
+        // $data['created_by'] = $authUser ? [
+        //     'id' => $authUser->id,
+        //     'first_name' => $authUser->first_name,
+        //     'last_name' => $authUser->last_name,
+        //     'email' => $authUser->email,
+        //     'image' => $authUser->image,
+        //     'created_at' => $authUser->created_at->format('d-m-Y h:i:s A'),
+        // ] : null;
         $data['updated_by'] = [
             'id' => $authUser->id,
             'first_name' => $authUser->first_name,
