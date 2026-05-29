@@ -58,8 +58,7 @@ class User extends Authenticatable
         'verification_code',
         'verification_code_expire',
         'email_verified_at',
-        'created_at',
-        'updated_at',
+
         'created_by',
         'updated_by',
     ];
