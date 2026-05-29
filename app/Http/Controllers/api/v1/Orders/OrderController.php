@@ -547,29 +547,29 @@ class OrderController extends Controller
         ];
     }
 
-    public function filterByStatus(Request $request)
-    {
-        $status = $request->query('status');
-        $allowedStatuses = ['pending', 'confirmed', 'shipping', 'delivered', 'cancelled', 'returned', 'return_requested'];
+    // public function filterByStatus(Request $request)
+    // {
+    //     $status = $request->query('status');
+    //     $allowedStatuses = ['pending', 'confirmed', 'shipping', 'delivered', 'cancelled', 'returned', 'return_requested'];
 
-        if ($status && !in_array($status, $allowedStatuses)) {
-            return response()->json(['message' => 'Invalid order status'], 422);
-        }
+    //     if ($status && !in_array($status, $allowedStatuses)) {
+    //         return response()->json(['message' => 'Invalid order status'], 422);
+    //     }
 
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+    //     if (Auth::user()->role !== 'admin') {
+    //         return response()->json(['message' => 'Unauthorized'], 403);
+    //     }
 
-        $orders = Order::when($status, fn($q) => $q->where('status', $status))
-            ->with(['items.variant.product', 'payment', 'address'])
-            ->latest()
-            ->get();
+    //     $orders = Order::when($status, fn($q) => $q->where('status', $status))
+    //         ->with(['items.variant.product', 'payment', 'address'])
+    //         ->latest()
+    //         ->get();
 
-        return response()->json([
-            'message' => $orders->isEmpty() ? 'No orders found' : 'Orders retrieved successfully',
-            'orders' => $orders->map(fn($order) => $this->formatOrder($order))
-        ]);
-    }
+    //     return response()->json([
+    //         'message' => $orders->isEmpty() ? 'No orders found' : 'Orders retrieved successfully',
+    //         'orders' => $orders->map(fn($order) => $this->formatOrder($order))
+    //     ]);
+    // }
 
     public function cancel($orderId)
     {

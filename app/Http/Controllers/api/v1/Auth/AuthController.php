@@ -51,7 +51,9 @@ class AuthController extends Controller
                 'verification_code' => $verification_code,
                 'verification_code_expire' => $expire,
                 'is_verified' => false,
-                'role' => 'customer'
+                'role' => 'customer',
+                'created_by' => Auth::id() ?? null,
+                'updated_by' => Auth::id() ?? null,
             ];
 
             // store in cache
@@ -225,38 +227,7 @@ class AuthController extends Controller
             'message' => 'Code verified successfully'
         ]);
     }
-
-    // Reset
-    // public function resetPassword(Request $request)
-    // {
-    //     $request->validate([
-    //         'email' => 'required|email|exists:users,email',
-    //         'token' => 'required|string',
-    //         'password' => 'required|string|min:8|confirmed',
-    //     ]);
-
-    //     $status = Password::broker('users')->reset(
-    //         $request->only('email', 'password', 'password_confirmation', 'token'),
-    //         function ($user, $password) {
-    //             $user->password = Hash::make($password);
-    //             $user->setRememberToken(Str::random(60));
-    //             $user->save();
-
-    //             Mail::to($user->email)->send(new PasswordResetSuccess($user));
-    //         }
-    //     );
-
-    //     if ($status === Password::PASSWORD_RESET) {
-    //         return response()->json([
-    //             'message' => 'Password reset successfully'
-    //         ], 200);
-    //     }
-
-    //     return response()->json([
-    //         'message' => __($status)
-    //     ], 400);
-    // }
-
+    // reset password
     public function resetPassword(Request $request)
     {
         $request->validate([
@@ -276,6 +247,7 @@ class AuthController extends Controller
             'message' => 'Password reset successfully'
         ]);
     }
+    // verify email for create account
     public function verifyEmail(Request $request)
     {
         $request->validate([
@@ -312,7 +284,9 @@ class AuthController extends Controller
             'password' => $data['password'],
             'role' => 'customer',
             'is_verified' => true,
-            'email_verified_at' => now()
+            'email_verified_at' => now(),
+            'created_by' => $data['created_by'] ?? null,
+            'updated_by' => $data['updated_by'] ?? null,
         ]);
 
         Cache::forget('register_' . $request->email);

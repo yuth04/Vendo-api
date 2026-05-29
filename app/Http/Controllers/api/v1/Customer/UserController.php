@@ -61,52 +61,61 @@ class UserController extends Controller
     }
     public function updateUser(Request $request, $id)
     {
-        // $admin = Auth::user();
-
-        // if ($admin->role !== 'admin'||'super-admin') {
-        //     return response()->json([
-        //         'message' => 'Only admin can action this.'
-        //     ], 403);
-        // }
-
         $user = User::find($id);
+
         if (!$user) {
             return response()->json([
                 'message' => 'User not found.'
-            ]);
+            ], 404);
         }
 
         $request->validate([
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
             'email' => [
-                'required',
+                'sometimes',
                 'email:rfc,dns',
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
             'role' => 'sometimes|string|in:super-admin,admin,staff,customer',
-            'status' => 'string|in:active,inactive',
-            'image' => 'nullable|image|max:5120'
-
+            'status' => 'nullable|string|in:active,inactive',
+            'image' => 'nullable|image|max:5120',
         ]);
+
         $data = $request->only([
             'first_name',
             'last_name',
             'email',
             'role',
-            'status'
+            'status',
+
         ]);
 
-        $imageKit = new ImageKit(
-            config('imagekit.public_key'),
-            config('imagekit.private_key'),
-            config('imagekit.url_endpoint')
-        );
+        $authUser = Auth::user();
+        $data['created_by'] = $authUser ? [
+            'id' => $authUser->id,
+            'first_name' => $authUser->first_name,
+            'last_name' => $authUser->last_name,
+            'email' => $authUser->email,
+            'image' => $authUser->image,
+            'created_at' => $authUser->created_at->format('d-m-Y h:i:s A'),
+        ] : null;
+        $data['updated_by'] = [
+            'id' => $authUser->id,
+            'first_name' => $authUser->first_name,
+            'last_name' => $authUser->last_name,
+            'email' => $authUser->email,
+            'image' => $authUser->image,
+            'updated_at' => now()->format('d-m-Y h:i:s A'),
+        ];
 
-        // ✅ Upload only if image exists
         if ($request->hasFile('image')) {
-
             $file = $request->file('image');
+            $imageKit = new ImageKit(
+                config('imagekit.public_key'),
+                config('imagekit.private_key'),
+                config('imagekit.url_endpoint')
+            );
 
             try {
                 $upload = $imageKit->upload([
@@ -115,22 +124,21 @@ class UserController extends Controller
                     'folder' => '/avatars',
                 ]);
 
-                // Save new image first
                 $data['image'] = $upload->result->url;
                 $data['image_file_id'] = $upload->result->fileId;
 
-                // THEN delete old image safely
                 if ($user->image_file_id) {
                     try {
                         $imageKit->deleteFile($user->image_file_id);
                     } catch (\Exception $e) {
-                        \Log::error("Delete old image failed: " . $e->getMessage());
+                        \Log::error('Delete old image failed: ' . $e->getMessage());
                     }
                 }
 
             } catch (\Exception $e) {
+                \Log::error('Image upload failed: ' . $e->getMessage());
                 return response()->json([
-                    'message' => 'Failed to upload image: ' . $e->getMessage(),
+                    'message' => 'Failed to upload image. Please try again.',
                 ], 500);
             }
         }
@@ -139,10 +147,10 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Updated user successfully',
-            'user' => $user
+            'user' => $user->fresh()
         ]);
     }
-    // search by id
+    // search user by id
     public function searchUser($id)
     {
         $user = User::where('role', 'customer')->find($id);
@@ -153,10 +161,34 @@ class UserController extends Controller
         }
         return response()->json([
             'message' => 'Search user successfully',
-            'user' => $user
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'status' => $user->status,
+                'image' => $user->image,
+                'created_by' => [
+                    'id' => $user->creator?->id,
+                    'first_name' => $user->creator?->first_name,
+                    'last_name' => $user->creator?->last_name,
+                    'email' => $user->creator?->email,
+                    'image' => $user->creator?->image,
+                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                ],
+
+                'updated_by' => [
+                    'id' => $user->updater?->id,
+                    'first_name' => $user->updater?->first_name,
+                    'last_name' => $user->updater?->last_name,
+                    'email' => $user->updater?->email,
+                    'image' => $user->updater?->image,
+                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                ],
+            ]
         ]);
     }
-    // seatch admin by id
+    // search admin by id
     public function searchAdmin($id)
     {
         $user = User::whereIn('role', ['super-admin', 'admin', 'staff'])->find($id);
@@ -166,8 +198,32 @@ class UserController extends Controller
             ]);
         }
         return response()->json([
-            'message' => 'Search user successfully',
-            'user' => $user
+            'message' => 'Search admin successfully',
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'status' => $user->status,
+                'image' => $user->image,
+                'created_by' => [
+                    'id' => $user->creator?->id,
+                    'first_name' => $user->creator?->first_name,
+                    'last_name' => $user->creator?->last_name,
+                    'email' => $user->creator?->email,
+                    'image' => $user->creator?->image,
+                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                ],
+
+                'updated_by' => [
+                    'id' => $user->updater?->id,
+                    'first_name' => $user->updater?->first_name,
+                    'last_name' => $user->updater?->last_name,
+                    'email' => $user->updater?->email,
+                    'image' => $user->updater?->image,
+                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                ],
+            ]
         ]);
     }
     public function getAllStaff()
@@ -178,6 +234,7 @@ class UserController extends Controller
             'staffs' => $staffs
         ]);
     }
+    // search staff by id
     public function searchStaff($id)
     {
         $user = User::where('role', 'staff')->find($id);
@@ -187,8 +244,32 @@ class UserController extends Controller
             ]);
         }
         return response()->json([
-            'message' => 'Search user successfully',
-            'user' => $user
+            'message' => 'Search staff successfully',
+            'user' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'status' => $user->status,
+                'image' => $user->image,
+                'created_by' => [
+                    'id' => $user->creator?->id,
+                    'first_name' => $user->creator?->first_name,
+                    'last_name' => $user->creator?->last_name,
+                    'email' => $user->creator?->email,
+                    'image' => $user->creator?->image,
+                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                ],
+
+                'updated_by' => [
+                    'id' => $user->updater?->id,
+                    'first_name' => $user->updater?->first_name,
+                    'last_name' => $user->updater?->last_name,
+                    'email' => $user->updater?->email,
+                    'image' => $user->updater?->image,
+                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                ],
+            ]
         ]);
     }
     public function destroy($id)
@@ -205,5 +286,46 @@ class UserController extends Controller
             'user' => $user
         ]);
     }
+    public function updateRoleUser(Request $request, $id)
+    {
+        $authUser = Auth::user();
 
+        // Only admin can update roles
+        if ($authUser->role !== 'admin' && $authUser->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only admin can action this.'
+            ], 403);
+        }
+
+        // Validate
+        $request->validate([
+            'role' => 'required|string|in:super-admin,admin,staff,customer'
+        ]);
+
+        // Find user
+        $user = User::find($id);
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'User not found.'
+            ], 404);
+        }
+
+        // Check if same role already
+        if ($user->role === $request->role) {
+            return response()->json([
+                'message' => "This user is already {$user->role}"
+            ]);
+        }
+
+        // Update role
+        $user->update([
+            'role' => $request->role
+        ]);
+
+        return response()->json([
+            'message' => 'Updated role successful',
+            'user' => $user
+        ]);
+    }
 }

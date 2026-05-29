@@ -309,9 +309,8 @@ Route::prefix('v1')->group(function () {
         Route::middleware(['role:super-admin'])->prefix('admin')->group(function () {
 
             // Orders — full management
-            Route::get('/orders/{status}', [OrderController::class, 'filterByStatus']);
-            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
             Route::get('/pos-orders', [PosController::class, 'orderHistory']);
+            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
             Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
             Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
             Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
@@ -319,7 +318,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
 
             // Return Orders — full management
-            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
+            Route::get('/returns', [PosController::class, 'returnHistory']);
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
@@ -402,12 +401,13 @@ Route::prefix('v1')->group(function () {
             Route::get('/users', [UserController::class, 'getAllUser']);
             Route::get('/users/admins', [UserController::class, 'getAllAdmin']);
             Route::get('/users/staff', [UserController::class, 'getAllStaff']);
-            Route::post('/users/{id}', [UserController::class, 'updateUser']);
+            Route::get('/user/orders', [UserController::class, 'userOrder']);
             Route::get('/users/admins/{id}', [UserController::class, 'searchAdmin']);
             Route::get('/users/{id}', [UserController::class, 'searchUser']);
             Route::get('/users/staff/{id}', [UserController::class, 'searchStaff']);
-            Route::get('/user/orders', [UserController::class, 'userOrder']);
-            Route::put('/users/role/{id}', [PermissionController::class, 'updateRoleUser']);
+
+            Route::post('/users/{id}', [UserController::class, 'updateUser']);
+            Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
             // Admin Settings
