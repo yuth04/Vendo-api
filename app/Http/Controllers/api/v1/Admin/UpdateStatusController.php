@@ -25,9 +25,9 @@ class UpdateStatusController extends Controller
 
     public function markAsConfirmed($id)
     {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // if (Auth::user()->role !== 'admin') {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
 
         $order = Order::findOrFail($id);
 
@@ -57,9 +57,9 @@ class UpdateStatusController extends Controller
     // Mark shipping (Admin only)
     public function markAsShipping($id)
     {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // if (Auth::user()->role !== 'admin') {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
 
         $order = Order::findOrFail($id);
 
@@ -89,9 +89,9 @@ class UpdateStatusController extends Controller
     // Mark delivered (Admin only)
     public function markAsDelivered($id)
     {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // if (Auth::user()->role !== 'admin') {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
 
         $order = Order::findOrFail($id);
 
@@ -129,9 +129,9 @@ class UpdateStatusController extends Controller
     // Mark completed (Admin only)
     public function markAsCompleted($id)
     {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // if (Auth::user()->role !== 'admin') {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
         $order = Order::find($id);
         if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
@@ -153,9 +153,9 @@ class UpdateStatusController extends Controller
     // Return order (Admin only)
     public function markAsReturned($id)
     {
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+        // if (Auth::user()->role !== 'admin') {
+        //     return response()->json(['message' => 'Unauthorized'], 403);
+        // }
         $order = Order::findOrFail($id);
         if ($order->status !== 'completed') {
             return response()->json([
@@ -202,9 +202,6 @@ class UpdateStatusController extends Controller
         $request->validate([
             'status' => 'required|in:paid,unpaid,refunded',
         ]);
-        if (Auth::user()->role !== "admin") {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
         $order = Order::findOrFail($id);
         $payment = $order->payment;
         if (!$payment) {

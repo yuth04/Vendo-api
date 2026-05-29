@@ -53,7 +53,7 @@ class UserController extends Controller
     }
     public function getAllAdmin()
     {
-        $users = User::whereIn('role', ["super-admin", "admin", "staff"])->orderBy('id', 'asc')->get();
+        $users = User::whereIn('role', ["super-admin", "admin"])->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Admins retrieved success',
             'users' => $users
@@ -288,19 +288,16 @@ class UserController extends Controller
     {
         $authUser = Auth::user();
 
-        // Only admin can update roles
         if ($authUser->role !== 'admin' && $authUser->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only admin can action this.'
             ], 403);
         }
 
-        // Validate
         $request->validate([
             'role' => 'required|string|in:super-admin,admin,staff,customer'
         ]);
 
-        // Find user
         $user = User::find($id);
 
         if (!$user) {
@@ -309,21 +306,27 @@ class UserController extends Controller
             ], 404);
         }
 
-        // Check if same role already
         if ($user->role === $request->role) {
             return response()->json([
-                'message' => "This user is already {$user->role}"
-            ]);
+                'message' => "This user is already {$user->role}."
+            ], 200);
         }
 
-        // Update role
         $user->update([
-            'role' => $request->role
+            'role' => $request->role,
+            'updated_by' => [
+                'id' => $authUser->id,
+                'first_name' => $authUser->first_name,
+                'last_name' => $authUser->last_name,
+                'email' => $authUser->email,
+                'image' => $authUser->image,
+                'updated_at' => now()->format('d-m-Y g:i:s A'),
+            ],
         ]);
 
         return response()->json([
-            'message' => 'Updated role successful',
-            'user' => $user
+            'message' => 'Updated role successfully.',
+            'user' => $user->fresh()
         ]);
     }
 }
