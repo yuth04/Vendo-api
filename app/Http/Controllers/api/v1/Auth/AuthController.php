@@ -283,20 +283,21 @@ class AuthController extends Controller
             'role' => 'customer',
             'is_verified' => true,
             'email_verified_at' => now(),
-            'created_by' => [
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'email' => $data['email'],
-                'created_at' => now()->format('d-m-Y h:i:s A'),
-            ],
-            'updated_by' => [
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'email' => $data['email'],
-                'created_at' => now()->format('d-m-Y h:i:s A'),
-            ],
+            'created_by' => null,
+            'updated_by' => null,
         ]);
-
+        $auditInfo = [
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'image' => $user->image,
+            'created_at' => now()->format('d-m-Y g:i:s A'),
+        ];
+        $user->update([
+            'created_by' => $auditInfo,
+            'updated_by' => $auditInfo,
+        ]);
         Cache::forget('register_' . $request->email);
         Mail::to($user->email)->send(new WelcomeUserMail($user));
         return response()->json([

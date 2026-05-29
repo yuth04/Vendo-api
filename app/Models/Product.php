@@ -20,8 +20,8 @@ class Product extends Model
         'status',
     ];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
     protected $hidden = ['pivot','created_at', 'updated_at', 'discount_id'];
     public function category()

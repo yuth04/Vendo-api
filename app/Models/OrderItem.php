@@ -19,8 +19,8 @@ class OrderItem extends Model
     ];
     protected $hidden = ['created_at', 'updated_at'];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
     public function order()
     {

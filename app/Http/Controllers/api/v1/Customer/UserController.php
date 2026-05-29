@@ -169,13 +169,14 @@ class UserController extends Controller
                 'email' => $user->email,
                 'status' => $user->status,
                 'image' => $user->image,
+                'role' => $user->role,
                 'created_by' => [
                     'id' => $user->creator?->id,
                     'first_name' => $user->creator?->first_name,
                     'last_name' => $user->creator?->last_name,
                     'email' => $user->creator?->email,
                     'image' => $user->creator?->image,
-                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                    'created_at' => $user->created_at->format('d-m-Y g:i:s A'),
                 ],
 
                 'updated_by' => [
@@ -184,7 +185,7 @@ class UserController extends Controller
                     'last_name' => $user->updater?->last_name,
                     'email' => $user->updater?->email,
                     'image' => $user->updater?->image,
-                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                    'updated_at' => $user->updated_at->format('d-m-Y g:i:s A'),
                 ],
             ]
         ]);
@@ -207,13 +208,14 @@ class UserController extends Controller
                 'email' => $user->email,
                 'status' => $user->status,
                 'image' => $user->image,
+                'role' => $user->role,
                 'created_by' => [
                     'id' => $user->creator?->id,
                     'first_name' => $user->creator?->first_name,
                     'last_name' => $user->creator?->last_name,
                     'email' => $user->creator?->email,
                     'image' => $user->creator?->image,
-                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                    'created_at' => $user->created_at->format('d-m-Y g:i:s A'),
                 ],
 
                 'updated_by' => [
@@ -222,7 +224,7 @@ class UserController extends Controller
                     'last_name' => $user->updater?->last_name,
                     'email' => $user->updater?->email,
                     'image' => $user->updater?->image,
-                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                    'updated_at' => $user->updated_at->format('d-m-Y g:i:s A'),
                 ],
             ]
         ]);
@@ -245,13 +247,14 @@ class UserController extends Controller
                 'email' => $user->email,
                 'status' => $user->status,
                 'image' => $user->image,
+                'role' => $user->role,
                 'created_by' => [
                     'id' => $user->creator?->id,
                     'first_name' => $user->creator?->first_name,
                     'last_name' => $user->creator?->last_name,
                     'email' => $user->creator?->email,
                     'image' => $user->creator?->image,
-                    'created_at' => $user->created_at->format('d-m-Y h:i:s A'),
+                    'created_at' => $user->created_at->format('d-m-Y g:i:s A'),
                 ],
 
                 'updated_by' => [
@@ -260,7 +263,7 @@ class UserController extends Controller
                     'last_name' => $user->updater?->last_name,
                     'email' => $user->updater?->email,
                     'image' => $user->updater?->image,
-                    'updated_at' => $user->updated_at->format('d-m-Y h:i:s A'),
+                    'updated_at' => $user->updated_at->format('d-m-Y g:i:s A'),
                 ],
             ]
         ]);

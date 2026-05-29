@@ -37,9 +37,10 @@ class User extends Authenticatable
     ];
     // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
-        'verification_code_expire' => 'datetime',
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'verification_code_expire' => 'datetime:d-m-Y g:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
+        'email_verified_at' => 'datetime:d-m-Y g:i:s A',
         'created_by' => 'array',
         'updated_by' => 'array',
     ];
@@ -71,7 +72,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
+            'email_verified_at' => 'datetime:d-m-Y g:i:s A',
             'is_verified' => 'boolean',
             'password' => 'hashed',
         ];
