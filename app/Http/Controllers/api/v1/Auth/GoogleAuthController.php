@@ -51,6 +51,14 @@ class GoogleAuthController extends Controller
                         'first_name' => $googleUser->user['given_name'],
                         'last_name' => $googleUser->user['family_name'],
                         'email' => $googleUser->email,
+                        'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
+                        'created_at' => now()->format('d-m-Y h:i:s A'),
+                    ],
+                    'updated_by' => [
+                        'first_name' => $googleUser->user['given_name'],
+                        'last_name' => $googleUser->user['family_name'],
+                        'email' => $googleUser->email,
+                        'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
                         'created_at' => now()->format('d-m-Y h:i:s A'),
                     ],
                 ]);

@@ -67,6 +67,7 @@ class UserController extends Controller
             'staffs' => $staffs
         ]);
     }
+    // update user
     public function updateUser(Request $request, $id)
     {
         $user = User::find($id);
@@ -100,14 +101,6 @@ class UserController extends Controller
         ]);
 
         $authUser = Auth::user();
-        $data['created_by'] = $authUser ? [
-            'id' => $authUser->id,
-            'first_name' => $authUser->first_name,
-            'last_name' => $authUser->last_name,
-            'email' => $authUser->email,
-            'image' => $authUser->image,
-            'created_at' => $authUser->created_at->format('d-m-Y h:i:s A'),
-        ] : null;
         $data['updated_by'] = [
             'id' => $authUser->id,
             'first_name' => $authUser->first_name,
@@ -234,7 +227,6 @@ class UserController extends Controller
             ]
         ]);
     }
-
     // search staff by id
     public function searchStaff($id)
     {
@@ -273,6 +265,7 @@ class UserController extends Controller
             ]
         ]);
     }
+    // delete user
     public function destroy($id)
     {
         $user = User::find($id);
@@ -287,6 +280,7 @@ class UserController extends Controller
             'user' => $user
         ]);
     }
+    // update role user
     public function updateRoleUser(Request $request, $id)
     {
         $authUser = Auth::user();

@@ -289,7 +289,12 @@ class AuthController extends Controller
                 'email' => $data['email'],
                 'created_at' => now()->format('d-m-Y h:i:s A'),
             ],
-            'updated_by' => null,
+            'updated_by' => [
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'created_at' => now()->format('d-m-Y h:i:s A'),
+            ],
         ]);
 
         Cache::forget('register_' . $request->email);
