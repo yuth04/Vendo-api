@@ -15,7 +15,7 @@ class CategoryController extends Controller
     public function index()
     {
         $categories = Category::with('products')
-            ->where('is_active',true)
+            ->where('is_active', true)
             ->orderBy('id', 'asc')
             ->get();
         return response()->json([
@@ -27,7 +27,7 @@ class CategoryController extends Controller
     public function showById($id)
     {
         try {
-            $category = Category::with(['children.products', 'products'])->where('status',true)->findOrFail($id);
+            $category = Category::with(['children.products', 'products'])->where('status', true)->findOrFail($id);
             return response()->json([
                 'message' => 'Category found successfully',
                 'category' => $category
@@ -128,8 +128,10 @@ class CategoryController extends Controller
             'image' => 'nullable|image|max:5120'
         ]);
 
-        $parentId = $validated['parent_category_id'] ?? $category->parent_category_id;
-
+        // $parentId = $validated['parent_category_id'] ?? $category->parent_category_id;
+        $parentId = $request->has('parent_category_id')
+            ? $request->parent_category_id
+            : $category->parent_category_id;
         // Generate slug unique per parent
         $slug = $this->generateUniqueSlug($validated['name'], $parentId, $id);
 
@@ -178,10 +180,29 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Category updated successfully',
-            'category' => $category
+            'category' => $category->fresh()
         ]);
     }
+    // Helper function to generate unique slug per parent
 
+    private function generateUniqueSlug(string $name, ?int $parentId, ?int $excludeId = null): string
+    {
+        $slug = Str::slug($name);
+        $originalSlug = $slug;
+        $counter = 1;
+
+        while (
+            Category::where('slug', $slug)
+                ->where('parent_category_id', $parentId)
+                ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+                ->exists()
+        ) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
+    }
     // Delete category
     public function destroy($id)
     {
@@ -228,27 +249,7 @@ class CategoryController extends Controller
             ], 500);
         }
     }
-    // Helper function to generate unique slug per parent
 
-
-    private function generateUniqueSlug(string $name, ?int $parentId, ?int $excludeId = null): string
-    {
-        $slug = Str::slug($name);
-        $originalSlug = $slug;
-        $counter = 1;
-
-        while (
-            Category::where('slug', $slug)
-                ->where('parent_category_id', $parentId)
-                ->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
-                ->exists()
-        ) {
-            $slug = $originalSlug . '-' . $counter;
-            $counter++;
-        }
-
-        return $slug;
-    }
     public function uploadImageToCategory(Request $request, $id)
     {
         $category = Category::findOrFail($id);
