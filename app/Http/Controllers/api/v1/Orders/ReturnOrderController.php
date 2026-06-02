@@ -24,10 +24,6 @@ class ReturnOrderController extends Controller
     {
         $returns = ReturnOrder::with([
             'items.orderItem'
-<<<<<<< HEAD
-=======
-
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         ])->get();
 
         return response()->json([
@@ -35,22 +31,6 @@ class ReturnOrderController extends Controller
             'data' => $returns
         ]);
     }
-<<<<<<< HEAD
-=======
-    // public function index()
-    // {
-    //     $returns = ReturnOrder::with('items.orderItem', 'images')->where('user_id', Auth::id())->get();
-    //     if ($returns->isEmpty()) {
-    //         return response()->json([
-    //             'message' => 'No return orders found for this user.',
-    //         ]);
-    //     }
-    //     return response()->json([
-    //         'message' => 'Return orders retrieved successfully',
-    //         'data' => $returns
-    //     ]);
-    // }
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
 
     public function index()
     {

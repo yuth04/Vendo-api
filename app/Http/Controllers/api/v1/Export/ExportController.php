@@ -276,7 +276,6 @@ class ExportController extends Controller
 
         return $pdf->download('admins-report.pdf');
     }
-<<<<<<< HEAD
     public function exportStaffsPDF(Request $request)
     {
         $startDate = $request->start_date;
@@ -308,8 +307,6 @@ class ExportController extends Controller
 
         return $pdf->download('staffs-report.pdf');
     }
-=======
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
     // Stocks
     public function exportStock()
     {

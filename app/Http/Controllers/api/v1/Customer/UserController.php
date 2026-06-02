@@ -12,14 +12,11 @@ class UserController extends Controller
     // user's order history
     public function userOrder()
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
         }
-=======
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $users = User::with('orders.items.variant.product')->get();
 
         return response()->json([
@@ -30,11 +27,7 @@ class UserController extends Controller
                     'first_name' => $user->first_name,
                     'last_name' => $user->last_name,
                     'email' => $user->email,
-<<<<<<< HEAD
                     'status' => $user->status,
-=======
-                    'status'=> $user->status,
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                     'orders' => $user->orders->map(function ($order) {
                         return [
                             'id' => $order->id,
@@ -57,21 +50,14 @@ class UserController extends Controller
     }
     public function getAllUser()
     {
-<<<<<<< HEAD
         $users = User::where('role', 'customer')->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Users retrieved success',
-=======
-        $users = User::where('role','customer')->orderBy('id', 'asc')->get();
-        return response()->json([
-            'message' => 'Retrieved user success',
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
             'users' => $users
         ]);
     }
     public function getAllAdmin()
     {
-<<<<<<< HEAD
         $users = User::whereIn('role', ["super-admin", "admin"])->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Admins retrieved success',
@@ -102,31 +88,10 @@ class UserController extends Controller
             ], 403);
 
         }
-=======
-        $users = User::whereIn('role',["admin","customer_support","staff","store_manager"])->orderBy('id', 'asc')->get();
-        return response()->json([
-            'message' => 'Retrieved admin success',
-            'users' => $users
-        ]);
-    }
-    public function updateUser(Request $request, $id)
-    {
-        $admin = Auth::user();
-
-        if ($admin->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only admin can action this.'
-            ], 403);
-        }
-
-        $user = User::findOrFail($id);
-
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $request->validate([
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
             'email' => [
-<<<<<<< HEAD
                 'sometimes',
                 'email:rfc,dns',
                 Rule::unique('users', 'email')->ignore($user->id),
@@ -136,23 +101,11 @@ class UserController extends Controller
             'image' => 'nullable|image|max:5120',
         ]);
 
-=======
-                'required',
-                'email:rfc,dns',
-                Rule::unique('users', 'email')->ignore($user->id),
-            ],
-            'role' => 'sometimes|string|in:admin,customer',
-            'status' => 'string|in:active,inactive',
-            'image' => 'nullable|image|max:5120'
-            
-        ]);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $data = $request->only([
             'first_name',
             'last_name',
             'email',
             'role',
-<<<<<<< HEAD
             'status',
 
         ]);
@@ -174,21 +127,6 @@ class UserController extends Controller
                 config('imagekit.private_key'),
                 config('imagekit.url_endpoint')
             );
-=======
-            'status'
-        ]);
-
-        $imageKit = new ImageKit(
-            config('imagekit.public_key'),
-            config('imagekit.private_key'),
-            config('imagekit.url_endpoint')
-        );
-
-        // ✅ Upload only if image exists
-        if ($request->hasFile('image')) {
-
-            $file = $request->file('image');
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
 
             try {
                 $upload = $imageKit->upload([
@@ -197,38 +135,21 @@ class UserController extends Controller
                     'folder' => '/avatars',
                 ]);
 
-<<<<<<< HEAD
                 $data['image'] = $upload->result->url;
                 $data['image_file_id'] = $upload->result->fileId;
 
-=======
-                // Save new image first
-                $data['image'] = $upload->result->url;
-                $data['image_file_id'] = $upload->result->fileId;
-
-                // THEN delete old image safely
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                 if ($user->image_file_id) {
                     try {
                         $imageKit->deleteFile($user->image_file_id);
                     } catch (\Exception $e) {
-<<<<<<< HEAD
                         \Log::error('Delete old image failed: ' . $e->getMessage());
-=======
-                        \Log::error("Delete old image failed: " . $e->getMessage());
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                     }
                 }
 
             } catch (\Exception $e) {
-<<<<<<< HEAD
                 \Log::error('Image upload failed: ' . $e->getMessage());
                 return response()->json([
                     'message' => 'Failed to upload image. Please try again.',
-=======
-                return response()->json([
-                    'message' => 'Failed to upload image: ' . $e->getMessage(),
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                 ], 500);
             }
         }
@@ -237,7 +158,6 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'Updated user successfully',
-<<<<<<< HEAD
             'user' => $user->fresh()
         ]);
     }
@@ -245,15 +165,6 @@ class UserController extends Controller
     public function searchUser($id)
     {
         $user = User::where('role', 'customer')->find($id);
-=======
-            'user' => $user
-        ]);
-    }
-    // search by id
-    public function searchUser($id)
-    {
-        $user = User::find($id);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         if (!$user) {
             return response()->json([
                 'message' => 'User not found'
@@ -261,7 +172,6 @@ class UserController extends Controller
         }
         return response()->json([
             'message' => 'Search user successfully',
-<<<<<<< HEAD
             'user' => [
                 'id' => $user->id,
                 'first_name' => $user->first_name,
@@ -369,11 +279,6 @@ class UserController extends Controller
         ]);
     }
     // delete user
-=======
-            'user' => $user
-        ]);
-    }
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
     public function destroy($id)
     {
         $user = User::find($id);
@@ -382,7 +287,6 @@ class UserController extends Controller
                 'message' => 'User not found'
             ]);
         }
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only super-admin can access this endpoint',
@@ -439,13 +343,4 @@ class UserController extends Controller
             'user' => $user->fresh()
         ]);
     }
-=======
-        $user->delete();
-        return response()->json([
-            'message' => 'Search user successfully',
-            'user' => $user
-        ]);
-    }
-
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
 }

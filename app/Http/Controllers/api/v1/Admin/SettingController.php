@@ -12,7 +12,6 @@ class SettingController extends Controller
     // Change Name
     public function changeName(Request $request)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only super-admin can access this endpoint',
@@ -22,12 +21,6 @@ class SettingController extends Controller
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
 
-=======
-        $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         ]);
         $user = auth()->user();
         $user->update([
@@ -42,14 +35,11 @@ class SettingController extends Controller
     // Change Password
     public function changePassword(Request $request)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only super-admin can access this endpoint',
             ], 403);
         }
-=======
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $request->validate([
             'current_password' => 'required|string|min:8',
             'new_password' => 'required|string|min:8|confirmed',
@@ -70,14 +60,11 @@ class SettingController extends Controller
     // change profile picture
     public function changeProfileImage(Request $request)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only super-admin can access this endpoint',
             ], 403);
         }
-=======
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $request->validate([
             'image' => 'required|image|max:5120',
         ]);

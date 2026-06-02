@@ -25,18 +25,11 @@ class UpdateStatusController extends Controller
 
     public function markAsConfirmed($id)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
         }
-=======
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $order = Order::findOrFail($id);
 
         if ($order->status !== 'pending') {
@@ -65,15 +58,10 @@ class UpdateStatusController extends Controller
     // Mark shipping (Admin only)
     public function markAsShipping($id)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
-=======
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         }
 
         $order = Order::findOrFail($id);
@@ -104,15 +92,10 @@ class UpdateStatusController extends Controller
     // Mark delivered (Admin only)
     public function markAsDelivered($id)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
-=======
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         }
 
         $order = Order::findOrFail($id);
@@ -151,15 +134,10 @@ class UpdateStatusController extends Controller
     // Mark completed (Admin only)
     public function markAsCompleted($id)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
-=======
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         }
         $order = Order::find($id);
         if (!$order) {
@@ -182,15 +160,10 @@ class UpdateStatusController extends Controller
     // Return order (Admin only)
     public function markAsReturned($id)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
-=======
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         }
         $order = Order::findOrFail($id);
         if ($order->status !== 'completed') {
@@ -211,15 +184,10 @@ class UpdateStatusController extends Controller
     // Cancel order (Admin only)
     public function markAsCancelled($id)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
-=======
-        if (Auth::user()->role !== 'admin') {
-            return response()->json(['message' => 'Unauthorized'], 403);
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         }
         $order = Order::findOrFail($id);
         if (!in_array($order->status, ['pending', 'confirmed'])) {
@@ -242,7 +210,6 @@ class UpdateStatusController extends Controller
     // Payment status update (Admin only)
     public function updatePaymentStatus($id, Request $request)
     {
-<<<<<<< HEAD
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
@@ -252,14 +219,6 @@ class UpdateStatusController extends Controller
         $request->validate([
             'status' => 'required|in:paid,unpaid,refunded',
         ]);
-=======
-        $request->validate([
-            'status' => 'required|in:paid,unpaid,refunded',
-        ]);
-        if (Auth::user()->role !== "admin") {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
->>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         $order = Order::findOrFail($id);
         $payment = $order->payment;
         if (!$payment) {
