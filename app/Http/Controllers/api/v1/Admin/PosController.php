@@ -12,9 +12,9 @@ class PosController extends Controller
     // Order History
     public function orderHistory()
     {
-        if (auth()->user()->role !== 'super-admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
-                'message' => 'Only super-admin can access order history'
+                'message' => 'Only super-admin can access order details'
             ], 403);
         }
         $orders = Order::with(['user', 'items'])->latest()->get();
@@ -43,7 +43,7 @@ class PosController extends Controller
     // Order Details
     public function orderDetails($id)
     {
-        if (auth()->user()->role !== 'super-admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin can access order details'
             ], 403);
@@ -96,9 +96,9 @@ class PosController extends Controller
     // Return History
     public function returnHistory()
     {
-        if (auth()->user()->role !== 'super-admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
-                'message' => 'Only super-admin can access return history'
+                'message' => 'Only super-admin can access order details'
             ], 403);
         }
         $returns = ReturnOrder::with(['user', 'items'])->orderBy('id', 'asc')->latest()->get();
@@ -131,9 +131,9 @@ class PosController extends Controller
     // Return Details
     public function returnDetails($id)
     {
-        if (auth()->user()->role !== 'super-admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
-                'message' => 'Only super-admin can access return details'
+                'message' => 'Only super-admin can access order details'
             ], 403);
         }
         $returnOrder = ReturnOrder::with([

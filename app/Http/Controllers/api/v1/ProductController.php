@@ -70,7 +70,11 @@ class ProductController extends Controller
     // added product
     public function store(Request $request)
     {
-
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create product'
+            ], 403);
+        }
         $validated = $request->validate([
             'productName' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -141,6 +145,11 @@ class ProductController extends Controller
     // updated product
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update product'
+            ], 403);
+        }
         $product = Product::findOrFail($id);
 
         // ✅ Validate
@@ -224,6 +233,12 @@ class ProductController extends Controller
     // destroy product
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product'
+            ], 403);
+        }
+
         $product = Product::find($id);
         if (!$product) {
             return response()->json([
@@ -433,44 +448,7 @@ class ProductController extends Controller
             ], 500);
         }
     }
-    // public function searchImage(Request $request)
-    // {
-    //     $request->validate([
-    //         'image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
-    //     ]);
-
-    //     try {
-
-    //         $response = Http::attach(
-    //             'image',
-    //             fopen($request->file('image')->getRealPath(), 'r'),
-    //             $request->file('image')->getClientOriginalName()
-    //         )->post('http://127.0.0.1:5000/search');
-
-    //         if ($response->failed()) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Python AI server error',
-    //                 'error' => $response->body(),
-    //             ], 500);
-    //         }
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Image search completed successfully',
-    //             'data' => $response->json(),
-    //         ]);
-
-    //     } catch (\Exception $e) {
-
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Connection failed',
-    //             'error' => $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
-
+    
     // =========================
     // Get All Product Images
     // =========================

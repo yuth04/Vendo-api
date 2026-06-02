@@ -11,7 +11,7 @@ class BrandController extends Controller
 {
     public function index()
     {
-        $brand = Brand::with(['products'])->where('status','active')->get();
+        $brand = Brand::with(['products'])->where('status', 'active')->get();
         return response()->json([
             'message' => "get brands successfully",
             'brands' => $brand
@@ -20,7 +20,7 @@ class BrandController extends Controller
     // show by id
     public function showById($id)
     {
-        $brand = Brand::with('products')->where('status','active')->find($id);
+        $brand = Brand::with('products')->where('status', 'active')->find($id);
 
         if (!$brand) {
             return response()->json([
@@ -36,7 +36,7 @@ class BrandController extends Controller
     // show by Slug
     public function showBySlug($slug)
     {
-        $brand = Brand::with(['products'])->where('status','active')->where('slug', $slug)->first();
+        $brand = Brand::with(['products'])->where('status', 'active')->where('slug', $slug)->first();
 
         if (!$brand) {
             return response()->json([
@@ -51,6 +51,11 @@ class BrandController extends Controller
     // store
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'status' => 'nullable|in:active,inactive',
@@ -104,6 +109,11 @@ class BrandController extends Controller
     }
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $brand = Brand::findOrFail($id);
         if (!$brand) {
             return response()->json([
@@ -172,6 +182,11 @@ class BrandController extends Controller
     }
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $brand = Brand::findOrFail($id);
         if (!$brand) {
             return response()->json([

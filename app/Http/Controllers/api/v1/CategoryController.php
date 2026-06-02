@@ -60,6 +60,11 @@ class CategoryController extends Controller
     // Create category
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -119,6 +124,11 @@ class CategoryController extends Controller
     // Update category
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         try {
 
             $category = Category::find($id);
@@ -266,6 +276,11 @@ class CategoryController extends Controller
     // Delete category
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $category = Category::find($id);
 
         if (!$category) {

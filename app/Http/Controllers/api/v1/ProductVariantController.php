@@ -43,6 +43,11 @@ class ProductVariantController extends Controller
     // store
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create product variant'
+            ], 403);
+        }
         DB::beginTransaction();
 
         try {
@@ -178,6 +183,11 @@ class ProductVariantController extends Controller
 
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update product variant'
+            ], 403);
+        }
         $variant = ProductVariant::with('images')->find($id);
         if (!$variant) {
             return response()->json(['message' => 'Product Variant not found'], 404);
@@ -194,7 +204,7 @@ class ProductVariantController extends Controller
                 'status' => 'nullable|string|max:50',
                 'images' => 'nullable|array|size:4',
                 'images.*' => 'required|image|mimes:jpg,jpeg,png|max:5120',
-                
+
             ]);
 
             // update fields
@@ -264,6 +274,11 @@ class ProductVariantController extends Controller
     // delete
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $variant = ProductVariant::with('images')->find($id);
 
         if (!$variant) {

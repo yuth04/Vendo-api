@@ -96,7 +96,11 @@ class ParentCategoryController extends Controller
 
     public function store(Request $request)
     {
-
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $validated = $request->validate([
             'name' => "required|string|max:255",
             'status' => "nullable|boolean"
@@ -116,8 +120,14 @@ class ParentCategoryController extends Controller
             'Data' => $parentCategory
         ]);
     }
+
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $parentCategory = ParentCategory::find($id);
 
         $validated = Validator::make($request->all(), [
@@ -141,6 +151,11 @@ class ParentCategoryController extends Controller
     }
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $parentCategory = ParentCategory::findOrFail($id);
         if (!$parentCategory) {
             return response()->json([
