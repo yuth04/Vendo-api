@@ -119,69 +119,129 @@ class CategoryController extends Controller
     // Update category
     public function update(Request $request, $id)
     {
-        $category = Category::findOrFail($id);
+        try {
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'parent_category_id' => 'nullable|exists:categories,id',
-            'is_active' => 'nullable|boolean',
-            'image' => 'nullable|image|max:5120'
-        ]);
+            $category = Category::find($id);
 
-        // $parentId = $validated['parent_category_id'] ?? $category->parent_category_id;
-        $parentId = $request->has('parent_category_id')
-            ? $request->parent_category_id
-            : $category->parent_category_id;
-        // Generate slug unique per parent
-        $slug = $this->generateUniqueSlug($validated['name'], $parentId, $id);
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Category id: {$id} not found."
+                ], 404);
+            }
 
-        $imageUrl = $category->image;
-        $imageFileId = $category->image_file_id;
-
-        if ($request->hasFile('image')) {
-
-            $imageKit = new ImageKit(
-                config('imagekit.public_key'),
-                config('imagekit.private_key'),
-                config('imagekit.url_endpoint')
-            );
-
-            $upload = $imageKit->upload([
-                'file' => fopen($request->file('image')->getRealPath(), "r"),
-                'fileName' => $request->file('image')->getClientOriginalName(),
-                'folder' => '/categories',
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'parent_category_id' => 'nullable|integer',
+                'is_active' => 'nullable|boolean',
+                'image' => 'nullable|image|max:5120'
             ]);
 
-            if (isset($upload->error)) {
-                return response()->json([
-                    'message' => 'Upload failed',
-                    'error' => $upload->error->message,
-                ], 400);
-            }
-            //delete old image from ImageKit if exists
-            if ($category->image_file_id) {
-                try {
-                    $imageKit->deleteFile($category->image_file_id);
-                } catch (\Exception $e) {
-                    // ignore if already deleted
+            $parentId = $request->has('parent_category_id')
+                ? $request->parent_category_id
+                : $category->parent_category_id;
+
+            // Validate parent category
+            if (!is_null($parentId)) {
+
+                // Prevent self-parent
+                // if ($parentId == $category->id) {
+                //     return response()->json([
+                //         'success' => false,
+                //         'message' => 'A category cannot be its own parent.'
+                //     ], 400);
+                // }
+
+                // Check parent exists
+                $parentCategory = Category::find($parentId);
+
+                if (!$parentCategory) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Parent category not found.'
+                    ], 404);
                 }
             }
-            $imageUrl = $upload->result->url;
-            $imageFileId = $upload->result->fileId;
-        }
-        $category->update([
-            'name' => $validated['name'],
-            'slug' => $slug,
-            'parent_category_id' => $parentId,
-            'is_active' => $validated['is_active'] ?? $category->is_active,
-            'image' => $imageUrl,
-            'image_file_id' => $imageFileId,
-        ]);
 
-        return response()->json([
-            'message' => 'Category updated successfully',
-            'category' => $category->fresh()
-        ]);
+            // Generate unique slug
+            $slug = $this->generateUniqueSlug(
+                $validated['name'],
+                $parentId,
+                $category->id
+            );
+
+            $imageUrl = $category->image;
+            $imageFileId = $category->image_file_id;
+
+            if ($request->hasFile('image')) {
+
+                $imageKit = new ImageKit(
+                    config('imagekit.public_key'),
+                    config('imagekit.private_key'),
+                    config('imagekit.url_endpoint')
+                );
+
+                $upload = $imageKit->upload([
+                    'file' => fopen($request->file('image')->getRealPath(), 'r'),
+                    'fileName' => $request->file('image')->getClientOriginalName(),
+                    'folder' => '/categories',
+                ]);
+
+                if (isset($upload->error)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Upload failed.',
+                        'error' => $upload->error->message,
+                    ], 400);
+                }
+
+                // Delete old image
+                if ($category->image_file_id) {
+                    try {
+                        $imageKit->deleteFile($category->image_file_id);
+                    } catch (\Exception $e) {
+                        \Log::warning(
+                            'Failed to delete old image: ' . $e->getMessage()
+                        );
+                    }
+                }
+
+                $imageUrl = $upload->result->url;
+                $imageFileId = $upload->result->fileId;
+            }
+
+            $category->update([
+                'name' => $validated['name'],
+                'slug' => $slug,
+                'parent_category_id' => $parentId,
+                'is_active' => $validated['is_active'] ?? $category->is_active,
+                'image' => $imageUrl,
+                'image_file_id' => $imageFileId,
+            ]);
+
+            return response()->json([
+                'message' => 'Category updated successfully.',
+                'category' => $category->fresh()
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong while updating category.',
+                'error' => app()->environment('local')
+                    ? $e->getMessage()
+                    : null
+            ], 500);
+        }
     }
     // Helper function to generate unique slug per parent
 

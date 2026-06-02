@@ -12,6 +12,10 @@ class ProductVariant extends Model
         protected $casts = [
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
+        'product_id' => 'integer',
+        'size' => 'string',
+        'color' => 'string',
+        'stock' => 'integer',
     ];
     
     public function product()

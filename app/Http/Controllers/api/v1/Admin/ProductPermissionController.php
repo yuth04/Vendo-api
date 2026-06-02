@@ -17,7 +17,7 @@ class ProductPermissionController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if(!$user || !in_array(strtolower($user->role), ['admin', 'super-admin'])) {
+        if (!$user || !in_array(strtolower($user->role), ['admin', 'super-admin'])) {
             return response()->json(['message' => 'Access denied. Only admin or super-admin can perform this action.'], 403);
         }
         $products = Product::with(['category', 'brand', 'variants'])
@@ -56,8 +56,8 @@ class ProductPermissionController extends Controller
                     'id' => $base->id,
                     'name' => $base->name,
                     'status' => $base->status,
-                    'created_at' => $base->created_at,
-                    'updated_at' => $base->updated_at,
+                    'created_at' => $base->created_at->format('d-m-Y g:i:s A'),
+                    'updated_at' => $base->updated_at->format('d-m-Y g:i:s A'),
                     'categories' => $base->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -65,8 +65,8 @@ class ProductPermissionController extends Controller
                             'slug' => $category->slug,
                             'is_active' => $category->is_active,
                             'parent_category_id' => $category->parent_category_id,
-                            'created_at' => $category->created_at,
-                            'updated_at' => $category->updated_at,
+                            'created_at' => $category->created_at->format('d-m-Y g:i:s A'),
+                            'updated_at' => $category->updated_at->format('d-m-Y g:i:s A'),
                             'image' => $category->image,
                             'products' => $category->products->map(function ($product) {
                                 return [
@@ -77,8 +77,8 @@ class ProductPermissionController extends Controller
                                     'price' => $product->price,
                                     'category_id' => $product->category_id,
                                     'brand_id' => $product->brand_id,
-                                    'created_at' => $product->created_at,
-                                    'updated_at' => $product->updated_at,
+                                    'created_at' => $product->created_at->format('d-m-Y g:i:s A'),
+                                    'updated_at' => $product->updated_at->format('d-m-Y g:i:s A'),
                                     'image' => $product->image,
                                 ];
                             }),
@@ -187,7 +187,7 @@ class ProductPermissionController extends Controller
     }
     public function discountCategory()
     {
-        $category = DiscountCategory::with('discounts.products','coupons')->orderBy('id', 'asc')->get();
+        $category = DiscountCategory::with('discounts.products', 'coupons')->orderBy('id', 'asc')->get();
 
         if (!$category) {
             return response()->json([
@@ -202,7 +202,7 @@ class ProductPermissionController extends Controller
     }
     public function discountCategoryId($id)
     {
-        $category = DiscountCategory::with('discounts.products','coupons')->find($id);
+        $category = DiscountCategory::with('discounts.products', 'coupons')->find($id);
 
         if (!$category) {
             return response()->json([

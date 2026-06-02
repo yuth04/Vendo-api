@@ -20,9 +20,14 @@ class Category extends Model
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
+    // public function parentCategory()
+    // {
+    //     return $this->belongsTo(Category::class, 'parent_category_id');
+    // }
     public function parentCategory()
     {
-        return $this->belongsTo(Category::class, 'parent_category_id');
+        return $this->belongsTo(ParentCategory::class,'parent_category_id'
+        );
     }
     public function children()
     {
