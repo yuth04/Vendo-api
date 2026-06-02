@@ -14,12 +14,13 @@ use App\Http\Controllers\api\v1\Admin\SettingController;
 use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\Export\ExportController;
-use App\Http\Controllers\api\v1\Marketing\DiscountController;
+
 use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
 use App\Http\Controllers\api\v1\Marketing\DiscountCategoryController;
+use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
