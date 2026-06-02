@@ -12,6 +12,11 @@ class UserController extends Controller
     // user's order history
     public function userOrder()
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
+            return response()->json([
+                'message' => 'Only super-admin or staff can access this endpoint',
+            ], 403);
+        }
         $users = User::with('orders.items.variant.product')->get();
 
         return response()->json([
@@ -77,7 +82,12 @@ class UserController extends Controller
                 'message' => 'User not found.'
             ], 404);
         }
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only super-admin can action this.'
+            ], 403);
 
+        }
         $request->validate([
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
@@ -277,9 +287,14 @@ class UserController extends Controller
                 'message' => 'User not found'
             ]);
         }
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only super-admin can access this endpoint',
+            ], 403);
+        }
         $user->delete();
         return response()->json([
-            'message' => 'Search user successfully',
+            'message' => 'User deleted successfully',
             'user' => $user
         ]);
     }
@@ -287,10 +302,9 @@ class UserController extends Controller
     public function updateRoleUser(Request $request, $id)
     {
         $authUser = Auth::user();
-
-        if ($authUser->role !== 'admin' && $authUser->role !== 'super-admin') {
+        if (auth()->user()->role !== 'super-admin') {
             return response()->json([
-                'message' => 'Only admin can action this.'
+                'message' => 'Only super-admin can access this endpoint',
             ], 403);
         }
 

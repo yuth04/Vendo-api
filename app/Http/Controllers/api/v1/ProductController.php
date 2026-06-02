@@ -70,7 +70,7 @@ class ProductController extends Controller
     // added product
     public function store(Request $request)
     {
-        // ✅ Validate
+
         $validated = $request->validate([
             'productName' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -80,7 +80,11 @@ class ProductController extends Controller
             'image' => 'nullable|image|max:5120',
             'status' => 'nullable|string|max:50'
         ]);
-
+        if (Product::where('productName', $validated['productName'])->exists()) {
+            return response()->json([
+                'message' => 'Product already exists. You can only create it once.'
+            ], 409);
+        }
         // ✅ Generate slug
         $slug = Str::slug($validated['productName']);
 

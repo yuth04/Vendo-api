@@ -17,8 +17,10 @@ class ProductPermissionController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!$user || !in_array(strtolower($user->role), ['admin', 'super-admin'])) {
-            return response()->json(['message' => 'Access denied. Only admin or super-admin can perform this action.'], 403);
+        if ($user->role !== 'super-admin' && $user->role !== 'admin') {
+            return response()->json([
+                'message' => 'only super-admin and admin can access this resource'
+            ], 403);
         }
         $products = Product::with(['category', 'brand', 'variants'])
             ->orderBy('id', 'asc')
