@@ -47,6 +47,7 @@ class GoogleAuthController extends Controller
                     'is_verified' => true,
                     'email_verified_at' => now()->format('d-m-Y h:i:s A'),
                     'role' => 'customer',
+<<<<<<< HEAD
                     'created_by' => [
                         'first_name' => $googleUser->user['given_name'],
                         'last_name' => $googleUser->user['family_name'],
@@ -61,6 +62,9 @@ class GoogleAuthController extends Controller
                         'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
                         'created_at' => now()->format('d-m-Y h:i:s A'),
                     ],
+=======
+                    'created_at' => now()->format('d-m-Y h:i:s A')
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                 ]);
                 // Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {

@@ -17,10 +17,15 @@ class ProductPermissionController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+<<<<<<< HEAD
         if ($user->role !== 'super-admin' && $user->role !== 'admin') {
             return response()->json([
                 'message' => 'only super-admin and admin can access this resource'
             ], 403);
+=======
+        if(!$user || !in_array(strtolower($user->role), ['admin', 'super-admin'])) {
+            return response()->json(['message' => 'Access denied. Only admin or super-admin can perform this action.'], 403);
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
         }
         $products = Product::with(['category', 'brand', 'variants'])
             ->orderBy('id', 'asc')
@@ -58,8 +63,13 @@ class ProductPermissionController extends Controller
                     'id' => $base->id,
                     'name' => $base->name,
                     'status' => $base->status,
+<<<<<<< HEAD
                     'created_at' => $base->created_at->format('d-m-Y g:i:s A'),
                     'updated_at' => $base->updated_at->format('d-m-Y g:i:s A'),
+=======
+                    'created_at' => $base->created_at,
+                    'updated_at' => $base->updated_at,
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                     'categories' => $base->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -67,8 +77,13 @@ class ProductPermissionController extends Controller
                             'slug' => $category->slug,
                             'is_active' => $category->is_active,
                             'parent_category_id' => $category->parent_category_id,
+<<<<<<< HEAD
                             'created_at' => $category->created_at->format('d-m-Y g:i:s A'),
                             'updated_at' => $category->updated_at->format('d-m-Y g:i:s A'),
+=======
+                            'created_at' => $category->created_at,
+                            'updated_at' => $category->updated_at,
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                             'image' => $category->image,
                             'products' => $category->products->map(function ($product) {
                                 return [
@@ -79,8 +94,13 @@ class ProductPermissionController extends Controller
                                     'price' => $product->price,
                                     'category_id' => $product->category_id,
                                     'brand_id' => $product->brand_id,
+<<<<<<< HEAD
                                     'created_at' => $product->created_at->format('d-m-Y g:i:s A'),
                                     'updated_at' => $product->updated_at->format('d-m-Y g:i:s A'),
+=======
+                                    'created_at' => $product->created_at,
+                                    'updated_at' => $product->updated_at,
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
                                     'image' => $product->image,
                                 ];
                             }),
@@ -189,7 +209,11 @@ class ProductPermissionController extends Controller
     }
     public function discountCategory()
     {
+<<<<<<< HEAD
         $category = DiscountCategory::with('discounts.products', 'coupons')->orderBy('id', 'asc')->get();
+=======
+        $category = DiscountCategory::with('discounts.products','coupons')->orderBy('id', 'asc')->get();
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
 
         if (!$category) {
             return response()->json([
@@ -204,7 +228,11 @@ class ProductPermissionController extends Controller
     }
     public function discountCategoryId($id)
     {
+<<<<<<< HEAD
         $category = DiscountCategory::with('discounts.products', 'coupons')->find($id);
+=======
+        $category = DiscountCategory::with('discounts.products','coupons')->find($id);
+>>>>>>> 195f64e2ed9fe1656130c6108f720742a004e1de
 
         if (!$category) {
             return response()->json([
