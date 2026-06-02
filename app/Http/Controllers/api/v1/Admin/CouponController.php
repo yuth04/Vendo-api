@@ -65,6 +65,11 @@ class CouponController extends Controller
     }
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create coupons'
+            ], 403);
+        }
         $user = Auth::user();
         if ($user->role !== 'admin') {
             return response()->json([
@@ -127,7 +132,7 @@ class CouponController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $request->status,
-            'discount_id'=>$request->discount_id
+            'discount_id' => $request->discount_id
         ]);
 
         return response()->json([
@@ -138,6 +143,11 @@ class CouponController extends Controller
     }
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update coupons'
+            ], 403);
+        }
         $coupon = Coupon::find($id);
         if (!$coupon) {
             return response()->json([
@@ -213,6 +223,12 @@ class CouponController extends Controller
     // Delete
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete coupons'
+            ], 403);
+        }
+
         $coupon = Coupon::find($id);
         if (!$coupon) {
             return response()->json([

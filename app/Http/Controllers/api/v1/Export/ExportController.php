@@ -276,6 +276,37 @@ class ExportController extends Controller
 
         return $pdf->download('admins-report.pdf');
     }
+    public function exportStaffsPDF(Request $request)
+    {
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        // Base query
+        $query = User::where('role', 'staff');
+
+        // Apply filter for listing
+        if ($startDate && $endDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        }
+
+        $users = $query->get();
+        $stats = [
+            'total_staff' => $users->count(),
+            'active_staff' => $users->where('status', 'active')->count(),
+            'inactive_staff' => $users->where('status', 'inactive')->count(),
+
+
+            'new_staff' => ($startDate && $endDate)
+                ? User::where('role', 'staff')
+                    ->whereBetween('created_at', [$startDate, $endDate])
+                    ->count()
+                : 0,
+        ];
+
+        $pdf = Pdf::loadView('reports.staffs', compact('users', 'stats', 'startDate', 'endDate'));
+
+        return $pdf->download('staffs-report.pdf');
+    }
     // Stocks
     public function exportStock()
     {

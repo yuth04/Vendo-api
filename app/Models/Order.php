@@ -29,13 +29,13 @@ class Order extends Model
 
     ];
     protected $casts = [
-        'delivered_at' => 'datetime',
-        'shipped_at' => 'datetime',
-        'cancelled_at' => 'datetime',
-        'returned_at' => 'datetime',
-        'completed_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'delivered_at' => 'datetime:d-m-Y g:i:s A',
+        'shipped_at' => 'datetime:d-m-Y g:i:s A',
+        'cancelled_at' => 'datetime:d-m-Y g:i:s A',
+        'returned_at' => 'datetime:d-m-Y g:i:s A',
+        'completed_at' => 'datetime:d-m-Y g:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A'
     ];
     protected function serializeDate(\DateTimeInterface $date)
     {

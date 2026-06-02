@@ -24,7 +24,6 @@ class ReturnOrderController extends Controller
     {
         $returns = ReturnOrder::with([
             'items.orderItem'
-
         ])->get();
 
         return response()->json([
@@ -32,19 +31,6 @@ class ReturnOrderController extends Controller
             'data' => $returns
         ]);
     }
-    // public function index()
-    // {
-    //     $returns = ReturnOrder::with('items.orderItem', 'images')->where('user_id', Auth::id())->get();
-    //     if ($returns->isEmpty()) {
-    //         return response()->json([
-    //             'message' => 'No return orders found for this user.',
-    //         ]);
-    //     }
-    //     return response()->json([
-    //         'message' => 'Return orders retrieved successfully',
-    //         'data' => $returns
-    //     ]);
-    // }
 
     public function index()
     {

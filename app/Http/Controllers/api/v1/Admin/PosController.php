@@ -12,6 +12,11 @@ class PosController extends Controller
     // Order History
     public function orderHistory()
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
+            return response()->json([
+                'message' => 'Only super-admin can access order details'
+            ], 403);
+        }
         $orders = Order::with(['user', 'items'])->latest()->get();
         $data = $orders->map(function ($order) {
             return [
@@ -38,6 +43,11 @@ class PosController extends Controller
     // Order Details
     public function orderDetails($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
+            return response()->json([
+                'message' => 'Only super-admin can access order details'
+            ], 403);
+        }
         $order = Order::with([
             'user',
             'items.variant.product',
@@ -86,6 +96,11 @@ class PosController extends Controller
     // Return History
     public function returnHistory()
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
+            return response()->json([
+                'message' => 'Only super-admin can access order details'
+            ], 403);
+        }
         $returns = ReturnOrder::with(['user', 'items'])->orderBy('id', 'asc')->latest()->get();
         $data = $returns->map(function ($returnOrder) {
             return [
@@ -116,6 +131,11 @@ class PosController extends Controller
     // Return Details
     public function returnDetails($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
+            return response()->json([
+                'message' => 'Only super-admin can access order details'
+            ], 403);
+        }
         $returnOrder = ReturnOrder::with([
             'user',
             'items.orderItem.product',

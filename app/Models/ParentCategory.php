@@ -7,14 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class ParentCategory extends Model
 {
     protected $fillable = ['name', 'status'];
-    protected $hidden = ['created_at', 'updated_at'];
+
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
+    protected $hidden = ['created_at', 'updated_at'];
+    // public function categories()
+    // {
+    //     return $this->hasMany(Category::class);
+    // }
     public function categories()
     {
-        return $this->hasMany(Category::class);
+        return $this->hasMany(Category::class,'parent_category_id'
+        );
     }
     public function products()
     {

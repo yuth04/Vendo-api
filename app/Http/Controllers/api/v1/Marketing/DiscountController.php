@@ -77,6 +77,11 @@ class DiscountController extends Controller
     // Create a new discount
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create discounts'
+            ], 403);
+        }
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:255',
@@ -139,6 +144,11 @@ class DiscountController extends Controller
     // Update an existing discount
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update discounts'
+            ], 403);
+        }
         $discount = Discount::find($id);
 
         if (!$discount) {
@@ -228,6 +238,11 @@ class DiscountController extends Controller
     // Delete a discount
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete discounts'
+            ], 403);
+        }
         $discount = Discount::find($id);
 
         if (!$discount) {
@@ -243,6 +258,11 @@ class DiscountController extends Controller
     // Add products to a discount
     public function addProducts(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can add products to discounts'
+            ], 403);
+        }
         $validated = $request->validate([
             'discount_id' => 'required|exists:discounts,id',
             'product_ids' => 'required|array',
@@ -299,6 +319,12 @@ class DiscountController extends Controller
     // Remove a product from a discount
     public function removeProduct(Request $request, $discountId)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can remove products from discounts'
+            ], 403);
+        }
+
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
         ]);
@@ -326,6 +352,12 @@ class DiscountController extends Controller
     }
     public function removeProductId($productId)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can remove products from discounts'
+            ], 403);
+        }
+
         $discountItem = DiscountItem::where('product_id', $productId)
             ->first();
 

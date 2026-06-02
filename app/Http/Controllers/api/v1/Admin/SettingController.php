@@ -12,10 +12,15 @@ class SettingController extends Controller
     // Change Name
     public function changeName(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only super-admin can access this endpoint',
+            ], 403);
+        }
         $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            
+
         ]);
         $user = auth()->user();
         $user->update([
@@ -30,6 +35,11 @@ class SettingController extends Controller
     // Change Password
     public function changePassword(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only super-admin can access this endpoint',
+            ], 403);
+        }
         $request->validate([
             'current_password' => 'required|string|min:8',
             'new_password' => 'required|string|min:8|confirmed',
@@ -50,6 +60,11 @@ class SettingController extends Controller
     // change profile picture
     public function changeProfileImage(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only super-admin can access this endpoint',
+            ], 403);
+        }
         $request->validate([
             'image' => 'required|image|max:5120',
         ]);

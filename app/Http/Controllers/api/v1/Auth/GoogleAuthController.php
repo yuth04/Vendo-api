@@ -47,7 +47,20 @@ class GoogleAuthController extends Controller
                     'is_verified' => true,
                     'email_verified_at' => now()->format('d-m-Y h:i:s A'),
                     'role' => 'customer',
-                    'created_at' => now()->format('d-m-Y h:i:s A')
+                    'created_by' => [
+                        'first_name' => $googleUser->user['given_name'],
+                        'last_name' => $googleUser->user['family_name'],
+                        'email' => $googleUser->email,
+                        'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
+                        'created_at' => now()->format('d-m-Y h:i:s A'),
+                    ],
+                    'updated_by' => [
+                        'first_name' => $googleUser->user['given_name'],
+                        'last_name' => $googleUser->user['family_name'],
+                        'email' => $googleUser->email,
+                        'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
+                        'created_at' => now()->format('d-m-Y h:i:s A'),
+                    ],
                 ]);
                 // Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {

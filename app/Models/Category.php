@@ -17,12 +17,17 @@ class Category extends Model
     ];
     protected $hidden = ['created_at', 'updated_at'];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
+    // public function parentCategory()
+    // {
+    //     return $this->belongsTo(Category::class, 'parent_category_id');
+    // }
     public function parentCategory()
     {
-        return $this->belongsTo(Category::class, 'parent_category_id');
+        return $this->belongsTo(ParentCategory::class,'parent_category_id'
+        );
     }
     public function children()
     {

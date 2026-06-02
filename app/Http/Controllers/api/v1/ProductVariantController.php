@@ -23,7 +23,7 @@ class ProductVariantController extends Controller
     }
     public function index()
     {
-        $productVariants = ProductVariant::with('product', 'images')->where('status','active')->orderBy('id', 'asc')->get();
+        $productVariants = ProductVariant::with('product', 'images')->where('status', 'active')->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Product Variants retrieved successfully',
             'product_variant' => $productVariants
@@ -43,6 +43,11 @@ class ProductVariantController extends Controller
     // store
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create product variant'
+            ], 403);
+        }
         DB::beginTransaction();
 
         try {
@@ -52,7 +57,7 @@ class ProductVariantController extends Controller
                 'color' => 'required|string|max:50',
                 'stock' => 'required|integer|min:0',
                 'status' => 'nullable|string|max:50',
-                // ✅ MUST be exactly 4 images
+                //  MUST be exactly 4 images
                 'images' => 'required|array|size:4',
                 'images.*' => 'required|image|mimes:jpg,jpeg,png|max:2048',
             ]);
@@ -62,7 +67,7 @@ class ProductVariantController extends Controller
                 'size' => $validated['size'],
                 'color' => $validated['color'],
                 'stock' => $validated['stock'],
-                'status' => $validated['status'],
+                'status' => $validated['status'] ?? 'active',
             ]);
 
             foreach ($request->file('images') as $index => $image) {
@@ -175,8 +180,14 @@ class ProductVariantController extends Controller
 
     // update
 
-    
-    public function update(Request $request, $id){
+
+    public function update(Request $request, $id)
+    {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update product variant'
+            ], 403);
+        }
         $variant = ProductVariant::with('images')->find($id);
         if (!$variant) {
             return response()->json(['message' => 'Product Variant not found'], 404);
@@ -190,8 +201,10 @@ class ProductVariantController extends Controller
                 'size' => 'nullable|string|max:50',
                 'color' => 'nullable|string|max:50',
                 'stock' => 'nullable|integer|min:0',
+                'status' => 'nullable|string|max:50',
                 'images' => 'nullable|array|size:4',
                 'images.*' => 'required|image|mimes:jpg,jpeg,png|max:5120',
+
             ]);
 
             // update fields
@@ -200,6 +213,7 @@ class ProductVariantController extends Controller
                 'size' => $validated['size'] ?? null,
                 'color' => $validated['color'] ?? null,
                 'stock' => $validated['stock'] ?? null,
+                'status' => $validated['status'] ?? null,
             ]));
 
             //  replace images
@@ -258,7 +272,13 @@ class ProductVariantController extends Controller
         }
     }
     // delete
-    public function destroy($id){
+    public function destroy($id)
+    {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product variant'
+            ], 403);
+        }
         $variant = ProductVariant::with('images')->find($id);
 
         if (!$variant) {

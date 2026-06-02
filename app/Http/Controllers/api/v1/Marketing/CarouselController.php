@@ -34,6 +34,12 @@ class CarouselController extends Controller
     // create
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create carousels'
+            ], 403);
+        }
+
         $request->validate([
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:255',
@@ -85,6 +91,12 @@ class CarouselController extends Controller
     // update
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update carousels'
+            ], 403);
+        }
+
         $carousel = Carousel::findOrFail($id);
 
         $request->validate([
@@ -144,6 +156,12 @@ class CarouselController extends Controller
     // delete
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete carousels'
+            ], 403);
+        }
+
         $carousel = Carousel::findOrFail($id);
         if (!$carousel) {
             return response()->json([

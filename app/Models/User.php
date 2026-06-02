@@ -30,14 +30,19 @@ class User extends Authenticatable
         'verification_code',
         'verification_code_expire',
         'email_verified_at',
-        'image_file_id'
+        'image_file_id',
+        'created_by',
+        'updated_by',
 
     ];
     // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
-        'verification_code_expire' => 'datetime',
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'verification_code_expire' => 'datetime:d-m-Y g:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
+        'email_verified_at' => 'datetime:d-m-Y g:i:s A',
+        'created_by' => 'array',
+        'updated_by' => 'array',
     ];
 
     /**
@@ -52,7 +57,10 @@ class User extends Authenticatable
         'is_verified',
         'verification_code',
         'verification_code_expire',
-        'email_verified_at'
+        'email_verified_at',
+
+        'created_by',
+        'updated_by',
     ];
 
     /**
@@ -63,7 +71,7 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
+            'email_verified_at' => 'datetime:d-m-Y g:i:s A',
             'is_verified' => 'boolean',
             'password' => 'hashed',
         ];
@@ -79,5 +87,14 @@ class User extends Authenticatable
     public function addresses()
     {
         return $this->hasMany(Address::class);
+    }
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

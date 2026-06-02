@@ -24,10 +24,10 @@ class Coupon extends Model
         'discount_id'
     ];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
-        'start_date' => 'datetime:d-m-Y h:i:s A',
-        'end_date' => 'datetime:d-m-Y h:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
+        'start_date' => 'datetime:d-m-Y g:i:s A',
+        'end_date' => 'datetime:d-m-Y g:i:s A',
     ];
     protected $hidden = [
         'image_file_id'

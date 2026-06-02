@@ -16,8 +16,8 @@ class ProductDamage extends Model
         'image_file_id'
     ];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y h:i:s A',
-        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
     public function product()
     {

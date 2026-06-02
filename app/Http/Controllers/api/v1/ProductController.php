@@ -5,9 +5,12 @@ namespace App\Http\Controllers\api\v1;
 use App\Http\Controllers\Controller;
 
 use App\Models\Product;
+use App\Models\ProductImage;
+use App\Models\ProductVariant;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 class ProductController extends Controller
@@ -67,7 +70,11 @@ class ProductController extends Controller
     // added product
     public function store(Request $request)
     {
-        // ✅ Validate
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create product'
+            ], 403);
+        }
         $validated = $request->validate([
             'productName' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -77,7 +84,11 @@ class ProductController extends Controller
             'image' => 'nullable|image|max:5120',
             'status' => 'nullable|string|max:50'
         ]);
-
+        if (Product::where('productName', $validated['productName'])->exists()) {
+            return response()->json([
+                'message' => 'Product already exists. You can only create it once.'
+            ], 409);
+        }
         // ✅ Generate slug
         $slug = Str::slug($validated['productName']);
 
@@ -134,6 +145,11 @@ class ProductController extends Controller
     // updated product
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update product'
+            ], 403);
+        }
         $product = Product::findOrFail($id);
 
         // ✅ Validate
@@ -217,6 +233,12 @@ class ProductController extends Controller
     // destroy product
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product'
+            ], 403);
+        }
+
         $product = Product::find($id);
         if (!$product) {
             return response()->json([
@@ -323,7 +345,8 @@ class ProductController extends Controller
         ]);
     }
     // Top saled products
-    public function topSales(){
+    public function topSales()
+    {
         try {
 
             $products = DB::table('order_items')
@@ -425,5 +448,230 @@ class ProductController extends Controller
             ], 500);
         }
     }
+    
+    // =========================
+    // Get All Product Images
+    // =========================
+
+    public function allImages()
+    {
+        $images = Product::whereNotNull('image')
+            ->select('id', 'image')
+            ->get();
+
+        return response()->json($images);
+    }
+
+    // =========================
+    // Visual Search
+    // =========================
+
+    public function searchImage(Request $request)
+    {
+        $request->validate([
+            'image' => 'nullable|image|max:5120',
+        ]);
+
+        try {
+
+            $response = Http::attach(
+                'image',
+                file_get_contents(
+                    $request->file('image')->path()
+                ),
+                $request->file('image')
+                    ->getClientOriginalName()
+            )->post(
+                    env('PYTHON_AI_URL') . '/search'
+                );
+
+            if ($response->failed()) {
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Python server error',
+                    'error' => $response->body()
+                ], 500);
+            }
+
+            $results = $response->json();
+
+            $productIds = collect($results)
+                ->pluck('id');
+
+            $products = Product::with('variants')
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            $data = collect($results)->map(
+                function ($result) use ($products) {
+
+                    $product = $products->get(
+                        $result['id']
+                    );
+
+                    if (!$product) {
+                        return null;
+                    }
+
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->productName,
+                        'price' => $product->price,
+                        'image' => $product->image,
+                        'size' => optional(
+                            $product->variants->first()
+                        )->size,
+                        'similarity' => $result['similarity']
+                    ];
+                }
+            )->filter()->values();
+
+            return response()->json([
+                'message' => 'Search completed',
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Connection failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // =========================
+    // Text Search
+    // =========================
+
+    public function searchByText(Request $request)
+    {
+        $request->validate([
+            'query' => 'required|string'
+        ]);
+
+        try {
+
+            $query = strtolower($request->input('query'));
+
+            // =====================
+            // SIZE
+            // =====================
+            $size = null;
+
+            if (preg_match('/size\s*([a-zA-Z0-9]+)/i', $query, $m)) {
+                $size = strtoupper($m[1]);
+            }
+
+            // =====================
+            // COLOR
+            // =====================
+            $color = null;
+
+            if (preg_match('/color\s*([a-zA-Z]+)/i', $query, $m)) {
+                $color = strtolower($m[1]);
+            }
+
+            // =====================
+            // CLEAN QUERY
+            // =====================
+            $cleanQuery = preg_replace('/size\s*[a-zA-Z0-9]+/i', '', $query);
+            $cleanQuery = preg_replace('/color\s*[a-zA-Z]+/i', '', $cleanQuery);
+            $cleanQuery = str_replace('with', '', $cleanQuery);
+            $cleanQuery = trim($cleanQuery);
+
+            // =====================
+            // PYTHON AI SEARCH
+            // =====================
+            $response = Http::post(
+                env('PYTHON_AI_URL') . '/search/text',
+                [
+                    'query' => $cleanQuery
+                ]
+            );
+
+            if ($response->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Python server error',
+                    'body' => $response->body()
+                ], 500);
+            }
+
+            $results = $response->json();
+
+            $productIds = collect($results)->pluck('id');
+
+            // =====================
+            // DB FILTER
+            // =====================
+            $productsQuery = Product::with('variants')
+                ->whereIn('id', $productIds);
+
+            $productsQuery->whereHas('variants', function ($q) use ($size, $color) {
+
+                if ($size) {
+                    $q->where('size', $size);
+                }
+
+                if ($color) {
+                    $q->where('color', $color);
+                }
+            });
+
+            $products = $productsQuery->get()->keyBy('id');
+
+            // =====================
+            // RESPONSE
+            // =====================
+            $data = collect($results)->map(function ($result) use ($products) {
+
+                $product = $products->get($result['id']);
+
+                if (!$product)
+                    return null;
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->productName,
+                    'category' => optional(
+                        $product->category
+                    )->name,
+                    'brand' => optional(
+                        $product->brand
+                    )->name,
+                    'description' => $product->description,
+                    'price' => $product->price,
+                    'color' => optional(
+                        $product->variants->first()
+                    )->color,
+                    'image' => $product->image,
+                    'size' => optional(
+                        $product->variants->first()
+                    )->size,
+                    'similarity' => $result['similarity']
+                ];
+            })->filter()->values();
+            if ($data->isEmpty()) {
+                return response()->json([
+                    'message' => 'Item not found.',
+                ], 404);
+            }
+            return response()->json([
+                'message' => 'Search completed successfully',
+                'data' => $data
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
+
 
