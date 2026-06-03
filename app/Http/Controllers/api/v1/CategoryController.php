@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\ParentCategory;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -122,13 +123,14 @@ class CategoryController extends Controller
     }
 
     // Update category
-    public function update(Request $request, $id)
-    {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+    public function update(Request $request, $id){
+        if (!in_array(auth()->user()->role, ['super-admin', 'admin'])) {
             return response()->json([
-                'message' => 'Only super-admin and admin can delete product variant'
+                'success' => false,
+                'message' => 'Only super-admin and admin can update categories.'
             ], 403);
         }
+
         try {
 
             $category = Category::find($id);
@@ -136,34 +138,24 @@ class CategoryController extends Controller
             if (!$category) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Category id: {$id} not found."
+                    'message' => "Category ID {$id} not found."
                 ], 404);
             }
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'parent_category_id' => 'nullable|integer',
+                'parent_category_id' => 'nullable|exists:parent_categories,id',
                 'is_active' => 'nullable|boolean',
-                'image' => 'nullable|image|max:5120'
+                'image' => 'nullable|image|max:5120',
             ]);
 
-            $parentId = $request->has('parent_category_id')
-                ? $request->parent_category_id
-                : $category->parent_category_id;
+            $parentId = $validated['parent_category_id']
+                ?? $category->parent_category_id;
 
-            // Validate parent category
-            if (!is_null($parentId)) {
+            // Verify parent category exists
+            if ($parentId) {
 
-                // Prevent self-parent
-                // if ($parentId == $category->id) {
-                //     return response()->json([
-                //         'success' => false,
-                //         'message' => 'A category cannot be its own parent.'
-                //     ], 400);
-                // }
-
-                // Check parent exists
-                $parentCategory = Category::find($parentId);
+                $parentCategory = ParentCategory::find($parentId);
 
                 if (!$parentCategory) {
                     return response()->json([
@@ -173,7 +165,7 @@ class CategoryController extends Controller
                 }
             }
 
-            // Generate unique slug
+            // Generate slug
             $slug = $this->generateUniqueSlug(
                 $validated['name'],
                 $parentId,
@@ -192,7 +184,10 @@ class CategoryController extends Controller
                 );
 
                 $upload = $imageKit->upload([
-                    'file' => fopen($request->file('image')->getRealPath(), 'r'),
+                    'file' => fopen(
+                        $request->file('image')->getRealPath(),
+                        'r'
+                    ),
                     'fileName' => $request->file('image')->getClientOriginalName(),
                     'folder' => '/categories',
                 ]);
@@ -200,8 +195,8 @@ class CategoryController extends Controller
                 if (isset($upload->error)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Upload failed.',
-                        'error' => $upload->error->message,
+                        'message' => 'Image upload failed.',
+                        'error' => $upload->error->message
                     ], 400);
                 }
 
@@ -211,7 +206,8 @@ class CategoryController extends Controller
                         $imageKit->deleteFile($category->image_file_id);
                     } catch (\Exception $e) {
                         \Log::warning(
-                            'Failed to delete old image: ' . $e->getMessage()
+                            'Failed to delete old image: ' .
+                            $e->getMessage()
                         );
                     }
                 }
@@ -224,14 +220,16 @@ class CategoryController extends Controller
                 'name' => $validated['name'],
                 'slug' => $slug,
                 'parent_category_id' => $parentId,
-                'is_active' => $validated['is_active'] ?? $category->is_active,
+                'is_active' => $validated['is_active']
+                    ?? $category->is_active,
                 'image' => $imageUrl,
                 'image_file_id' => $imageFileId,
             ]);
 
             return response()->json([
+                'success' => true,
                 'message' => 'Category updated successfully.',
-                'category' => $category->fresh()
+                'data' => $category->fresh()
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -253,6 +251,7 @@ class CategoryController extends Controller
             ], 500);
         }
     }
+
     // Helper function to generate unique slug per parent
 
     private function generateUniqueSlug(string $name, ?int $parentId, ?int $excludeId = null): string
