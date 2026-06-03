@@ -136,7 +136,7 @@ class ProductController extends Controller
             'image_file_id' => $imageFileId,
             'status' => $validated['status']
         ]);
-
+        $this->refreshAllIndex();
         return response()->json([
             'message' => 'Created product successfully',
             'product' => $product
@@ -224,7 +224,7 @@ class ProductController extends Controller
             'image_file_id' => $imageFileId,
             'status' => $validated['status'] ?? $product->status,
         ]);
-
+        $this->refreshAllIndex();
         return response()->json([
             'message' => 'Updated product successfully',
             'product' => $product->fresh()
@@ -264,6 +264,7 @@ class ProductController extends Controller
                 }
             }
             $product->delete();
+            $this->refreshAllIndex();
             DB::statement("SELECT setval(pg_get_serial_sequence('products', 'id'), coalesce(max(id), 0) + 1, false) FROM products;");
             return response()->json([
                 'message' => 'product deleted successfully',
@@ -568,12 +569,52 @@ class ProductController extends Controller
             }
 
             // =====================
+            // PRICE
+            // =====================
+            $minPrice = null;
+            $maxPrice = null;
+
+            // under / less than / lower than / max / maximum
+            if (preg_match('/(?:price\s*)?(?:under|below|less\s*than|lower\s*than|max(?:imum)?)\s*\$?\s*(\d+(?:\.\d+)?)/i', $query, $m)) {
+                $maxPrice = (float) $m[1];
+            }
+
+            // above / more than / over / min / minimum
+            if (preg_match('/(?:price\s*)?(?:above|over|more\s*than|greater\s*than|min(?:imum)?)\s*\$?\s*(\d+(?:\.\d+)?)/i', $query, $m)) {
+                $minPrice = (float) $m[1];
+            }
+
+            // between X and Y
+            if (preg_match('/(?:price\s*)?between\s*\$?\s*(\d+(?:\.\d+)?)\s*(?:and|to|-)\s*\$?\s*(\d+(?:\.\d+)?)/i', $query, $m)) {
+                $minPrice = (float) $m[1];
+                $maxPrice = (float) $m[2];
+            }
+
+            // =====================
             // CLEAN QUERY
             // =====================
-            $cleanQuery = preg_replace('/size\s*[a-zA-Z0-9]+/i', '', $query);
+            $cleanQuery = $query;
+
+            // remove price expressions
+            $cleanQuery = preg_replace('/price\s*(under|below|above|over|between|less\s*than|lower\s*than|more\s*than|greater\s*than|max(?:imum)?|min(?:imum)?)?/i', '', $cleanQuery);
+            $cleanQuery = preg_replace('/(under|below|above|over|between|less\s*than|lower\s*than|more\s*than|greater\s*than)\s*\$?\s*\d+(?:\.\d+)?/i', '', $cleanQuery);
+            $cleanQuery = preg_replace('/\$?\s*\d+(?:\.\d+)?\s*(to|-)\s*\$?\s*\d+(?:\.\d+)?/i', '', $cleanQuery);
+            $cleanQuery = preg_replace('/\$?\s*\d+(?:\.\d+)?/i', '', $cleanQuery);
+
+            // remove size and color expressions
+            $cleanQuery = preg_replace('/size\s*[a-zA-Z0-9]+/i', '', $cleanQuery);
             $cleanQuery = preg_replace('/color\s*[a-zA-Z]+/i', '', $cleanQuery);
-            $cleanQuery = str_replace('with', '', $cleanQuery);
-            $cleanQuery = trim($cleanQuery);
+
+            // remove leftover filler words
+            $cleanQuery = preg_replace('/\b(with|and|or|for|the|a|an|in|under|above|over|between)\b/i', ' ', $cleanQuery);
+
+            // clean extra spaces
+            $cleanQuery = trim(preg_replace('/\s+/', ' ', $cleanQuery));
+
+            // fallback if query becomes empty
+            if (empty($cleanQuery)) {
+                $cleanQuery = $request->input('query');
+            }
 
             // =====================
             // PYTHON AI SEARCH
@@ -589,69 +630,92 @@ class ProductController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Python server error',
-                    'body' => $response->body()
+                    'error' => $response->body()
                 ], 500);
             }
 
-            $results = $response->json();
+            // filter by similarity threshold
+            $results = collect($response->json())
+                ->filter(
+                    fn($r) => $r['similarity'] >= self::SIMILARITY_THRESHOLD
+                )
+                ->values()
+                ->toArray();
+
+            if (empty($results)) {
+                return response()->json([
+                    'message' => 'Item not found.',
+                ], 404);
+            }
 
             $productIds = collect($results)->pluck('id');
 
             // =====================
             // DB FILTER
             // =====================
-            $productsQuery = Product::with('variants')
+            $productsQuery = Product::with(['variants', 'category', 'brand'])
                 ->whereIn('id', $productIds);
 
-            $productsQuery->whereHas('variants', function ($q) use ($size, $color) {
+            if ($size || $color) {
+                $productsQuery->whereHas('variants', function ($q) use ($size, $color) {
 
-                if ($size) {
-                    $q->where('size', $size);
-                }
+                    if ($size) {
+                        $q->where('size', $size);
+                    }
 
-                if ($color) {
-                    $q->where('color', $color);
-                }
-            });
+                    if ($color) {
+                        $q->where('color', $color);
+                    }
+                });
+            }
+
+            if ($maxPrice) {
+                $productsQuery->where('price', '<=', $maxPrice);
+            }
+
+            if ($minPrice) {
+                $productsQuery->where('price', '>=', $minPrice);
+            }
 
             $products = $productsQuery->get()->keyBy('id');
 
             // =====================
             // RESPONSE
             // =====================
-            $data = collect($results)->map(function ($result) use ($products) {
+            $data = collect($results)->map(
+                function ($result) use ($products) {
 
-                $product = $products->get($result['id']);
+                    $product = $products->get($result['id']);
 
-                if (!$product)
-                    return null;
+                    if (!$product) {
+                        return null;
+                    }
 
-                return [
-                    'id' => $product->id,
-                    'name' => $product->productName,
-                    'category' => optional(
-                        $product->category
-                    )->name,
-                    'brand' => optional(
-                        $product->brand
-                    )->name,
-                    'description' => $product->description,
-                    'price' => $product->price,
-                    'color' => optional(
-                        $product->variants->first()
-                    )->color,
-                    'image' => $product->image,
-                    'size' => optional(
-                        $product->variants->first()
-                    )->size,
-                    'similarity' => $result['similarity']
-                ];
-            })->filter()->values();
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->productName,
+                        'category' => optional($product->category)->name,
+                        'brand' => optional($product->brand)->name,
+                        'description' => $product->description,
+                        'price' => $product->price,
+                        'color' => optional(
+                            $product->variants->first()
+                        )->color,
+                        'image' => $product->image,
+                        'size' => optional(
+                            $product->variants->first()
+                        )->size,
+                        'similarity' => $result['similarity']
+                    ];
+                }
+            )->filter()->values();
+
             if ($data->isEmpty()) {
                 return response()->json([
                     'message' => 'Item not found.',
                 ], 404);
             }
+
             return response()->json([
                 'message' => 'Search completed successfully',
                 'data' => $data
@@ -664,29 +728,140 @@ class ProductController extends Controller
             ], 500);
         }
     }
-    // Refresh Index
-    public function refreshIndex()
+    // public function searchByText(Request $request)
+    // {
+    //     $request->validate([
+    //         'query' => 'required|string'
+    //     ]);
+
+    //     try {
+
+    //         $query = strtolower($request->input('query'));
+
+    //         // =====================
+    //         // SIZE
+    //         // =====================
+    //         $size = null;
+
+    //         if (preg_match('/size\s*([a-zA-Z0-9]+)/i', $query, $m)) {
+    //             $size = strtoupper($m[1]);
+    //         }
+
+    //         // =====================
+    //         // COLOR
+    //         // =====================
+    //         $color = null;
+
+    //         if (preg_match('/color\s*([a-zA-Z]+)/i', $query, $m)) {
+    //             $color = strtolower($m[1]);
+    //         }
+
+    //         // =====================
+    //         // CLEAN QUERY
+    //         // =====================
+    //         $cleanQuery = preg_replace('/size\s*[a-zA-Z0-9]+/i', '', $query);
+    //         $cleanQuery = preg_replace('/color\s*[a-zA-Z]+/i', '', $cleanQuery);
+    //         $cleanQuery = str_replace('with', '', $cleanQuery);
+    //         $cleanQuery = trim($cleanQuery);
+
+    //         // =====================
+    //         // PYTHON AI SEARCH
+    //         // =====================
+    //         $response = Http::asJson()->post(
+    //             env('PYTHON_AI_URL') . '/search/text',
+    //             [
+    //                 'query' => $cleanQuery
+    //             ]
+    //         );
+
+    //         if ($response->failed()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Python server error',
+    //                 'body' => $response->body()
+    //             ], 500);
+    //         }
+
+    //         $results = $response->json();
+
+    //         $productIds = collect($results)->pluck('id');
+
+    //         // =====================
+    //         // DB FILTER
+    //         // =====================
+    //         $productsQuery = Product::with('variants')
+    //             ->whereIn('id', $productIds);
+
+    //         $productsQuery->whereHas('variants', function ($q) use ($size, $color) {
+
+    //             if ($size) {
+    //                 $q->where('size', $size);
+    //             }
+
+    //             if ($color) {
+    //                 $q->where('color', $color);
+    //             }
+    //         });
+
+    //         $products = $productsQuery->get()->keyBy('id');
+
+    //         // =====================
+    //         // RESPONSE
+    //         // =====================
+    //         $data = collect($results)->map(function ($result) use ($products) {
+
+    //             $product = $products->get($result['id']);
+
+    //             if (!$product)
+    //                 return null;
+
+    //             return [
+    //                 'id' => $product->id,
+    //                 'name' => $product->productName,
+    //                 'category' => optional(
+    //                     $product->category
+    //                 )->name,
+    //                 'brand' => optional(
+    //                     $product->brand
+    //                 )->name,
+    //                 'description' => $product->description,
+    //                 'price' => $product->price,
+    //                 'color' => optional(
+    //                     $product->variants->first()
+    //                 )->color,
+    //                 'image' => $product->image,
+    //                 'size' => optional(
+    //                     $product->variants->first()
+    //                 )->size,
+    //                 'similarity' => $result['similarity']
+    //             ];
+    //         })->filter()->values();
+    //         if ($data->isEmpty()) {
+    //             return response()->json([
+    //                 'message' => 'Item not found.',
+    //             ], 404);
+    //         }
+    //         return response()->json([
+    //             'message' => 'Search completed successfully',
+    //             'data' => $data
+    //         ]);
+
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+    private function refreshAllIndex()
     {
         try {
-
-            $response = Http::post(
-                env('PYTHON_AI_URL') . '/refresh'
-            );
-
-            if ($response->failed()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to refresh index',
-                    'error' => $response->body()
-                ], 500);
-            }
-
-            return response()->json($response->json());
-
+            Http::post(env('PYTHON_AI_URL') . '/refresh');
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Failed to refresh index',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
