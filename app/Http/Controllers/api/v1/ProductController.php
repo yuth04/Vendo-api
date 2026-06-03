@@ -448,7 +448,7 @@ class ProductController extends Controller
             ], 500);
         }
     }
-    
+
     // =========================
     // Get All Product Images
     // =========================
@@ -461,11 +461,7 @@ class ProductController extends Controller
 
         return response()->json($images);
     }
-
-    // =========================
     // Visual Search
-    // =========================
-
     public function searchImage(Request $request)
     {
         $request->validate([
@@ -542,11 +538,7 @@ class ProductController extends Controller
             ], 500);
         }
     }
-
-    // =========================
     // Text Search
-    // =========================
-
     public function searchByText(Request $request)
     {
         $request->validate([
@@ -586,7 +578,7 @@ class ProductController extends Controller
             // =====================
             // PYTHON AI SEARCH
             // =====================
-            $response = Http::post(
+            $response = Http::asJson()->post(
                 env('PYTHON_AI_URL') . '/search/text',
                 [
                     'query' => $cleanQuery
@@ -664,6 +656,32 @@ class ProductController extends Controller
                 'message' => 'Search completed successfully',
                 'data' => $data
             ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+    // Refresh Index
+    public function refreshIndex()
+    {
+        try {
+
+            $response = Http::post(
+                env('PYTHON_AI_URL') . '/refresh'
+            );
+
+            if ($response->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to refresh index',
+                    'error' => $response->body()
+                ], 500);
+            }
+
+            return response()->json($response->json());
 
         } catch (\Exception $e) {
             return response()->json([
