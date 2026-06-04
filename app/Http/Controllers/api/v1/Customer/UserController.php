@@ -58,6 +58,11 @@ class UserController extends Controller
     }
     public function getAllAdmin()
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can access this endpoint',
+            ], 403);
+        }
         $users = User::whereIn('role', ["super-admin", "admin"])->orderBy('id', 'asc')->get();
         return response()->json([
             'message' => 'Admins retrieved success',
@@ -75,6 +80,11 @@ class UserController extends Controller
     // update user
     public function updateUser(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can access this endpoint',
+            ], 403);
+        }
         $user = User::find($id);
 
         if (!$user) {
@@ -82,12 +92,7 @@ class UserController extends Controller
                 'message' => 'User not found.'
             ], 404);
         }
-        if (auth()->user()->role !== 'super-admin') {
-            return response()->json([
-                'message' => 'Only super-admin can action this.'
-            ], 403);
 
-        }
         $request->validate([
             'first_name' => 'sometimes|string|max:255',
             'last_name' => 'sometimes|string|max:255',
@@ -203,6 +208,11 @@ class UserController extends Controller
     // search admin by id
     public function searchAdmin($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can access this endpoint',
+            ], 403);
+        }
         $user = User::whereIn('role', ['super-admin', 'admin', 'staff'])->find($id);
         if (!$user) {
             return response()->json([
@@ -281,6 +291,11 @@ class UserController extends Controller
     // delete user
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json([
+                'message' => 'Only super-admin can access this endpoint',
+            ], 403);
+        }
         $user = User::find($id);
         if (!$user) {
             return response()->json([

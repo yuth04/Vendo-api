@@ -3,6 +3,7 @@
 
 
 use App\Http\Controllers\api\v1\Admin\AdminProductController;
+use App\Http\Controllers\api\v1\admin\ChatbotController;
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
@@ -58,7 +59,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/variants/pdf', [ExportController::class, 'exportVariantPDF']);
     Route::get('/product-damages/excel', [ExportController::class, 'exportProductDamageExcel']);
     Route::get('/product-damages/pdf', [ExportController::class, 'exportProductDamagePdf']);
-    Route::get('/orders/{orderId}/invoice',[ExportController::class, 'downloadInvoice']
+    Route::get(
+        '/orders/{orderId}/invoice',
+        [ExportController::class, 'downloadInvoice']
     );
 
     Route::get('api/health', function () {
@@ -88,10 +91,29 @@ Route::prefix('v1')->group(function () {
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
         // Image search
-        Route::get('/product-images/all',[ProductController::class, 'allImages']);
-        Route::post('/visual-search',[ProductController::class, 'searchImage'] );
-        Route::post('/text-search',[ProductController::class, 'searchByText']
+        Route::get('/product-images/all', [ProductController::class, 'allImages']);
+        Route::post('/visual-search', [ProductController::class, 'searchImage']);
+        Route::post(
+            '/text-search',
+            [ProductController::class, 'searchByText']
         );
+        Route::get('/chat/models', function () {
+            $apiKey = env('GEMINI_API_KEY');
+
+            $response = \Illuminate\Support\Facades\Http::withoutVerifying()
+                ->get("https://generativelanguage.googleapis.com/v1beta/models?key={$apiKey}");
+
+            // Extract just the model names
+            $models = collect($response->json('models'))
+                ->pluck('name')
+                ->filter(fn($name) => str_contains($name, 'gemini'))
+                ->values();
+
+            return response()->json([
+                'available_models' => $models
+            ]);
+        });
+
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
@@ -137,6 +159,12 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
+        });
+        // Chatbot
+        Route::prefix('chat')->group(function () {
+            Route::post('/', [ChatbotController::class, 'chat']);
+            Route::post('/conversation', [ChatbotController::class, 'conversation']);
+            Route::post('/custom', [ChatbotController::class, 'customChat']);
         });
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);

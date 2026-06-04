@@ -45,5 +45,13 @@ return [
         'api_url' => env('BAKONG_API_URL'),
         'token' => env('BAKONG_TOKEN'),
     ],
+    'huggingface' => [
+        'token' => env('HF_TOKEN'),
+        'model' => env('HF_MODEL', '')
+
+    ],
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+    ],
 
 ];
