@@ -8,6 +8,7 @@ use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
+use App\Http\Controllers\api\v1\admin\StoreSettingController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -151,7 +152,9 @@ Route::prefix('v1')->group(function () {
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
-
+        // Footer
+        Route::get('/footers', [StoreSettingController::class, 'index']);
+        Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
 
     });
 
@@ -349,6 +352,14 @@ Route::prefix('v1')->group(function () {
             // SUPER ADMIN ONLY — danger zone
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
+            });
+            Route::prefix('footers')->group(function () {
+                Route::get('/', [StoreSettingController::class, 'getAll']);
+                Route::get('/{id}', [StoreSettingController::class, 'getById']);
+                Route::post('/', [StoreSettingController::class, 'store']);
+                Route::put('/bulk-update', [StoreSettingController::class, 'bulkUpdate']); // ← must be before /{id}
+                Route::put('/{id}', [StoreSettingController::class, 'update']);
+                Route::delete('/{id}', [StoreSettingController::class, 'destroy']);
             });
         });
     });

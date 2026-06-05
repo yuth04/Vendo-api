@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1\admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\StoreSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Models\Product;
@@ -91,29 +92,22 @@ class ChatbotController extends Controller
         $msg = strtolower($message);
 
         return match (true) {
-            // Order intent
             str_contains($msg, 'last order'),
             str_contains($msg, 'my order'),
             str_contains($msg, 'order status'),
             str_contains($msg, 'where is my order') => 'order',
 
-            // Product intent
             str_contains($msg, 'buy'),
-            str_contains($msg, 'color'),
-            str_contains($msg, 'sold'),
+            str_contains($msg, 'shoes'),
+            str_contains($msg, 'reasonable'),
             str_contains($msg, 'product'),
-            str_contains($msg, 'price'),
-            str_contains($msg, 'under'),
-            str_contains($msg, 'below'),
-            str_contains($msg, 'cheap'),
-            str_contains($msg, 'affordable'),
-            str_contains($msg, 'recommend'),
-            str_contains($msg, 'suggest') => 'product', // ← was missing
+            str_contains($msg, 'color'),
+            str_contains($msg, 'price') => 'product',
 
-            // Support intent
             str_contains($msg, 'refund'),
             str_contains($msg, 'return'),
             str_contains($msg, 'cancel') => 'support',
+
 
             default => 'ai',
         };
@@ -224,7 +218,7 @@ class ChatbotController extends Controller
     {
         $storeData = $this->getRelevantStoreData($message);
         $currentTime = now()->timezone('Asia/Phnom_Penh')->format('l, d M Y H:i');
-
+        $s = StoreSetting::allKeyed();
         return "
             You are Vendo Assistant, a friendly, professional, and knowledgeable customer support chatbot for Vendo Online Store.
             You are chatting with: {$customerName}.
@@ -233,13 +227,14 @@ class ChatbotController extends Controller
             =====================
             STORE INFORMATION
             =====================
-            - Store Name: Vendo Online Store
-            - Website: https://vendo-ecommerce-two.vercel.app
-            - Location: Phnom Penh, Cambodia
-            - Support Email: support@vendo.com
-            - Support Phone: +855 xx xxx xxx
-            - Support Hours: Monday to Friday, 9:00 AM - 6:00 PM (Cambodia Time)
-            - Social Media: Facebook: fb.com/vendo, Instagram: @vendostore
+            - Store Name: {$s['store_name']}
+            - Website: {$s['store_website']}
+            - Location: {$s['store_address']}
+            - Support Email: {$s['store_email']}
+            - Support Phone: {$s['store_phone']}
+            - Support Hours: {$s['store_hours']}
+            - Facebook: {$s['social_facebook']}
+            - Instagram: {$s['social_instagram']}
 
             =====================
             YOUR PERSONALITY
