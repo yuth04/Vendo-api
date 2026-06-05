@@ -80,9 +80,9 @@ class UserController extends Controller
     // update user
     public function updateUser(Request $request, $id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+        if (auth()->user()->role !== 'super-admin') {
             return response()->json([
-                'message' => 'Only super-admin and admin can access this endpoint',
+                'message' => 'Only super-admin can access this endpoint',
             ], 403);
         }
         $user = User::find($id);
@@ -208,9 +208,9 @@ class UserController extends Controller
     // search admin by id
     public function searchAdmin($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+        if (auth()->user()->role !== 'super-admin') {
             return response()->json([
-                'message' => 'Only super-admin and admin can access this endpoint',
+                'message' => 'Only super-admin can access this endpoint',
             ], 403);
         }
         $user = User::whereIn('role', ['super-admin', 'admin', 'staff'])->find($id);
@@ -317,7 +317,7 @@ class UserController extends Controller
     public function updateRoleUser(Request $request, $id)
     {
         $authUser = Auth::user();
-        if (auth()->user()->role !== 'super-admin') {
+        if ($authUser->role !== 'super-admin' && $authUser->role !== 'admin') {
             return response()->json([
                 'message' => 'Only super-admin can access this endpoint',
             ], 403);
@@ -334,7 +334,27 @@ class UserController extends Controller
                 'message' => 'User not found.'
             ], 404);
         }
+        if ($user->id === $authUser->id) {
+            return response()->json([
+                'message' => 'You cannot change your own role.'
+            ], 403);
+        }
 
+        // admin restriction
+        if ($authUser->role === 'admin') {
+            // admin cannot update super-admin
+            if ($user->role === 'super-admin') {
+                return response()->json([
+                    'message' => 'Admin cannot update super-admin role.'
+                ], 403);
+            }
+            // Admin can update admin, staff, and customer
+            if (!in_array($request->role, ['admin', 'staff', 'customer'])) {
+                return response()->json([
+                    'message' => 'Admin can only assign admin, staff and customer roles.'
+                ], 403);
+            }
+        }
         if ($user->role === $request->role) {
             return response()->json([
                 'message' => "This user is already {$user->role}."

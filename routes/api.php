@@ -208,44 +208,6 @@ Route::prefix('v1')->group(function () {
             Route::put('/{id}', [AddressController::class, 'update']);
             Route::delete('/{id}', [AddressController::class, 'destroy']);
         });
-
-        // -----------------------------------------------
-        // STAFF ROUTES
-        // -----------------------------------------------
-        Route::middleware(['role:staff'])->prefix('staff')->group(function () {
-
-            // Orders — status updates only
-            Route::get('/pos-orders', [PosController::class, 'orderHistory']);
-            Route::get('/order-details/{id}', [PosController::class, 'orderDetails']);
-            Route::patch('/orders/confirm/{id}', [UpdateStatusController::class, 'markAsConfirmed']);
-            Route::patch('/orders/ship/{id}', [UpdateStatusController::class, 'markAsShipping']);
-            Route::patch('/orders/deliver/{id}', [UpdateStatusController::class, 'markAsDelivered']);
-            Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
-
-            // Return Orders — view & process
-            Route::get('/returns', [ReturnOrderController::class, 'getAll']);
-            Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
-            Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
-            Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
-            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
-
-            // Product Damages — view & report only
-            Route::get('/product-damages', [ProductDamageController::class, 'index']);
-            Route::post('/product-damages', [ProductDamageController::class, 'store']);
-
-            // Products & Variants — read only
-            Route::get('/products', [ProductPermissionController::class, 'index']);
-            Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
-            Route::get('/product-variants', [ProductPermissionController::class, 'variant']);
-            Route::get('/product-variants/{id}', [ProductPermissionController::class, 'variantId']);
-
-            // Stock — read only
-            Route::prefix('dashboard')->group(function () {
-                Route::get('/stocks', [DashboardController::class, 'stock']);
-                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
-            });
-        });
-
         // -----------------------------------------------
         // SUPER ADMIN ROUTES
         // -----------------------------------------------
@@ -384,9 +346,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
             Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
 
-            // -----------------------------------------------
             // SUPER ADMIN ONLY — danger zone
-            // -----------------------------------------------
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
             });
