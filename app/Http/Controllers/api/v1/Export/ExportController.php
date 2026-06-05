@@ -10,6 +10,7 @@ use App\Exports\ProductsReportExport;
 use App\Exports\ProductVariantsExport;
 use App\Exports\ReturnHistoryExport;
 use App\Exports\SalesReportExport;
+use App\Exports\StaffExport;
 use App\Exports\StockExport;
 use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
@@ -276,37 +277,7 @@ class ExportController extends Controller
 
         return $pdf->download('admins-report.pdf');
     }
-    public function exportStaffsPDF(Request $request)
-    {
-        $startDate = $request->start_date;
-        $endDate = $request->end_date;
 
-        // Base query
-        $query = User::where('role', 'staff');
-
-        // Apply filter for listing
-        if ($startDate && $endDate) {
-            $query->whereBetween('created_at', [$startDate, $endDate]);
-        }
-
-        $users = $query->get();
-        $stats = [
-            'total_staff' => $users->count(),
-            'active_staff' => $users->where('status', 'active')->count(),
-            'inactive_staff' => $users->where('status', 'inactive')->count(),
-
-
-            'new_staff' => ($startDate && $endDate)
-                ? User::where('role', 'staff')
-                    ->whereBetween('created_at', [$startDate, $endDate])
-                    ->count()
-                : 0,
-        ];
-
-        $pdf = Pdf::loadView('reports.staffs', compact('users', 'stats', 'startDate', 'endDate'));
-
-        return $pdf->download('staffs-report.pdf');
-    }
     // Stocks
     public function exportStock()
     {
@@ -446,5 +417,46 @@ class ExportController extends Controller
 
         return $pdf->download('product-damages.pdf');
     }
+    // Staffs
+    public function exportStaffsExcel()
+    {
+        return Excel::download(
+            new StaffExport(),
+            'staffs.xlsx'
+        );
+    }
+    public function exportStaffsPDF()
+    {
+        $staffs = User::where('role', 'staff')->get();
 
+        $stats = [
+            'total_staffs' => $staffs->count(),
+            'active_staffs' => $staffs->where('status', 'active')->count(),
+            'inactive_staffs' => $staffs->where('status', 'inactive')->count(),
+            'new_staffs' => $staffs->where('created_at', '>=', now()->subDays(30))->count(),
+        ];
+
+        $pdf = Pdf::loadView('reports.staffs', compact('staffs', 'stats'));
+
+        return $pdf->download('staff-report.pdf');
+    }
+    // user invoice
+    public function downloadInvoice($orderId)
+    {
+        $order = Order::with([
+            'user',
+            'items.product',
+            'items.variant',
+            'payment'
+        ])->findOrFail($orderId);
+
+        $pdf = Pdf::loadView(
+            'invoices.order-invoice',
+            compact('order')
+        );
+
+        return $pdf->download(
+            'invoice-' . $order->order_number . '.pdf'
+        );
+    }
 }

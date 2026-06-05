@@ -83,6 +83,12 @@ class ProductDamageController extends Controller
     // Store
     public function store(Request $request)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can create product damage records'
+            ], 403);
+
+        }
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'reason' => 'required|string|max:255',
@@ -136,11 +142,17 @@ class ProductDamageController extends Controller
     }
     public function update(Request $request, $id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can update product damage records'
+            ], 403);
+
+        }
         $damage = ProductDamage::find($id);
         if (!$damage) {
             return response()->json([
                 'message' => 'Product damage not found'
-            ]);
+            ], 404);
         }
         $request->validate([
             'product_id' => 'required|exists:products,id',
@@ -196,6 +208,12 @@ class ProductDamageController extends Controller
     }
     public function destroy($id)
     {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            return response()->json([
+                'message' => 'Only super-admin and admin can delete product damage records'
+            ], 403);
+
+        }
         $damage = ProductDamage::find($id);
 
         if (!$damage) {
