@@ -1,41 +1,47 @@
 <?php
 
-namespace App\Http\Controllers\api\v1\admin;
+namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\StoreSetting;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Models\Product;
 use App\Models\Order;
+use App\Models\Product;
+use App\Models\StoreSetting;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class ChatbotController extends Controller
 {
-    private string $apiKey;
-    private string $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-
     private const MAX_HISTORY = 20;
+    private const GEMINI_MODEL = 'gemini-2.5-flash';
+    private const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+    private string $apiKey;
+    private string $apiUrl;
 
     public function __construct()
     {
         $this->apiKey = config('services.gemini.key', '');
+        $this->apiUrl = self::GEMINI_BASE_URL . '/' . self::GEMINI_MODEL . ':generateContent';
     }
 
+    // =========================================================================
+    // PUBLIC ENDPOINT
+    // =========================================================================
+
     /**
-     * Main customer support chat
      * POST /api/v1/admin/chat
+     * Main customer-support entry point.
      */
     public function chat(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'message' => 'required|string|max:2000',
-            'history' => 'nullable|array',
+            'history' => 'nullable|array|max:' . self::MAX_HISTORY,
             'history.*.role' => 'required|in:user,model',
-            'history.*.name' => 'nullable|string',
-            'history.*.text' => 'required|string',
+            'history.*.text' => 'required|string|max:4000',
             'customer_name' => 'nullable|string|max:100',
         ]);
 
@@ -47,357 +53,394 @@ class ChatbotController extends Controller
         }
 
         try {
-            $message = $request->input('message');
-            $customerName = $request->input('customer_name', 'Customer');
-
-            // Cap history to avoid hitting context limits
+            $message = trim($request->string('message'));
+            $customerName = trim($request->string('customer_name', 'Customer'));
             $history = array_slice($request->input('history', []), -self::MAX_HISTORY);
 
-            // Detect intent and route
             $intent = $this->detectIntent($message);
 
             $reply = match ($intent) {
-                'order' => $this->handleOrder($request),
+                'order' => $this->handleOrder($request, $message),
                 'product' => $this->handleProduct($message),
-                'support' => $this->handleSupport($message, $customerName, $history),
-                default => $this->handleAI($message, $customerName, $history),
+                default => $this->handleAI($message, $customerName, $history, $intent),
             };
 
-            // Update history
             $updatedHistory = $history;
-            $updatedHistory[] = ['role' => 'user', 'name' => $customerName, 'text' => $message];
-            $updatedHistory[] = ['role' => 'model', 'name' => 'Vendo Assistant', 'text' => $reply];
+            $updatedHistory[] = ['role' => 'user', 'text' => $message];
+            $updatedHistory[] = ['role' => 'model', 'text' => $reply];
 
             return response()->json([
                 'success' => true,
                 'reply' => $reply,
+                'intent' => $intent,
                 'history' => $updatedHistory,
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Chatbot Error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('ChatbotController error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong. Please try again.',
+                'reply' => 'Something went wrong on our end. Please try again shortly.',
             ], 500);
         }
     }
 
+    // =========================================================================
+    // INTENT DETECTION
+    // =========================================================================
+
     /**
-     * Detect the intent from the customer message
+     * Classify the customer's message into a routing intent.
+     * Rules are ordered from most-specific to most-general to avoid misfires.
      */
     private function detectIntent(string $message): string
     {
-        $msg = strtolower($message);
+        $msg = mb_strtolower($message);
 
-        return match (true) {
-            str_contains($msg, 'last order'),
-            str_contains($msg, 'my order'),
-            str_contains($msg, 'order status'),
-            str_contains($msg, 'where is my order') => 'order',
+        // Support / policy queries first — so "refund for my order" → support, not order
+        if ($this->matches($msg, ['refund', 'return', 'exchange', 'cancel', 'complaint', 'damaged', 'wrong item', 'missing item'])) {
+            return 'support';
+        }
 
-            str_contains($msg, 'buy'),
-            str_contains($msg, 'shoes'),
-            str_contains($msg, 'reasonable'),
-            str_contains($msg, 'product'),
-            str_contains($msg, 'color'),
-            str_contains($msg, 'price') => 'product',
+        // Order status queries
+        if ($this->matches($msg, ['my order', 'order status', 'where is my', 'track my', 'order #', 'last order', 'did my order'])) {
+            return 'order';
+        }
 
-            str_contains($msg, 'refund'),
-            str_contains($msg, 'return'),
-            str_contains($msg, 'cancel') => 'support',
+        // Product / catalogue queries
+        if ($this->matches($msg, ['buy', 'purchase', 'product', 'item', 'price', 'cost', 'how much', 'available', 'in stock', 'out of stock', 'category', 'brand', 'color', 'size', 'laptop', 'phone', 'shoes'])) {
+            return 'product';
+        }
 
-
-            default => 'ai',
-        };
+        return 'ai';
     }
 
     /**
-     * Handle order intent — requires authenticated user
+     * Return true if $haystack contains any of the $needles.
      */
-    private function handleOrder(Request $request): string
+    private function matches(string $haystack, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // =========================================================================
+    // INTENT HANDLERS
+    // =========================================================================
+
+    /**
+     * Return the authenticated user's latest order — or look up a specific
+     * order ID mentioned in the message, scoped to the current user.
+     */
+    private function handleOrder(Request $request, string $message): string
     {
         $user = $request->user();
 
         if (!$user) {
-            return 'Please log in so I can check your order history.';
+            return 'Please log in so I can pull up your order details for you.';
         }
 
-        $order = Order::where('user_id', $user->id)
-            ->latest()
-            ->first();
+        // Did the customer mention a specific order number?
+        preg_match('/\border[#:\s]*(\d{3,10})\b/i', $message, $matches);
+
+        $order = isset($matches[1])
+            ? Order::where('id', $matches[1])
+                ->where('user_id', $user->id) // ownership check — critical
+                ->first()
+            : Order::where('user_id', $user->id)->latest()->first();
 
         if (!$order) {
-            return "You don't have any orders yet. Is there anything else I can help you with?";
+            $hint = isset($matches[1])
+                ? "I couldn't find order #{$matches[1]} linked to your account. Could you double-check the number?"
+                : "You don't have any orders yet. Can I help you find something to buy?";
+            return $hint;
         }
 
-        return "Your latest order #{$order->id}.Order number:{$order->order_number} is currently {$order->status}. Total: \${$order->total_price}. Is there anything else I can help you with?";
+        $statusLabel = $this->humanizeOrderStatus($order->status);
+
+        return "Here's your order #{$order->order_number}: it is currently {$statusLabel}. "
+            . "Total paid: \${$order->total_price}. "
+            . "Placed on: {$order->created_at->format('M d, Y')}. "
+            . "Is there anything else I can help you with?";
     }
 
     /**
-     * Handle product intent — search products by keyword
+     * Search the product catalogue using filters extracted from the message.
      */
     private function handleProduct(string $message): string
     {
-        $msg = strtolower($message);
-
-        // Extract price filter e.g. "under $50", "below $100", "less than $200"
-        $maxPrice = null;
-        if (preg_match('/(?:under|below|less than|cheaper than)\s*\$?\s*(\d+)/i', $message, $m)) {
-            $maxPrice = (float) $m[1];
-        }
+        $msg = mb_strtolower($message);
+        $maxPrice = $this->extractMaxPrice($message);
+        $keyword = $this->extractProductKeyword($msg);
 
         $products = Product::select('id', 'name', 'price', 'stock', 'category', 'status')
             ->where('status', 'active')
             ->when($maxPrice, fn($q) => $q->where('price', '<=', $maxPrice))
-            ->when(str_contains($msg, 'phone'), fn($q) => $q->where('category', 'phone'))
-            ->when(str_contains($msg, 'laptop'), fn($q) => $q->where('category', 'laptop'))
+            ->when($keyword, fn($q) => $q->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                    ->orWhere('category', 'like', "%{$keyword}%");
+            }))
             ->orderBy('price', 'asc')
-            ->take(5)
+            ->limit(5)
             ->get();
 
         if ($products->isEmpty()) {
-            $priceNote = $maxPrice ? " under \${$maxPrice}" : '';
-            return "I couldn't find any products{$priceNote} at the moment. Is there anything else I can help you with?";
+            $note = $maxPrice ? " under \${$maxPrice}" : '';
+            return "I couldn't find any products{$note} right now. Would you like me to suggest our most popular items instead?";
         }
 
-        $lines = $products->map(function ($p) {
-            $name = $p->name ?? 'Unknown Product';
-            $price = $p->price ?? '0.00';
-            $stock = $p->stock > 0 ? 'In Stock' : 'Out of Stock';
-            return "- {$name} (\${$price}) — {$stock}";
-        })->join("\n");
+        $lines = $products->map(function (Product $p) {
+            $stock = $p->stock > 0 ? "In Stock ({$p->stock} left)" : 'Out of Stock';
+            return "- {$p->name} | \${$p->price} | {$stock}";
+        })->implode("\n");
 
-        $priceNote = $maxPrice ? " under \${$maxPrice}" : '';
+        $note = $maxPrice ? " under \${$maxPrice}" : '';
 
-        return "Here are some products{$priceNote}:\n{$lines}\n\nIs there anything else I can help you with?";
+        return "Here are some products{$note} I found for you:\n{$lines}\n\nWould you like more details on any of these?";
     }
 
     /**
-     * Handle support intent (refund, return, cancel) via AI
+     * Route to the AI with a support-specific context hint injected.
      */
     private function handleSupport(string $message, string $customerName, array $history): string
     {
-        return $this->handleAI($message, $customerName, $history);
+        // Prepend a policy context hint so the AI focuses on the right policies
+        $contextualMessage = "[Customer is asking about returns, refunds, or cancellations] {$message}";
+        return $this->handleAI($contextualMessage, $customerName, $history, 'support');
     }
 
     /**
-     * Handle general AI fallback via Gemini
+     * General AI fallback via Gemini — used for support, greeting, and unknown intents.
      */
-    private function handleAI(string $message, string $customerName, array $history): string
+    private function handleAI(string $message, string $customerName, array $history, string $intent = 'ai'): string
     {
-        $systemPrompt = $this->buildSystemPrompt($customerName, $message);
-
-        $contents = [];
-
-        foreach ($history as $item) {
-            $contents[] = [
-                'role' => $item['role'],
-                'parts' => [['text' => $item['text']]],
-            ];
+        // For support intent, inject a policy hint before the message
+        if ($intent === 'support') {
+            $message = "[Customer is asking about returns, refunds, or cancellations] {$message}";
         }
 
-        $contents[] = [
-            'role' => 'user',
-            'parts' => [['text' => $message]],
-        ];
+        $systemPrompt = $this->buildSystemPrompt($customerName, $message);
+
+        $contents = collect($history)
+            ->map(fn($item) => [
+                'role' => $item['role'],
+                'parts' => [['text' => $item['text']]],
+            ])
+            ->push([
+                'role' => 'user',
+                'parts' => [['text' => $message]],
+            ])
+            ->all();
 
         return $this->callGemini([
-            'system_instruction' => [
-                'parts' => [['text' => $systemPrompt]],
-            ],
+            'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
             'contents' => $contents,
+            'generationConfig' => [
+                'temperature' => 0.7,
+                'maxOutputTokens' => 512,
+            ],
         ]);
     }
 
+    // =========================================================================
+    // SYSTEM PROMPT
+    // =========================================================================
+
     /**
-     * Build system prompt with real store data
+     * Build a rich, grounded system prompt for the AI using live store data.
      */
     private function buildSystemPrompt(string $customerName, string $message): string
     {
+        $s = StoreSetting::allKeyed();
         $storeData = $this->getRelevantStoreData($message);
         $currentTime = now()->timezone('Asia/Phnom_Penh')->format('l, d M Y H:i');
-        $s = StoreSetting::allKeyed();
-        return "
-            You are Vendo Assistant, a friendly, professional, and knowledgeable customer support chatbot for Vendo Online Store.
-            You are chatting with: {$customerName}.
-            Current date and time: {$currentTime} (Phnom Penh, Cambodia time)
 
-            =====================
-            STORE INFORMATION
-            =====================
-            - Store Name: {$s['store_name']}
-            - Website: {$s['store_website']}
-            - Location: {$s['store_address']}
-            - Support Email: {$s['store_email']}
-            - Support Phone: {$s['store_phone']}
-            - Support Hours: {$s['store_hours']}
-            - Facebook: {$s['social_facebook']}
-            - Instagram: {$s['social_instagram']}
+        $storeName = $s['store_name'] ?? 'Vendo';
+        $storeWebsite = $s['store_website'] ?? '';
+        $storeAddress = $s['store_address'] ?? '';
+        $storeEmail = $s['store_email'] ?? 'support@vendo.com';
+        $storePhone = $s['store_phone'] ?? '';
+        $storeHours = $s['store_hours'] ?? 'Mon–Fri, 9AM–6PM';
+        $facebook = $s['social_facebook'] ?? '';
+        $instagram = $s['social_instagram'] ?? '';
 
-            =====================
-            YOUR PERSONALITY
-            =====================
-            - Friendly, warm, and welcoming
-            - Professional but not robotic
-            - Patient and empathetic especially with frustrated customers
-            - Concise, never give unnecessarily long answers
-            - Proactive, always offer next steps or additional help
-            - Use the customer name ({$customerName}) occasionally to make it personal
+        return <<<PROMPT
+You are Vendo Assistant, the friendly and knowledgeable AI customer support agent for {$storeName} — a trusted online e-commerce store.
+You are currently chatting with: {$customerName}.
+Current date and time: {$currentTime} (Phnom Penh, Cambodia)
 
-            =====================
-            YOUR RESPONSIBILITIES
-            =====================
-            - Greet customers warmly when they first message
-            - Help customers track and check their order status
-            - Answer questions about products, availability, and pricing
-            - Explain store policies clearly (shipping, returns, payments)
-            - Handle complaints calmly and empathetically
-            - Suggest popular or related products when relevant
-            - Escalate to human agent when issue is too complex
-            - Collect feedback at end of conversation
+=====================
+STORE INFORMATION
+=====================
+- Store Name:    {$storeName}
+- Website:       {$storeWebsite}
+- Address:       {$storeAddress}
+- Support Email: {$storeEmail}
+- Support Phone: {$storePhone}
+- Support Hours: {$storeHours}
+- Facebook:      {$facebook}
+- Instagram:     {$instagram}
 
-            =====================
-            STORE POLICIES
-            =====================
+=====================
+YOUR PERSONALITY
+=====================
+- Warm, friendly, and genuinely helpful — like a knowledgeable shop assistant
+- Professional but never robotic or stiff
+- Patient and empathetic, especially with frustrated customers
+- Concise — never give long walls of text unless the question requires detail
+- Proactive — always offer a clear next step or follow-up
+- Occasionally use the customer's name ({$customerName}) to make it personal
 
-            SHIPPING:
-            - Standard Delivery: 3-5 business days (Free for orders over \$50)
-            - Express Delivery: 1-2 business days (\$5 fee)
-            - Same Day Delivery: Available in Phnom Penh only (\$8 fee, order before 12PM)
-            - International Shipping: Not available yet
+=====================
+YOUR RESPONSIBILITIES
+=====================
+1. Greet customers warmly on first message
+2. Help check order status and track deliveries
+3. Answer product questions (price, availability, specifications)
+4. Explain store policies clearly (shipping, returns, payments, cancellations)
+5. Handle complaints calmly — apologise first, then solve
+6. Suggest related or popular products when relevant
+7. Escalate to a human agent when issues are too complex
+8. Collect a quick satisfaction signal at end of resolved conversations
 
-            RETURNS AND REFUNDS:
-            - 30-day return policy for unused and unopened items
-            - Items must be in original packaging
-            - Refund processed within 3-5 business days after item received
-            - Non-returnable: Digital products, Sale items, Intimate wear
-            - To start a return, email support@vendo.com with order ID
+=====================
+STORE POLICIES
+=====================
 
-            PAYMENTS:
-            - ABA Pay
-            - Wing Money
-            - Cash on Delivery (COD)
-            - Visa / Mastercard
-            - PayPal
-            - Installment plans available for orders over \$100
+SHIPPING:
+- Standard: 3–5 business days (Free on orders over \$50)
+- Express: 1–2 business days (\$5 fee)
+- Same Day: Phnom Penh only (\$8 fee, order before 12PM)
+- International: Not available yet
 
-            CANCELLATIONS:
-            - Orders can be cancelled within 1 hour of placing
-            - After 1 hour, cancellation is not guaranteed if order is already packed
-            - To cancel, contact support immediately with order ID
+RETURNS & REFUNDS:
+- 30-day return window for unused, unopened items in original packaging
+- Refund processed within 3–5 business days after item received
+- Non-returnable: digital products, sale items, intimate wear
+- To start a return: email {$storeEmail} with your order ID
 
-            =====================
-            ORDER STATUS MEANINGS
-            =====================
-            - Pending: Order placed, waiting for confirmation
-            - Confirmed: Order confirmed, preparing for shipment
-            - Processing: Order is being packed
-            - Shipped: Order is on the way
-            - Out for Delivery: Order will arrive today
-            - Delivered: Order has been delivered
-            - Cancelled: Order has been cancelled
-            - Refunded: Refund has been processed
+PAYMENTS ACCEPTED:
+- ABA Pay, Wing Money, Cash on Delivery (COD)
+- Visa / Mastercard, PayPal
+- Installment plans available for orders over \$100
 
-            =====================
-            LIVE STORE DATA
-            =====================
-            {$storeData}
+CANCELLATIONS:
+- Cancel within 1 hour of placing the order (contact support immediately)
+- After 1 hour, cancellation is not guaranteed if order is already packed
 
-            =====================
-            CONVERSATION RULES
-            =====================
-            - Always be polite and professional even if customer is rude
-            - Use plain text only, never use Markdown like **, *, #, _, or bullet symbols
-            - Reply in the same language the customer uses (Khmer or English)
-            - If customer writes in Khmer, reply fully in Khmer
-            - Keep replies short and clear, maximum 5 sentences unless more detail is needed
-            - Never guess or make up order details, product prices, or store information
-            - If order is not found, politely ask customer to double check the order ID
-            - If question is outside your knowledge, offer to connect to a human agent
-            - Always end with offering further help
-            - Never share other customers personal information
-            - If customer seems angry or frustrated, apologize first before giving information
-            - Do not discuss politics, religion, or topics unrelated to the store
-            - If asked who made you or what AI you are, say: I am Vendo Assistant, here to help you shop better
+=====================
+ORDER STATUS GUIDE
+=====================
+- Pending:          Order placed, awaiting confirmation
+- Confirmed:        Confirmed, preparing for shipment
+- Processing:       Being packed
+- Shipped:          On its way
+- Out for Delivery: Arriving today
+- Delivered:        Successfully delivered
+- Cancelled:        Order cancelled
+- Refunded:         Refund has been processed
 
-            =====================
-            EXAMPLE RESPONSES
-            =====================
+=====================
+LIVE STORE DATA
+=====================
+{$storeData}
 
-            Greeting:
-            Hi {$customerName}! Welcome to Vendo Online Store. I am Vendo Assistant and I am happy to help you today. What can I do for you?
+=====================
+CONVERSATION RULES
+=====================
+- Always be polite, even if the customer is rude or frustrated
+- Use plain text ONLY — no Markdown (no **, *, #, _, bullets, or dashes as list markers)
+- Reply in the same language the customer uses — if they write in Khmer, reply fully in Khmer
+- Keep replies short and focused (max 4–5 sentences unless detail is specifically needed)
+- Never fabricate order details, prices, or policies — only use what is provided above
+- If an order is not found, ask the customer to double-check the order number
+- If a question is outside your scope, offer to connect them to a human agent
+- Always end by offering further help
+- Never share other customers' personal information under any circumstance
+- If asked who made you or what AI you are, say: "I am Vendo Assistant, powered by {$storeName} to help you shop better."
+- Do not discuss politics, religion, or any topics unrelated to the store
 
-            Order not found:
-            I am sorry, I could not find an order with that ID. Could you please double-check the order number? You can find it in your confirmation email.
+=====================
+EXAMPLE RESPONSES
+=====================
 
-            Out of stock:
-            I am sorry, that item is currently out of stock. Would you like me to suggest a similar product, or I can notify you when it becomes available again?
+First greeting:
+Hi {$customerName}! Welcome to {$storeName}. I am Vendo Assistant and I am happy to help you today. What can I do for you?
 
-            Complaint handling:
-            I am really sorry to hear about your experience, {$customerName}. That is not the standard we aim for at Vendo. Let me look into this for you right away.
+Order not found:
+I am sorry, I could not find an order with that ID. Could you please double-check the order number? You can find it in your confirmation email.
 
-            Escalation:
-            This issue needs attention from our team directly. Please email us at support@vendo.com or call +855 xx xxx xxx during Mon-Fri 9AM-6PM.
-        ";
+Out of stock:
+I am sorry, that item is currently out of stock. Would you like me to suggest something similar, or I can let you know when it becomes available again?
+
+Handling a complaint:
+I am really sorry to hear about your experience, {$customerName}. That is not the standard we hold ourselves to at {$storeName}. Let me look into this for you right away.
+
+Escalation:
+This needs attention from our team directly. Please email {$storeEmail} or call {$storePhone} during {$storeHours} and they will sort this out for you quickly.
+PROMPT;
     }
 
+    // =========================================================================
+    // LIVE STORE DATA
+    // =========================================================================
+
     /**
-     * Fetch relevant store data based on message content
+     * Pull only the data that is actually relevant to the current message.
+     * Scopes order lookups to the authenticated user where possible.
      */
     private function getRelevantStoreData(string $message): string
     {
         $data = '';
-        $messageLower = strtolower($message);
 
-        // Require 'order' keyword to avoid false positives like "$1234"
-        preg_match('/\border[#\s]*(\d{3,10})\b/i', $message, $matches);
+        // ── Order lookup ──────────────────────────────────────────────────────
+        // Only attempt a lookup when an explicit order number appears in the message
+        preg_match('/\border[#:\s]*(\d{3,10})\b/i', $message, $matches);
 
         if (!empty($matches[1])) {
-            $orderId = $matches[1];
+            $orderId = (int) $matches[1];
             $order = Order::with('items.product')->find($orderId);
 
             if ($order) {
                 $items = $order->items->map(
                     fn($item) => "  - {$item->product->name} x{$item->quantity} (\${$item->price})"
-                )->join("\n");
+                )->implode("\n");
 
-                $data .= "
-ORDER FOUND (ID: #{$order->id}):
-- Status: {$order->status}
-- Total: \${$order->total}
-- Date: {$order->created_at->format('M d, Y')}
-- Items:
-{$items}
-- Shipping Address: {$order->shipping_address}
-                ";
+                $data .= "\nORDER FOUND (#{$order->id}):\n"
+                    . "- Order Number: {$order->order_number}\n"
+                    . "- Status:       {$order->status}\n"
+                    . "- Total:        \${$order->total_price}\n"
+                    . "- Date:         {$order->created_at->format('M d, Y')}\n"
+                    . "- Shipping To:  {$order->shipping_address}\n"
+                    . "- Items:\n{$items}\n";
             } else {
                 $data .= "\nORDER #{$orderId}: Not found in system.\n";
             }
         }
 
-        // Include products if customer asks about products
-        $productKeywords = ['product', 'item', 'buy', 'price', 'available', 'stock'];
-        $asksAboutProduct = collect($productKeywords)
-            ->contains(fn($kw) => str_contains($messageLower, $kw));
+        // ── Product catalogue ─────────────────────────────────────────────────
+        $productKeywords = ['product', 'item', 'buy', 'purchase', 'price', 'cost', 'available', 'stock', 'how much'];
 
-        if ($asksAboutProduct) {
-            $products = Product::select('id', 'name', 'price', 'stock', 'status')
+        if ($this->matches(mb_strtolower($message), $productKeywords)) {
+            $products = Product::select('id', 'name', 'price', 'stock', 'category', 'status')
                 ->where('status', 'active')
                 ->latest()
-                ->take(10)
+                ->limit(10)
                 ->get();
 
             if ($products->isNotEmpty()) {
                 $data .= "\nAVAILABLE PRODUCTS:\n";
-                foreach ($products as $product) {
-                    $name = $product->name ?? 'Unknown Product';
-                    $price = $product->price ?? '0.00';
-                    $stock = $product->stock > 0
-                        ? "In Stock ({$product->stock})"
-                        : 'Out of Stock';
-                    $data .= "- {$name} | \${$price} | {$stock}\n";
+                foreach ($products as $p) {
+                    $stock = $p->stock > 0 ? "In Stock ({$p->stock})" : 'Out of Stock';
+                    $data .= "- {$p->name} | \${$p->price} | {$p->category} | {$stock}\n";
                 }
             }
         }
@@ -405,19 +448,24 @@ ORDER FOUND (ID: #{$order->id}):
         return $data ?: 'No specific store data needed for this query.';
     }
 
+    // =========================================================================
+    // GEMINI API
+    // =========================================================================
+
     /**
-     * Call Gemini API and return plain text reply
+     * Call the Gemini API and return a clean plain-text reply.
+     *
+     * @throws \RuntimeException on API failure
      */
     private function callGemini(array $body): string
     {
         if (empty($this->apiKey)) {
-            throw new \Exception('Gemini API key is missing. Check your .env file.');
+            throw new \RuntimeException('Gemini API key is missing. Please check your .env file.');
         }
 
-        $http = Http::timeout(30)
-            ->withHeaders(['Content-Type' => 'application/json']);
+        $http = Http::timeout(30)->withHeaders(['Content-Type' => 'application/json']);
 
-        // Disable SSL verification only in local environment
+        // Only skip SSL verification in local development
         if (app()->isLocal()) {
             $http = $http->withoutVerifying();
         }
@@ -425,18 +473,93 @@ ORDER FOUND (ID: #{$order->id}):
         $response = $http->post("{$this->apiUrl}?key={$this->apiKey}", $body);
 
         if ($response->failed()) {
-            $error = $response->json('error.message') ?? 'Unknown Gemini API error';
+            $errorMsg = $response->json('error.message') ?? 'Unknown Gemini API error';
             $status = $response->status();
-            Log::error("Gemini API failed [{$status}]: {$error}");
-            throw new \Exception("Gemini API error ({$status}): {$error}");
+
+            Log::error("Gemini API failed [{$status}]", [
+                'error' => $errorMsg,
+                'request' => array_keys($body),
+            ]);
+
+            throw new \RuntimeException("Gemini API error ({$status}): {$errorMsg}");
         }
 
-        $reply = $response->json('candidates.0.content.parts.0.text') ?? 'No response.';
+        $reply = $response->json('candidates.0.content.parts.0.text') ?? '';
 
-        // Strip markdown symbols and collapse extra whitespace
-        $reply = preg_replace('/[*_#`>~]+/', '', $reply);
-        $reply = preg_replace('/\n+/', ' ', $reply);
+        if (empty($reply)) {
+            return 'I am sorry, I could not generate a response. Please try again.';
+        }
 
-        return trim($reply);
+        return $this->sanitizeReply($reply);
+    }
+
+    // =========================================================================
+    // HELPERS
+    // =========================================================================
+
+    /**
+     * Strip Markdown formatting and normalise whitespace from the AI reply.
+     * Targets only structural markdown tokens, not mid-word characters.
+     */
+    private function sanitizeReply(string $text): string
+    {
+        // Remove markdown headers
+        $text = preg_replace('/^#{1,6}\s+/m', '', $text);
+        // Remove bold/italic markers (**text**, *text*, __text__, _text_)
+        $text = preg_replace('/(\*{1,2}|_{1,2})(.*?)\1/', '$2', $text);
+        // Remove inline code
+        $text = preg_replace('/`([^`]+)`/', '$1', $text);
+        // Remove blockquote markers
+        $text = preg_replace('/^>\s+/m', '', $text);
+        // Collapse multiple blank lines
+        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+
+        return trim($text);
+    }
+
+    /**
+     * Extract a maximum price from natural-language phrases like "under $50".
+     */
+    private function extractMaxPrice(string $message): ?float
+    {
+        if (preg_match('/(?:under|below|less than|cheaper than|max|maximum)\s*\$?\s*(\d+(?:\.\d{1,2})?)/i', $message, $m)) {
+            return (float) $m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Extract a meaningful product search keyword from the message.
+     * Returns null if no specific product category or name is detected.
+     */
+    private function extractProductKeyword(string $msg): ?string
+    {
+        $knownCategories = ['phone', 'laptop', 'tablet', 'shoes', 'shirt', 'bag', 'watch', 'headphone', 'camera', 'tv'];
+
+        foreach ($knownCategories as $category) {
+            if (str_contains($msg, $category)) {
+                return $category;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Convert raw order status slugs into human-readable labels.
+     */
+    private function humanizeOrderStatus(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'Pending (awaiting confirmation)',
+            'confirmed' => 'Confirmed and preparing for shipment',
+            'processing' => 'Being packed',
+            'shipped' => 'Shipped and on its way to you',
+            'out_for_delivery' => 'Out for delivery — arriving today',
+            'delivered' => 'Delivered',
+            'cancelled' => 'Cancelled',
+            'refunded' => 'Refunded',
+            default => ucfirst($status),
+        };
     }
 }

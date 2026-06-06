@@ -22,8 +22,12 @@ return [
         'http://localhost:3000',
         'http://localhost:3001',
         'https://vendo-ecommerce-two.vercel.app',
-        'https://vendo-admin-panel.vercel.app'
+        'https://vendo-admin-panel.vercel.app',
+        'null',
+        'http://127.0.0.1:5501',
+        'http://localhost:5500',
     ],
+    // 'allowed_origins' => ['*'],
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],

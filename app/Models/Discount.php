@@ -22,10 +22,10 @@ class Discount extends Model
     ];
     protected $hidden = ['created_at', 'updated_at', 'discount_price', 'image_file_id', 'pivot'];
     protected $casts = [
-        'created_at' => 'datetime:d-m-Y g:i:s A',
-        'updated_at' => 'datetime:d-m-Y g:i:s A',
-        'start_date' => 'datetime:d-m-Y g:i:s A',
-        'end_date' => 'datetime:d-m-Y g:i:s A',
+        'created_at' => 'datetime:d-m-Y h:i:s A',
+        'updated_at' => 'datetime:d-m-Y h:i:s A',
+        'start_date' => 'datetime:d-m-Y h:i:s A',
+        'end_date' => 'datetime:d-m-Y h:i:s A',
         'is_active' => 'boolean'
     ];
     public function discountCategory()

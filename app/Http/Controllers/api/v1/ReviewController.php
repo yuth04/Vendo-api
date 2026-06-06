@@ -211,8 +211,6 @@ class ReviewController extends Controller
             'message' => 'Review deleted successfully'
         ]);
     }
-
-
     public function productSummary($productId)
     {
         $reviews = Review::where('product_id', $productId);
@@ -241,7 +239,7 @@ class ReviewController extends Controller
     public function getById($id)
     {
         $review = Review::with(['user', 'replies.user', 'product'])
-            ->whereNull('parent_id') // optional but recommended
+            ->whereNull('parent_id') 
             ->findOrFail($id);
 
         return response()->json([
@@ -256,11 +254,7 @@ class ReviewController extends Controller
         ]);
 
         $parent = Review::findOrFail($id);
-        // if ($parent->parent_id !== null) {
-        //     return response()->json([
-        //         'message' => 'Cannot reply to a reply'
-        //     ], 400);
-        // }
+
         $reply = Review::create([
             'user_id' => auth()->id(),
             'product_id' => $parent->product_id,
@@ -320,6 +314,7 @@ class ReviewController extends Controller
     }
     public function delete($id)
     {
+ 
         $review = Review::findOrFail($id);
 
         // ✅ Check if it's a reply

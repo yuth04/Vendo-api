@@ -6,9 +6,10 @@ use App\Http\Controllers\api\v1\Admin\AdminProductController;
 use App\Http\Controllers\api\v1\admin\ChatbotController;
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
+use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
-use App\Http\Controllers\api\v1\admin\StoreSettingController;
+use App\Http\Controllers\api\v1\Admin\StoreSettingController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -16,7 +17,6 @@ use App\Http\Controllers\api\v1\Admin\SettingController;
 use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\Export\ExportController;
-
 use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
@@ -26,7 +26,6 @@ use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
-use App\Http\Controllers\api\v1\Admin\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
@@ -155,13 +154,21 @@ Route::prefix('v1')->group(function () {
         // Footer
         Route::get('/footers', [StoreSettingController::class, 'index']);
         Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
+        // Khqr payment
 
+        Route::post('generate', [PaymentController::class, 'generate']);
+        Route::post('verify', [PaymentController::class, 'verify']);
+        Route::post('/payment/webhook', [PayWayController::class, 'webhook']);
     });
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
+        });
+        Route::prefix('/payments')->group(function () {
+            Route::post('/create', [PayWayController::class, 'create']);
+            Route::post('/verify', [PayWayController::class, 'verify']);
         });
         // Chatbot
         Route::prefix('chat')->group(function () {

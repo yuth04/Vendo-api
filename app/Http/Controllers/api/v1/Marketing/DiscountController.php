@@ -296,26 +296,6 @@ class DiscountController extends Controller
             'discount' => $discount->load('products')
         ]);
     }
-    // public function addProducts(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'discount_id' => 'required|exists:discounts,id',
-    //         'product_ids' => 'required|array',
-    //         'product_ids.*' => 'exists:products,id',
-    //     ]);
-
-    //     $discount = Discount::findOrFail($validated['discount_id']);
-
-    //     // attach products without duplicates
-    //     $discount->products()->syncWithoutDetaching(
-    //         $validated['product_ids']
-    //     );
-
-    //     return response()->json([
-    //         'message' => 'Products added to discount successfully',
-    //         'discount' => $discount->load('products')
-    //     ]);
-    // }
     // Remove a product from a discount
     public function removeProduct(Request $request, $discountId)
     {
