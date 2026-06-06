@@ -17,6 +17,7 @@ class StoreSettingController extends Controller
 
         return response()->json([
             'success' => true,
+            'message' => 'Footer retrieve successfully',
             'data' => $settings,
         ]);
 
@@ -34,7 +35,7 @@ class StoreSettingController extends Controller
             ], 404);
         }
         return response()->json([
-            'message' => "Setting retriev successfully",
+            'message' => "Setting get successfully",
             'data' => $setting
         ]);
     }
