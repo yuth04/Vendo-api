@@ -32,10 +32,7 @@ class Discount extends Model
     {
         return $this->belongsTo(DiscountCategory::class, 'discount_category_id');
     }
-    // public function products()
-    // {
-    //     return $this->hasMany(Product::class);
-    // }
+
     public function coupon()
     {
         return $this->hasOne(Coupon::class, 'discount_id');
@@ -47,7 +44,11 @@ class Discount extends Model
             'discount_items'
         );
     }
-
-
+    // Auto filter active + not expired
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true)
+            ->where('end_date', '>=', now());
+    }
 
 }

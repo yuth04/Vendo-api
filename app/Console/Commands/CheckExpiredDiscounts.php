@@ -30,6 +30,11 @@ class CheckExpiredDiscounts extends Command
             ->where('end_date', '<=', now())
             ->get();
 
+        if ($discounts->isEmpty()) {
+            $this->info('No expired discounts found.');
+            return;
+        }
+
         $admin = User::where('role', 'admin')->first();
 
         if (!$admin) {
@@ -38,15 +43,14 @@ class CheckExpiredDiscounts extends Command
         }
 
         foreach ($discounts as $discount) {
+            // Deactivate first to prevent duplicate emails
+            $discount->update(['is_active' => false]);
 
-            // Send email
+            // Then send email
             Mail::to($admin->email)
                 ->send(new DiscountExpiredMail($discount));
 
-            // Deactivate discount
-            $discount->update([
-                'is_active' => false
-            ]);
+            $this->info("Discount [{$discount->name}] deactivated and admin notified.");
         }
 
         $this->info('Expired discounts checked successfully.');

@@ -24,7 +24,7 @@ class ParentCategoryController extends Controller
                     'status' => $base->status,
                     'slug'=>$base->slug,
                     'created_at' => $base->created_at->format('d-m-Y g:i:s A'),
-                    'updated_at' => $base->updated_at,
+                    'updated_at' => $base->updated_at->format('d-m-Y g:i:s A'),
                     'categories' => $base->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
