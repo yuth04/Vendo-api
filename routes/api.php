@@ -35,7 +35,7 @@ use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
 use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
-
+use Illuminate\Http\Request;
 Route::prefix('v1')->group(function () {
     Route::get('/orders/excel', [ExportController::class, 'exportOrderHistory']);
     Route::get('/products/excel', [ExportController::class, 'exportProducts']);
