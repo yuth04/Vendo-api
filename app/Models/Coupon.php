@@ -76,21 +76,11 @@ class Coupon extends Model
 
         return 0;
     }
-    // public function isValid($total)
-    // {
-    //     if (!$this->is_active)
-    //         return false;
-
-    //     if ($this->expires_at && now()->gt($this->expires_at))
-    //         return false;
-
-    //     if ($this->usage_limit && $this->used >= $this->usage_limit)
-    //         return false;
-
-    //     if ($this->min_amount && $total < $this->min_amount)
-    //         return false;
-
-    //     return true;
-    // }
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active')
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now());
+    }
 
 }

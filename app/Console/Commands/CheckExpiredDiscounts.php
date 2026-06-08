@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Coupon;
 use Illuminate\Console\Command;
 use App\Models\Discount;
 use App\Models\User;
@@ -25,6 +26,7 @@ class CheckExpiredDiscounts extends Command
      */
     public function handle()
     {
+        // Deactivate expired discounts
         $discounts = Discount::where('is_active', true)
             ->whereNotNull('end_date')
             ->where('end_date', '<=', now())
@@ -32,27 +34,35 @@ class CheckExpiredDiscounts extends Command
 
         if ($discounts->isEmpty()) {
             $this->info('No expired discounts found.');
-            return;
+        } else {
+            $admin = User::where('role', 'admin')->first();
+
+            if (!$admin) {
+                $this->error('Admin not found.');
+            } else {
+                foreach ($discounts as $discount) {
+                    $discount->update(['is_active' => false]);
+                    Mail::to($admin->email)->send(new DiscountExpiredMail($discount));
+                    $this->info("Discount [{$discount->name}] deactivated and admin notified.");
+                }
+            }
         }
 
-        $admin = User::where('role', 'admin')->first();
+        // Deactivate expired coupons
+        $coupons = Coupon::where('status', 'active')
+            ->whereNotNull('end_date')
+            ->where('end_date', '<=', now())
+            ->get();
 
-        if (!$admin) {
-            $this->error('Admin not found.');
-            return;
+        if ($coupons->isEmpty()) {
+            $this->info('No expired coupons found.');
+        } else {
+            foreach ($coupons as $coupon) {
+                $coupon->update(['status' => 'inactive']);
+                $this->info("Coupon [{$coupon->name}] deactivated.");
+            }
         }
 
-        foreach ($discounts as $discount) {
-            // Deactivate first to prevent duplicate emails
-            $discount->update(['is_active' => false]);
-
-            // Then send email
-            Mail::to($admin->email)
-                ->send(new DiscountExpiredMail($discount));
-
-            $this->info("Discount [{$discount->name}] deactivated and admin notified.");
-        }
-
-        $this->info('Expired discounts checked successfully.');
+        $this->info('Expired discounts and coupons checked successfully.');
     }
 }

@@ -10,33 +10,7 @@ use ImageKit\ImageKit;
 
 class CouponController extends Controller
 {
-    // Coupon
-    // public function apply(Request $request)
-    // {
-    //     $request->validate([
-    //         'code' => 'required|string'
-    //     ]);
 
-    //     $cartTotal = $request->cart_total;
-
-    //     $coupon = Coupon::where('code', $request->code)->first();
-
-    //     if (!$coupon) {
-    //         return response()->json(['message' => 'Invalid coupon'], 404);
-    //     }
-
-    //     if (!$coupon->isValid($cartTotal)) {
-    //         return response()->json(['message' => 'Coupon not valid'], 400);
-    //     }
-
-    //     $discount = $coupon->calculateDiscount($cartTotal);
-
-    //     return response()->json([
-    //         'coupon' => $coupon->code,
-    //         'discount' => $discount,
-    //         'final_total' => $cartTotal - $discount
-    //     ]);
-    // }
     public function index()
     {
         $coupons = Coupon::orderBy('id', 'asc')->get();
