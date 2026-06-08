@@ -35,7 +35,7 @@ class Discount extends Model
 
     public function coupon()
     {
-        return $this->hasOne(Coupon::class, 'discount_id');
+        return $this->hasOne(Coupon::class, 'discount_id')->where('status', 'active');
     }
     public function products()
     {
