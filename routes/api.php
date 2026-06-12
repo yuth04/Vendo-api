@@ -190,6 +190,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
         Route::get('/return-orders/{id}', [ReturnOrderController::class, 'show']);
+        Route::delete('/return-orders/{id}', [ReturnOrderController::class, 'destroy']);
+
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);

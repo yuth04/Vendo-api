@@ -190,92 +190,6 @@ class OrderController extends Controller
         }
     }
 
-    public function apply(Request $request)
-    {
-        $user = Auth::user();
-        if (!$user) {
-            return response()->json(['message' => 'Login required'], 401);
-        }
-        $request->validate([
-            'code' => 'required|string',
-            'items' => 'required|array|min:1',
-            'items.*.product_variant_id' => 'required|exists:product_variants,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
-
-        // ── 1. Calculate subtotal ──────────────────────────────────
-        $subtotal = 0;
-
-        foreach ($request->items as $item) {
-            $variant = ProductVariant::with('product')->findOrFail($item['product_variant_id']);
-            $price = $variant->product->getFinalPrice();
-            $subtotal += $price * $item['quantity'];
-        }
-
-        // ── 2. Find coupon ─────────────────────────────────────────
-        $coupon = Coupon::where('code', $request->code)->first();
-
-        if (!$coupon) {
-            return response()->json(['message' => 'Invalid coupon code'], 404);
-        }
-
-        // ── 3. Validate coupon ─────────────────────────────────────
-        if ($coupon->start_date && now()->lt($coupon->start_date)) {
-            return response()->json(['message' => 'Coupon not active yet'], 400);
-        }
-
-        if ($coupon->end_date && now()->gt($coupon->end_date)) {
-            return response()->json(['message' => 'Coupon expired'], 400);
-        }
-
-        if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
-            return response()->json(['message' => 'Coupon usage limit reached'], 400);
-        }
-
-        if ($coupon->min_amount && $subtotal < $coupon->min_amount) {
-            return response()->json([
-                'message' => 'Minimum order amount is ' . $coupon->min_amount,
-                'min_amount' => $coupon->min_amount,
-            ], 400);
-        }
-
-        // ── 4. Calculate discount ──────────────────────────────────
-        $discount = min($coupon->calculateDiscount($subtotal), $subtotal);
-        //   Get province from user
-        $address = $user->addresses()->where('is_default',true)->first()
-        ?? $user->addresses()->latest()->first();
-        $province = $address->province ?? null;
-        // ── 5. Shipping preview (no address yet) ───────────────────
-        $shipping = (float) $this->calculateShipping($province);
-
-        // ── 6. Final total ─────────────────────────────────────────
-        $total = max(0, round(($subtotal - $discount) + $shipping, 2));
-
-        // ── 7. Store coupon in cache (1 hour) ──────────────────────
-        cache()->put('coupon_' . $user->id, $coupon->code, now()->addHour());
-
-        return response()->json([
-            'message' => 'Coupon applied successfully',
-            'coupon' => $coupon->code,
-            'subtotal' => round($subtotal, 2),
-            'discount' => round($discount, 2),
-            'shipping' => round($shipping, 2),
-            'total_price' => $total,
-        ]);
-    }
-
-    // remove coupon
-    public function clear()
-    {
-        $user = Auth::user();
-        if (!$user) {
-            return response()->json(['message' => 'Login required'], 401);
-        }
-
-        cache()->forget('coupon_' . $user->id);
-
-        return response()->json(['message' => 'Coupon removed successfully']);
-    }
     private function resolveOrderAddress($user, Request $request)
     {
         if ($request->filled('address_id')) {
@@ -362,55 +276,6 @@ class OrderController extends Controller
             'final_total' => $finalTotal
         ];
     }
-    // private function processOrderItems(Order $order, array $frontendItems)
-    // {
-    //     $total = 0;
-    //     $totalDiscount = 0;
-
-    //     foreach ($frontendItems as $item) {
-
-    //         $variant = ProductVariant::with('product')
-    //             ->where('id', $item['product_variant_id'])
-    //             ->lockForUpdate()
-    //             ->firstOrFail();
-
-    //         if ($variant->stock < $item['quantity']) {
-    //             throw new \Exception("Insufficient stock for {$variant->product->name}");
-    //         }
-
-    //         $product = $variant->product;
-
-    //         $originalPrice = (float) $product->price;
-    //         $finalPrice = (float) $product->getFinalPrice();
-
-    //         // prevent negative discount
-    //         $discountPerUnit = max(0, $originalPrice - $finalPrice);
-
-    //         $lineTotal = $finalPrice * $item['quantity'];
-
-    //         $total += $lineTotal;
-    //         $totalDiscount += $discountPerUnit * $item['quantity'];
-
-    //         $variant->decrement('stock', $item['quantity']);
-
-    //         $order->items()->create([
-    //             'product_variant_id' => $variant->id,
-    //             'product_name' => $product->productName,
-    //             'product_image' => $product->image,
-    //             'price' => $finalPrice,
-    //             'quantity' => $item['quantity'],
-    //             'size' => $variant->size,
-    //             'color' => $variant->color,
-    //         ]);
-    //     }
-
-    //     $order->update([
-    //         'discount_amount' => round($totalDiscount, 2)
-    //     ]);
-
-    //     return $total;
-    // }
-
 
     private function prepareCheckoutResponse(Order $order, Payment $payment)
     {
@@ -437,7 +302,92 @@ class OrderController extends Controller
             ]
         ];
     }
+    //Apply Coupon 
+    public function apply(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Login required'], 401);
+        }
+        $request->validate([
+            'code' => 'required|string',
+            'items' => 'required|array|min:1',
+            'items.*.product_variant_id' => 'required|exists:product_variants,id',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
 
+        // ── 1. Calculate subtotal ──────────────────────────────────
+        $subtotal = 0;
+
+        foreach ($request->items as $item) {
+            $variant = ProductVariant::with('product')->findOrFail($item['product_variant_id']);
+            $price = $variant->product->getFinalPrice();
+            $subtotal += $price * $item['quantity'];
+        }
+
+        // ── 2. Find coupon ─────────────────────────────────────────
+        $coupon = Coupon::where('code', $request->code)->first();
+
+        if (!$coupon) {
+            return response()->json(['message' => 'Invalid coupon code'], 404);
+        }
+
+        // ── 3. Validate coupon ─────────────────────────────────────
+        if ($coupon->start_date && now()->lt($coupon->start_date)) {
+            return response()->json(['message' => 'Coupon not active yet'], 400);
+        }
+
+        if ($coupon->end_date && now()->gt($coupon->end_date)) {
+            return response()->json(['message' => 'Coupon expired'], 400);
+        }
+
+        if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
+            return response()->json(['message' => 'Coupon usage limit reached'], 400);
+        }
+
+        if ($coupon->min_amount && $subtotal < $coupon->min_amount) {
+            return response()->json([
+                'message' => 'Minimum order amount is ' . $coupon->min_amount,
+                'min_amount' => $coupon->min_amount,
+            ], 400);
+        }
+
+        // ── 4. Calculate discount ──────────────────────────────────
+        $discount = min($coupon->calculateDiscount($subtotal), $subtotal);
+        //   Get province from user
+        $address = $user->addresses()->where('is_default', true)->first()
+            ?? $user->addresses()->latest()->first();
+        $province = $address->province ?? null;
+        // ── 5. Shipping preview (no address yet) ───────────────────
+        $shipping = (float) $this->calculateShipping($province);
+
+        // ── 6. Final total ─────────────────────────────────────────
+        $total = max(0, round(($subtotal - $discount) + $shipping, 2));
+
+        // ── 7. Store coupon in cache (1 hour) ──────────────────────
+        cache()->put('coupon_' . $user->id, $coupon->code, now()->addHour());
+
+        return response()->json([
+            'message' => 'Coupon applied successfully',
+            'coupon' => $coupon->code,
+            'subtotal' => round($subtotal, 2),
+            'discount' => round($discount, 2),
+            'shipping' => round($shipping, 2),
+            'total_price' => $total,
+        ]);
+    }
+    // remove coupon
+    public function clear()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Login required'], 401);
+        }
+
+        cache()->forget('coupon_' . $user->id);
+
+        return response()->json(['message' => 'Coupon removed successfully']);
+    }
     public function myOrders()
     {
         $user = Auth::user();
@@ -546,31 +496,6 @@ class OrderController extends Controller
             })
         ];
     }
-
-    // public function filterByStatus(Request $request)
-    // {
-    //     $status = $request->query('status');
-    //     $allowedStatuses = ['pending', 'confirmed', 'shipping', 'delivered', 'cancelled', 'returned', 'return_requested'];
-
-    //     if ($status && !in_array($status, $allowedStatuses)) {
-    //         return response()->json(['message' => 'Invalid order status'], 422);
-    //     }
-
-    //     if (Auth::user()->role !== 'admin') {
-    //         return response()->json(['message' => 'Unauthorized'], 403);
-    //     }
-
-    //     $orders = Order::when($status, fn($q) => $q->where('status', $status))
-    //         ->with(['items.variant.product', 'payment', 'address'])
-    //         ->latest()
-    //         ->get();
-
-    //     return response()->json([
-    //         'message' => $orders->isEmpty() ? 'No orders found' : 'Orders retrieved successfully',
-    //         'orders' => $orders->map(fn($order) => $this->formatOrder($order))
-    //     ]);
-    // }
-
     public function cancel($orderId)
     {
         $user = Auth::user();
