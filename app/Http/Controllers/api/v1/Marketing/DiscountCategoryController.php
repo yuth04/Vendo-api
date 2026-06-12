@@ -80,8 +80,6 @@ class DiscountCategoryController extends Controller
             'data' => $category
         ], 201);
     }
-
-
     public function show($id)
     {
         $category = DiscountCategory::where('is_active',true)->find($id);
