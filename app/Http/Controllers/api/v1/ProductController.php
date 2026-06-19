@@ -30,8 +30,7 @@ class ProductController extends Controller
         ]);
 
     }
-    // 
-
+    // slug search
     public function searchBySlug($slug)
     {
         $product = Product::with(['category', 'brand', 'variants'])
@@ -66,7 +65,6 @@ class ProductController extends Controller
             ], 404);
         }
     }
-
     // added product
     public function store(Request $request)
     {
@@ -728,131 +726,7 @@ class ProductController extends Controller
             ], 500);
         }
     }
-    // public function searchByText(Request $request)
-    // {
-    //     $request->validate([
-    //         'query' => 'required|string'
-    //     ]);
-
-    //     try {
-
-    //         $query = strtolower($request->input('query'));
-
-    //         // =====================
-    //         // SIZE
-    //         // =====================
-    //         $size = null;
-
-    //         if (preg_match('/size\s*([a-zA-Z0-9]+)/i', $query, $m)) {
-    //             $size = strtoupper($m[1]);
-    //         }
-
-    //         // =====================
-    //         // COLOR
-    //         // =====================
-    //         $color = null;
-
-    //         if (preg_match('/color\s*([a-zA-Z]+)/i', $query, $m)) {
-    //             $color = strtolower($m[1]);
-    //         }
-
-    //         // =====================
-    //         // CLEAN QUERY
-    //         // =====================
-    //         $cleanQuery = preg_replace('/size\s*[a-zA-Z0-9]+/i', '', $query);
-    //         $cleanQuery = preg_replace('/color\s*[a-zA-Z]+/i', '', $cleanQuery);
-    //         $cleanQuery = str_replace('with', '', $cleanQuery);
-    //         $cleanQuery = trim($cleanQuery);
-
-    //         // =====================
-    //         // PYTHON AI SEARCH
-    //         // =====================
-    //         $response = Http::asJson()->post(
-    //             env('PYTHON_AI_URL') . '/search/text',
-    //             [
-    //                 'query' => $cleanQuery
-    //             ]
-    //         );
-
-    //         if ($response->failed()) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Python server error',
-    //                 'body' => $response->body()
-    //             ], 500);
-    //         }
-
-    //         $results = $response->json();
-
-    //         $productIds = collect($results)->pluck('id');
-
-    //         // =====================
-    //         // DB FILTER
-    //         // =====================
-    //         $productsQuery = Product::with('variants')
-    //             ->whereIn('id', $productIds);
-
-    //         $productsQuery->whereHas('variants', function ($q) use ($size, $color) {
-
-    //             if ($size) {
-    //                 $q->where('size', $size);
-    //             }
-
-    //             if ($color) {
-    //                 $q->where('color', $color);
-    //             }
-    //         });
-
-    //         $products = $productsQuery->get()->keyBy('id');
-
-    //         // =====================
-    //         // RESPONSE
-    //         // =====================
-    //         $data = collect($results)->map(function ($result) use ($products) {
-
-    //             $product = $products->get($result['id']);
-
-    //             if (!$product)
-    //                 return null;
-
-    //             return [
-    //                 'id' => $product->id,
-    //                 'name' => $product->productName,
-    //                 'category' => optional(
-    //                     $product->category
-    //                 )->name,
-    //                 'brand' => optional(
-    //                     $product->brand
-    //                 )->name,
-    //                 'description' => $product->description,
-    //                 'price' => $product->price,
-    //                 'color' => optional(
-    //                     $product->variants->first()
-    //                 )->color,
-    //                 'image' => $product->image,
-    //                 'size' => optional(
-    //                     $product->variants->first()
-    //                 )->size,
-    //                 'similarity' => $result['similarity']
-    //             ];
-    //         })->filter()->values();
-    //         if ($data->isEmpty()) {
-    //             return response()->json([
-    //                 'message' => 'Item not found.',
-    //             ], 404);
-    //         }
-    //         return response()->json([
-    //             'message' => 'Search completed successfully',
-    //             'data' => $data
-    //         ]);
-
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
+   
     private function refreshAllIndex()
     {
         try {

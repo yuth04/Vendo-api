@@ -39,6 +39,11 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT'),
     ],
+    'payway' => [
+        'merchant_id' => env('PAYWAY_MERCHANT_ID'),
+        'public_key'=>env('PAYWAY_PUBLIC_KEY'),
+        'base_url' => env('PAYWAY_BASE_URL', 'https://checkout.payway.com.kh/api/payment-gateway/v1/payments'),
+    ],
     'bakong' => [
         'account_id' => env('BAKONG_ACCOUNT_ID'),
         'merchant_id' => env('BAKONG_MERCHANT_ID'),

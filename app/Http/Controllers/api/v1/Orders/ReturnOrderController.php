@@ -31,7 +31,6 @@ class ReturnOrderController extends Controller
             'data' => $returns
         ]);
     }
-
     public function index()
     {
         $returns = ReturnOrder::with([
@@ -306,7 +305,32 @@ class ReturnOrderController extends Controller
             ], 500);
         }
     }
+    // destroy
+    public function destroy($id)
+    {
+        $return = ReturnOrder::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->first();
 
+        if (!$return) {
+            return response()->json([
+                'message' => 'Return order not found.'
+            ], 404);
+        }
+
+        // Only allow cancel if status is still 'requested'
+        if ($return->status !== 'requested') {
+            return response()->json([
+                'message' => 'Only requested returns can be cancelled.'
+            ], 400);
+        }
+
+        $return->delete();
+
+        return response()->json([
+            'message' => 'Return request cancelled successfully.'
+        ]);
+    }
     // Approve
     public function approve($id)
     {
@@ -438,56 +462,5 @@ class ReturnOrderController extends Controller
             ], 500);
         }
     }
-    // public function complete($id)
-    // {
-    //     $return = ReturnOrder::with('items.orderItem.variant')->findOrFail($id);
-    //     if ($return->status !== 'approved') {
-    //         return response()->json(['message' => 'Not approved'], 400);
-    //     }
-
-    //     if ($return->status === 'completed') {
-    //         return response()->json(['message' => 'Already completed'], 400);
-    //     }
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         foreach ($return->items as $item) {
-
-    //             $variant = optional($item->orderItem)->variant;
-
-    //             if (!$variant) {
-    //                 continue; //
-    //             }
-
-    //             // ✅ restock safely
-    //             $variant->increment('stock', $item->quantity);
-    //         }
-
-    //         $return->update([
-    //             'status' => 'completed',
-    //             'completed_at' => now(),
-    //             'refund_status' => 'processed',
-    //         ]);
-
-    //         DB::commit();
-    //         if ($return->user && $return->user->email) {
-    //             Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
-    //         }
-    //         return response()->json([
-    //             'message' => 'Return completed successfully',
-    //             'data' => $return
-    //         ]);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'message' => 'Failed to complete return',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-    // 
 
 }

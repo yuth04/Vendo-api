@@ -58,8 +58,8 @@ class ProductVariantController extends Controller
                 'stock' => 'required|integer|min:0',
                 'status' => 'nullable|string|max:50',
                 //  MUST be exactly 4 images
-                'images' => 'required|array|size:4',
-                'images.*' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+                'images' => 'nullable|array|size:4',
+                'images.*' => 'image|mimes:jpg,jpeg,png|max:5120',
             ]);
 
             $variant = ProductVariant::create([
@@ -106,81 +106,7 @@ class ProductVariantController extends Controller
             ], 500);
         }
     }
-
-
-    // public function store(Request $request)
-    // {
-    //     DB::beginTransaction();
-
-    //     try {
-    //         $validated = $request->validate([
-    //             'product_id' => 'required|exists:products,id',
-    //             'size' => 'required|string|max:50',
-    //             'color' => 'required|string|max:50',
-    //             'stock' => 'required|integer|min:0',
-    //             'images' => 'nullable|array|max:4',
-    //             'images.*' => 'image|mimes:jpg,jpeg,png|max:2048',
-    //         ]);
-
-    //         $variant = ProductVariant::create([
-    //             'product_id' => $validated['product_id'],
-    //             'size' => $validated['size'],
-    //             'color' => $validated['color'],
-    //             'stock' => $validated['stock'],
-    //         ]);
-
-    //         // ✅ Multiple image upload
-    //         if ($request->hasFile('images')) {
-
-    //             $index = 0;
-
-    //             foreach ($request->file('images') as $image) {
-
-    //                 $upload = $this->imageKit->upload([
-    //                     'file' => fopen($image->getPathname(), 'r'),
-    //                     'fileName' => time() . '_' . $image->getClientOriginalName(),
-    //                     'folder' => '/variant-images/',
-    //                 ]);
-
-    //                 if (isset($upload->error)) {
-    //                     throw new \Exception($upload->error->message);
-    //                 }
-
-    //                 ProductImage::create([
-    //                     'variant_id' => $variant->id,
-    //                     'image' => $upload->result->url,
-    //                     'image_file_id' => $upload->result->fileId ?? null,
-    //                     'position' => $index,
-    //                     'is_primary' => $index === 0
-    //                 ]);
-
-    //                 $index++;
-    //             }
-    //         }
-
-    //         DB::commit();
-
-    //         return response()->json([
-    //             'message' => 'Product Variant created successfully',
-    //             'data' => $variant->load('images')
-    //         ], 201);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'message' => 'Failed to create Product Variant',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
     // update
-
-
-
-    // update
-
-
     public function update(Request $request, $id)
     {
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
@@ -203,7 +129,7 @@ class ProductVariantController extends Controller
                 'stock' => 'nullable|integer|min:0',
                 'status' => 'nullable|string|max:50',
                 'images' => 'nullable|array|size:4',
-                'images.*' => 'required|image|mimes:jpg,jpeg,png|max:5120',
+                'images.*' => 'image|mimes:jpg,jpeg,png|max:5120',
 
             ]);
 

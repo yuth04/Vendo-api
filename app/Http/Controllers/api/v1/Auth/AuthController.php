@@ -20,13 +20,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\CartService;
 class AuthController extends Controller
 {
-    protected $cartService;
 
-    // Inject CartController directly
-    public function __construct(CartService $cartService)
-    {
-        $this->cartService = $cartService;
-    }
     public function register(Request $request)
     {
         try {

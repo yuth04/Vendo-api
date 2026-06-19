@@ -208,9 +208,9 @@ class UserController extends Controller
     // search admin by id
     public function searchAdmin($id)
     {
-        if (auth()->user()->role !== 'super-admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
             return response()->json([
-                'message' => 'Only super-admin can access this endpoint',
+                'message' => 'Only super-admin and admin can access this endpoint',
             ], 403);
         }
         $user = User::whereIn('role', ['super-admin', 'admin', 'staff'])->find($id);

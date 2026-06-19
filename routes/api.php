@@ -6,8 +6,10 @@ use App\Http\Controllers\api\v1\Admin\AdminProductController;
 use App\Http\Controllers\api\v1\admin\ChatbotController;
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
+use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
+use App\Http\Controllers\api\v1\Admin\StoreSettingController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -15,7 +17,6 @@ use App\Http\Controllers\api\v1\Admin\SettingController;
 use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\Export\ExportController;
-
 use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
@@ -25,7 +26,6 @@ use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
-use App\Http\Controllers\api\v1\Admin\PermissionController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
@@ -35,7 +35,7 @@ use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
 use App\Http\Controllers\api\v1\Customer\WishlistController;
 use Illuminate\Support\Facades\Route;
-
+use Illuminate\Http\Request;
 Route::prefix('v1')->group(function () {
     Route::get('/orders/excel', [ExportController::class, 'exportOrderHistory']);
     Route::get('/products/excel', [ExportController::class, 'exportProducts']);
@@ -67,7 +67,14 @@ Route::prefix('v1')->group(function () {
     Route::get('api/health', function () {
         return response()->json(['status' => 'ok']);
     });
+    Route::get('/run-scheduler', function (Request $request) {
+        if ($request->header('X-Scheduler-Token') !== env('SCHEDULER_TOKEN')) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
 
+        Artisan::call('discounts:check-expired');
+        return response()->json(['message' => 'Scheduler ran successfully']);
+    });
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
@@ -151,14 +158,24 @@ Route::prefix('v1')->group(function () {
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
+        // Footer
+        Route::get('/footers', [StoreSettingController::class, 'index']);
+        Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
+        // Khqr payment
 
-
+        Route::post('generate', [PaymentController::class, 'generate']);
+        Route::post('verify', [PaymentController::class, 'verify']);
+        Route::post('/payment/webhook', [PayWayController::class, 'webhook']);
     });
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
+        });
+        Route::prefix('/payments')->group(function () {
+            Route::post('/create', [PayWayController::class, 'create']);
+            Route::post('/verify', [PayWayController::class, 'verify']);
         });
         // Chatbot
         Route::prefix('chat')->group(function () {
@@ -173,6 +190,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
         Route::get('/return-orders/{id}', [ReturnOrderController::class, 'show']);
+        Route::delete('/return-orders/{id}', [ReturnOrderController::class, 'destroy']);
+
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/profile', [AuthController::class, 'me']);
@@ -349,6 +368,14 @@ Route::prefix('v1')->group(function () {
             // SUPER ADMIN ONLY — danger zone
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
+            });
+            Route::prefix('footers')->group(function () {
+                Route::get('/', [StoreSettingController::class, 'getAll']);
+                Route::get('/{id}', [StoreSettingController::class, 'getById']);
+                Route::post('/', [StoreSettingController::class, 'store']);
+                Route::put('/bulk-update', [StoreSettingController::class, 'bulkUpdate']); // ← must be before /{id}
+                Route::put('/{id}', [StoreSettingController::class, 'update']);
+                Route::delete('/{id}', [StoreSettingController::class, 'destroy']);
             });
         });
     });

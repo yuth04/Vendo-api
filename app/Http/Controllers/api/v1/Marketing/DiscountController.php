@@ -55,7 +55,7 @@ class DiscountController extends Controller
             'discount' => $discounts,
         ]);
     }
-
+    // show
     public function show($id)
     {
         $discount = Discount::with('products')->find($id);
@@ -65,7 +65,10 @@ class DiscountController extends Controller
         }
 
         $discount->products->transform(function ($product) use ($discount) {
-            $product->discount_price = $this->calculateDiscountPrice($product->price, $discount);
+            // ✅ Only apply discount price if the discount is active
+            $product->discount_price = $discount->is_active
+                ? $this->calculateDiscountPrice($product->price, $discount)
+                : 0;
             return $product;
         });
 
@@ -215,19 +218,38 @@ class DiscountController extends Controller
 
             $discount->update($validated);
 
-            foreach ($discount->products as $product) {
+            if (isset($validated['is_active']) && $validated['is_active'] == false) {
+                foreach ($discount->products as $product) {
+                    $product->update(['discount_price' => 0]);
+                }
+            } else {
+                // Recalculate discount prices normally when active
+                foreach ($discount->products as $product) {
+                    $price = (float) $product->price;
+                    $amount = (float) $discount->amount;
 
-                $price = (float) $product->price;
-                $amount = (float) $discount->amount;
+                    $discountPrice = $discount->type === 'percent'
+                        ? $price - ($price * $amount / 100)
+                        : $price - $amount;
 
-                $discountPrice = $discount->type === 'percent'
-                    ? $price - ($price * $amount / 100)
-                    : $price - $amount;
-
-                $product->update([
-                    'discount_price' => max(0, round($discountPrice, 2))
-                ]);
+                    $product->update([
+                        'discount_price' => max(0, round($discountPrice, 2))
+                    ]);
+                }
             }
+            // foreach ($discount->products as $product) {
+
+            //     $price = (float) $product->price;
+            //     $amount = (float) $discount->amount;
+
+            //     $discountPrice = $discount->type === 'percent'
+            //         ? $price - ($price * $amount / 100)
+            //         : $price - $amount;
+
+            //     $product->update([
+            //         'discount_price' => max(0, round($discountPrice, 2))
+            //     ]);
+            // }
 
             return response()->json([
                 'message' => 'Discount and products updated successfully',
@@ -296,26 +318,6 @@ class DiscountController extends Controller
             'discount' => $discount->load('products')
         ]);
     }
-    // public function addProducts(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'discount_id' => 'required|exists:discounts,id',
-    //         'product_ids' => 'required|array',
-    //         'product_ids.*' => 'exists:products,id',
-    //     ]);
-
-    //     $discount = Discount::findOrFail($validated['discount_id']);
-
-    //     // attach products without duplicates
-    //     $discount->products()->syncWithoutDetaching(
-    //         $validated['product_ids']
-    //     );
-
-    //     return response()->json([
-    //         'message' => 'Products added to discount successfully',
-    //         'discount' => $discount->load('products')
-    //     ]);
-    // }
     // Remove a product from a discount
     public function removeProduct(Request $request, $discountId)
     {

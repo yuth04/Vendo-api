@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ParentCategory extends Model
 {
-    protected $fillable = ['name', 'status'];
+    protected $fillable = ['name', 'status','slug'];
 
     protected $casts = [
         'created_at' => 'datetime:d-m-Y g:i:s A',

@@ -208,7 +208,6 @@ class DashboardController extends Controller
 
     }
 
-
     public function orderStat()
     {
         return response()->json([

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ParentCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class ParentCategoryController extends Controller
 {
@@ -21,8 +22,9 @@ class ParentCategoryController extends Controller
                     'id' => $base->id,
                     'name' => $base->name,
                     'status' => $base->status,
+                    'slug'=>$base->slug,
                     'created_at' => $base->created_at->format('d-m-Y g:i:s A'),
-                    'updated_at' => $base->updated_at,
+                    'updated_at' => $base->updated_at->format('d-m-Y g:i:s A'),
                     'categories' => $base->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -110,8 +112,18 @@ class ParentCategoryController extends Controller
                 'message' => 'Parent category with this name already exists'
             ], 400);
         }
+        $slug = Str::slug($validated['name']);
+        $originalSlug = $slug;
+        $count = 1;
+
+        // Ensure slug uniqueness
+        while (ParentCategory::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $count++;
+        }
+
         $parentCategory = ParentCategory::create([
             'name' => $validated['name'],
+            'slug' => $slug,
             'status' => $validated['status']
         ]);
 
@@ -128,7 +140,12 @@ class ParentCategoryController extends Controller
                 'message' => 'Only super-admin and admin can delete product variant'
             ], 403);
         }
+
         $parentCategory = ParentCategory::find($id);
+
+        if (!$parentCategory) {
+            return response()->json(['message' => 'Category not found'], 404);
+        }
 
         $validated = Validator::make($request->all(), [
             'name' => "required|string|max:255|unique:parent_categories,name,$id",
@@ -143,10 +160,26 @@ class ParentCategoryController extends Controller
                 'errors' => $validated->errors()
             ], 422);
         }
-        $parentCategory->update($validated->validated());
+
+        $data = $validated->validated();
+
+        if ($parentCategory->name !== $data['name']) {
+            $slug = Str::slug($data['name']);
+            $originalSlug = $slug;
+            $count = 1;
+
+            while (ParentCategory::where('slug', $slug)->where('id', '!=', $id)->exists()) {
+                $slug = $originalSlug . '-' . $count++;
+            }
+
+            $data['slug'] = $slug;
+        }
+
+        $parentCategory->update($data);
+
         return response()->json([
             'message' => 'Updated successfully',
-            'Data' => $parentCategory
+            'Data' => $parentCategory->fresh()
         ]);
     }
     public function destroy($id)

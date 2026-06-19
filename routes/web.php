@@ -6,4 +6,5 @@ use Illuminate\Support\Facades\Route;
 
 // Route::get('/index',[GoogleAuthController::class, 'index']);
 // Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
-// Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+// Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);// routes/web.php
+// routes/web.php
