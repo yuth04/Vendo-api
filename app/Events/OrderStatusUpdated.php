@@ -32,7 +32,7 @@ class OrderStatusUpdated
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('orders'),
+            new Channel('orders'),
         ];
     }
     public function broadcastWith()
