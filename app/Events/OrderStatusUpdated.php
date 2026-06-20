@@ -15,8 +15,10 @@ class OrderStatusUpdated implements ShouldBroadcastNow
     public function __construct(
         public int $orderId,
         public string $status,
-        public string $paymentStatus = 'unpaid'
-    ) {}
+        public string $paymentStatus = 'unpaid',
+        public bool $isReturn = false
+    ) {
+    }
 
     public function broadcastOn(): array
     {
@@ -28,9 +30,10 @@ class OrderStatusUpdated implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
-            'order_id'       => $this->orderId,
-            'order_status'   => $this->status,
+            'order_id' => $this->orderId,
+            'order_status' => $this->status,
             'payment_status' => $this->paymentStatus,
+            'is_return' => $this->isReturn
         ];
     }
 }

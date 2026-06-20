@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\v1\Orders;
 
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminReturnRequestMail;
 use App\Mail\ReturnCompletedMail;
@@ -370,7 +371,16 @@ class ReturnOrderController extends Controller
             ]);
 
             DB::commit();
-
+            try {
+                broadcast(new OrderStatusUpdated(
+                    $return->order_id,
+                    'approved',
+                    'unpaid',
+                    true
+                ));
+            } catch (\Exception $e) {
+                \Log::error('Broadcast failed: ' . $e->getMessage());
+            }
             return response()->json([
                 'message' => 'Return approved successfully',
                 'data' => $return
@@ -399,7 +409,16 @@ class ReturnOrderController extends Controller
             'status' => 'rejected',
             'rejected_at' => now()
         ]);
-
+        try {
+            broadcast(new OrderStatusUpdated(
+                $return->order_id,
+                'approved',
+                'unpaid',
+                true // is_return
+            ));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
         return response()->json(['message' => 'Rejected']);
     }
     public function complete($id)
@@ -437,7 +456,16 @@ class ReturnOrderController extends Controller
             ]);
 
             DB::commit();
-
+            try {
+                broadcast(new OrderStatusUpdated(
+                    $return->order_id,
+                    'approved',
+                    'unpaid',
+                    true
+                ));
+            } catch (\Exception $e) {
+                \Log::error('Broadcast failed: ' . $e->getMessage());
+            }
             DB::afterCommit(function () use ($return) {
                 if ($return->user && $return->user->email) {
                     Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
