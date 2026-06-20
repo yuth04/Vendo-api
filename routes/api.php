@@ -2,8 +2,6 @@
 
 
 
-use App\Http\Controllers\api\v1\Admin\AdminProductController;
-use App\Http\Controllers\api\v1\admin\ChatbotController;
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\admin\PayWayController;
@@ -21,7 +19,6 @@ use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
-use App\Http\Controllers\api\v1\Marketing\DiscountCategoryController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
@@ -64,7 +61,7 @@ Route::prefix('v1')->group(function () {
         [ExportController::class, 'downloadInvoice']
     );
 
-    Route::get('api/health', function () {
+    Route::get('/health', function () {
         return response()->json(['status' => 'ok']);
     });
     Route::get('/run-scheduler', function (Request $request) {
@@ -104,22 +101,6 @@ Route::prefix('v1')->group(function () {
             '/text-search',
             [ProductController::class, 'searchByText']
         );
-        Route::get('/chat/models', function () {
-            $apiKey = env('GEMINI_API_KEY');
-
-            $response = \Illuminate\Support\Facades\Http::withoutVerifying()
-                ->get("https://generativelanguage.googleapis.com/v1beta/models?key={$apiKey}");
-
-            // Extract just the model names
-            $models = collect($response->json('models'))
-                ->pluck('name')
-                ->filter(fn($name) => str_contains($name, 'gemini'))
-                ->values();
-
-            return response()->json([
-                'available_models' => $models
-            ]);
-        });
 
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
@@ -153,8 +134,6 @@ Route::prefix('v1')->group(function () {
         Route::prefix('discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'index']);
         });
-        Route::get('/discount-categories', [DiscountCategoryController::class, 'index']);
-        Route::get('/discount-categories/{id}', [DiscountCategoryController::class, 'show']);
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
@@ -176,12 +155,6 @@ Route::prefix('v1')->group(function () {
         Route::prefix('/payments')->group(function () {
             Route::post('/create', [PayWayController::class, 'create']);
             Route::post('/verify', [PayWayController::class, 'verify']);
-        });
-        // Chatbot
-        Route::prefix('chat')->group(function () {
-            Route::post('/', [ChatbotController::class, 'chat']);
-            Route::post('/conversation', [ChatbotController::class, 'conversation']);
-            Route::post('/custom', [ChatbotController::class, 'customChat']);
         });
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);
@@ -297,9 +270,6 @@ Route::prefix('v1')->group(function () {
             // Discount Categories — full CRUD
             Route::get('/discount-categories', [ProductPermissionController::class, 'discountCategory']);
             Route::get('/discount-categories/{id}', [ProductPermissionController::class, 'discountCategoryId']);
-            Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
-            Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
-            Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
 
             // Carousels — full CRUD
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
@@ -344,7 +314,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/stats', [DashboardController::class, 'stats']);
                 Route::get('/order-stats', [DashboardController::class, 'orderStat']);
                 Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
-                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
                 Route::get('/stocks', [DashboardController::class, 'stock']);
                 Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
             });
