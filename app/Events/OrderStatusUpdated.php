@@ -4,42 +4,32 @@ namespace App\Events;
 
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class OrderStatusUpdated
+class OrderStatusUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    use SerializesModels;
-    /**
-     * Create a new event instance.
-     */
-    public function __construct(public int $orderId, public string $status,public string $paymentStatus = 'unpaid')
-    {
+    public function __construct(
+        public int $orderId,
+        public string $status,
+        public string $paymentStatus = 'unpaid'
+    ) {}
 
-
-    }
-
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
-     */
     public function broadcastOn(): array
     {
         return [
             new Channel('orders'),
         ];
     }
-    public function broadcastWith()
+
+    public function broadcastWith(): array
     {
         return [
-            'order_id' => $this->orderId,
-            'status' => $this->status,
+            'order_id'       => $this->orderId,
+            'order_status'   => $this->status,
             'payment_status' => $this->paymentStatus,
         ];
     }
