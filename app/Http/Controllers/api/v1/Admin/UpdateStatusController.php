@@ -169,6 +169,11 @@ class UpdateStatusController extends Controller
             'status' => 'completed',
             'completed_at' => now(),
         ]);
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
         return response()->json([
             'message' => 'Order marked as completed successfully',
             'order' => $order
