@@ -548,20 +548,22 @@ class OrderController extends Controller
 
     public function destroy($orderId)
     {
-        $user = Auth::user();
-        $order = $user->orders()->find($orderId);
+        if (auth()->user()->role !== 'super-admin') {
+            return response()->json(['message' => 'Only super admin can action this.'], 403);
+        }
 
-        if (!$order)
+        $order = Order::find($orderId);
+        if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
-        if ($order->status !== 'pending')
-            return response()->json(['message' => 'Only pending orders can be deleted'], 400);
+        }
+
+        // if ($order->status !== 'pending') {
+        //     return response()->json(['message' => 'Only pending orders can be deleted'], 400);
+        // }
 
         DB::transaction(function () use ($order) {
-            foreach ($order->items as $item) {
-                $item->variant?->increment('stock', $item->quantity);
-            }
             $order->items()->delete();
-            $order->payment()->delete();
+            $order->payment()?->delete();
             $order->delete();
         });
 

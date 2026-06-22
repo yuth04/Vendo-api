@@ -412,9 +412,9 @@ class ReturnOrderController extends Controller
         try {
             broadcast(new OrderStatusUpdated(
                 $return->order_id,
-                'approved',
+                'reject',
                 'unpaid',
-                true // is_return
+                true 
             ));
         } catch (\Exception $e) {
             \Log::error('Broadcast failed: ' . $e->getMessage());
@@ -459,7 +459,7 @@ class ReturnOrderController extends Controller
             try {
                 broadcast(new OrderStatusUpdated(
                     $return->order_id,
-                    'approved',
+                    'completed',
                     'unpaid',
                     true
                 ));
