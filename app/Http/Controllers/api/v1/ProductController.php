@@ -475,8 +475,8 @@ class ProductController extends Controller
                     'products.price',
                     'categories.name'
                 )
+                ->having(DB::raw('SUM(order_items.quantity)'), '>=', 1)
                 ->orderByDesc('total_sales')
-                ->take(8)
                 ->get()
                 ->map(function ($product) {
                     return [
