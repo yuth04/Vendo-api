@@ -92,6 +92,7 @@ Route::prefix('v1')->group(function () {
     // Reviews
     Route::get('/reviews', [ReviewController::class, 'index']);
     Route::get('/', [CartController::class, 'index']);
+
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
         // Image search
@@ -101,12 +102,13 @@ Route::prefix('v1')->group(function () {
             '/text-search',
             [ProductController::class, 'searchByText']
         );
-
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
         // popular products
+
         Route::get('/most-sold-products', [ProductController::class, 'mostSoldProducts']);
+        Route::get('/products/new', [ProductController::class, 'newProducts']);
         // Products
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
@@ -149,6 +151,16 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
+        // Notify to users
+        Route::post('/push-subscription', [UserController::class, 'savePushSubscription']);
+        Route::delete('/push-subscription', [UserController::class, 'deletePushSubscription']);
+        Route::get('/vapid-public-key', function () {
+            return response()->json(['key' => env('VAPID_PUBLIC_KEY')]);
+        });
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::patch('/notifications/read/{id}', [NotificationController::class, 'markAsRead']);
+        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
         Route::get('/user', function (Request $request) {
             return $request->user();
         });

@@ -7,8 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Models\User;
+use App\Notifications\NewProductNotification;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -132,8 +135,17 @@ class ProductController extends Controller
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'status' => $validated['status']
+            'status' => $validated['status'] ?? true
         ]);
+        try {
+            $customers = User::all();
+            foreach ($customers as $customer) {
+                $customer->notify(new NewProductNotification($product));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Notification error: ' . $e->getMessage());
+
+        }
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Created product successfully',
@@ -502,10 +514,65 @@ class ProductController extends Controller
             ], 500);
         }
     }
+    // New product
+    public function newProducts()
+    {
+        try {
+
+            $products = DB::table('products')
+                ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+                ->where('products.created_at', '>=', Carbon::now()->subMonth())
+                ->select(
+                    'products.id',
+                    'products.productName',
+                    'products.slug',
+                    'products.image',
+                    'products.price',
+                    'categories.name as category_name',
+                    'products.created_at'
+                )
+                ->orderByDesc('products.created_at')
+                ->get();
+
+            if ($products->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No new products found',
+                    'products' => []
+                ], 404);
+            }
+
+            $products = $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'productName' => $product->productName,
+                    'slug' => $product->slug,
+                    'image' => $product->image,
+                    'price' => number_format($product->price, 2),
+                    'category' => $product->category_name,
+                    'created_at' => Carbon::parse($product->created_at)
+                        ->format('d-m-Y h:i:s A'),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'New products retrieved successfully',
+                'total' => $products->count(),
+                'products' => $products
+            ], 200);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve new products',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 
     // Get All Product Images
-
-
     public function allImages()
     {
         $images = Product::whereNotNull('image')

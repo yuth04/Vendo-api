@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Auth;
 use ImageKit\ImageKit;
+use NotificationChannels\WebPush\PushSubscription;
+
 class UserController extends Controller
 {
     // user's order history
@@ -377,5 +379,29 @@ class UserController extends Controller
             'message' => 'Updated role successfully.',
             'user' => $user->fresh()
         ]);
+    }
+
+    //   Notify to user
+    public function savePushSubscription(Request $request)
+    {
+        $request->validate([
+            'endpoint' => 'required',
+            'keys.auth' => 'required',
+            'keys.p256dh' => 'required',
+        ]);
+
+        auth()->user()->updatePushSubscription(
+            $request->endpoint,
+            $request->keys['p256dh'],
+            $request->keys['auth']
+        );
+
+        return response()->json(['message' => 'Push subscription saved']);
+    }
+    public function deletePushSubscription(Request $request)
+    {
+        auth()->user()->deletePushSubscription($request->endpoint);
+
+        return response()->json(['message' => 'Push subscription deleted']);
     }
 }

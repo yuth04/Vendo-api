@@ -18,7 +18,7 @@ class ProductPermissionController extends Controller
     {
 
         $products = Product::with(['category', 'brand', 'variants'])
-            ->orderBy('id', 'asc')
+            ->latest()
             ->get();
 
         return response()->json([
@@ -52,7 +52,7 @@ class ProductPermissionController extends Controller
                     'id' => $base->id,
                     'name' => $base->name,
                     'status' => $base->status,
-                    'slug'=>$base->slug,
+                    'slug' => $base->slug,
                     'created_at' => $base->created_at->format('d-m-Y g:i:s A'),
                     'updated_at' => $base->updated_at->format('d-m-Y g:i:s A'),
                     'categories' => $base->categories->map(function ($category) {
@@ -97,7 +97,7 @@ class ProductPermissionController extends Controller
             'id' => $base->id,
             'name' => $base->name,
             'status' => $base->status,
-            'slug'=>$base->slug,
+            'slug' => $base->slug,
             'created_at' => $base->created_at,
             'updated_at' => $base->updated_at,
             'categories' => $base->categories->map(function ($category) {
