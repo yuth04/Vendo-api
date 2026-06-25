@@ -18,12 +18,16 @@ class Product extends Model
         'image_file_id',
         'discount_id',
         'status',
+        'created_by',
+        'updated_by'
     ];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_by' => 'array',
+        'created_by' => 'array',
     ];
-    protected $hidden = ['pivot','created_at', 'updated_at', 'discount_id'];
+    protected $hidden = ['pivot', 'created_at', 'updated_at', 'discount_id'];
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -74,5 +78,14 @@ class Product extends Model
             Discount::class,
             'discount_items'
         );
+    }
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
     }
 }

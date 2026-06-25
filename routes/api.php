@@ -8,6 +8,7 @@ use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Admin\StoreSettingController;
+use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -75,6 +76,9 @@ Route::prefix('v1')->group(function () {
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+    // Facebook OAuth
+    Route::get('/auth/facebook', [FacebookAuthController::class, 'redirectFacebook']);
+    Route::get('/auth/facebook/callback', [FacebookAuthController::class, 'handleFacebookCallback']);
     Route::get('/orders/{order}/receipt/download', [OrderController::class, 'downloadReceipt'])
         ->name('order.receipt.download')
         ->middleware('signed');

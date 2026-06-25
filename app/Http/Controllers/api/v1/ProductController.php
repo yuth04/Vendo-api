@@ -12,6 +12,7 @@ use App\Notifications\NewProductNotification;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -125,6 +126,7 @@ class ProductController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
+
         // Create product
         $product = Product::create([
             'productName' => $validated['productName'],
@@ -135,8 +137,24 @@ class ProductController extends Controller
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'status' => $validated['status'] ?? true
+            'status' => $validated['status'] ?? 'active',
+            'created_by' => null,
+            'updated_by' => null,
         ]);
+        $user = Auth::user();
+        $auditInfo = [
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'image' => $user->image,
+            'created_at' => now()->format('d-m-Y g:i:s A'),
+        ];
+        $product->update([
+            'created_by' => $auditInfo,
+            'updated_by' => $auditInfo
+        ]);
+
         try {
             $customers = User::all();
             foreach ($customers as $customer) {
@@ -155,7 +173,12 @@ class ProductController extends Controller
     // updated product
     public function update(Request $request, $id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        if (!in_array($user->role, ['super-admin', 'admin'])) {
             return response()->json([
                 'message' => 'Only super-admin and admin can update product'
             ], 403);
@@ -221,7 +244,11 @@ class ProductController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
-
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated'
+            ], 401);
+        }
         //Final update
         $product->update([
             'productName' => $validated['productName'],
@@ -233,7 +260,16 @@ class ProductController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $validated['status'] ?? $product->status,
+            'updated_by' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'image' => $user->image,
+                'updated_at' => now()->format('d-m-Y g:i:s A'),
+            ],
         ]);
+
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Updated product successfully',
@@ -520,6 +556,7 @@ class ProductController extends Controller
         try {
 
             $products = DB::table('products')
+                ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
                 ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
                 ->where('products.created_at', '>=', Carbon::now()->subMonth())
                 ->select(
@@ -528,6 +565,7 @@ class ProductController extends Controller
                     'products.slug',
                     'products.image',
                     'products.price',
+                    'brands.name as brand_name',
                     'categories.name as category_name',
                     'products.created_at'
                 )
@@ -549,6 +587,7 @@ class ProductController extends Controller
                     'slug' => $product->slug,
                     'image' => $product->image,
                     'price' => number_format($product->price, 2),
+                    'brand' => $product->brand_name,
                     'category' => $product->category_name,
                     'created_at' => Carbon::parse($product->created_at)
                         ->format('d-m-Y h:i:s A'),

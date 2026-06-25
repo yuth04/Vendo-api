@@ -34,7 +34,7 @@ class User extends Authenticatable
         'image_file_id',
         'created_by',
         'updated_by',
-
+        'facebook_id',
     ];
     // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
