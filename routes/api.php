@@ -2,14 +2,13 @@
 
 
 
-use App\Http\Controllers\api\v1\Admin\AdminProductController;
-use App\Http\Controllers\api\v1\admin\ChatbotController;
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Admin\StoreSettingController;
+use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -21,7 +20,6 @@ use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
-use App\Http\Controllers\api\v1\Marketing\DiscountCategoryController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
@@ -64,7 +62,7 @@ Route::prefix('v1')->group(function () {
         [ExportController::class, 'downloadInvoice']
     );
 
-    Route::get('api/health', function () {
+    Route::get('/health', function () {
         return response()->json(['status' => 'ok']);
     });
     Route::get('/run-scheduler', function (Request $request) {
@@ -78,6 +76,9 @@ Route::prefix('v1')->group(function () {
     // Google OAuth
     Route::get('/auth/google', [GoogleAuthController::class, 'redirectGoogle']);
     Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+    // Facebook OAuth
+    Route::get('/auth/facebook', [FacebookAuthController::class, 'redirectFacebook']);
+    Route::get('/auth/facebook/callback', [FacebookAuthController::class, 'handleFacebookCallback']);
     Route::get('/orders/{order}/receipt/download', [OrderController::class, 'downloadReceipt'])
         ->name('order.receipt.download')
         ->middleware('signed');
@@ -95,6 +96,7 @@ Route::prefix('v1')->group(function () {
     // Reviews
     Route::get('/reviews', [ReviewController::class, 'index']);
     Route::get('/', [CartController::class, 'index']);
+
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
         // Image search
@@ -104,28 +106,13 @@ Route::prefix('v1')->group(function () {
             '/text-search',
             [ProductController::class, 'searchByText']
         );
-        Route::get('/chat/models', function () {
-            $apiKey = env('GEMINI_API_KEY');
-
-            $response = \Illuminate\Support\Facades\Http::withoutVerifying()
-                ->get("https://generativelanguage.googleapis.com/v1beta/models?key={$apiKey}");
-
-            // Extract just the model names
-            $models = collect($response->json('models'))
-                ->pluck('name')
-                ->filter(fn($name) => str_contains($name, 'gemini'))
-                ->values();
-
-            return response()->json([
-                'available_models' => $models
-            ]);
-        });
-
         Route::get('/products/{id}/reviews-summary', [ReviewController::class, 'productSummary']);
         // Carousels
         Route::get('/carousels', [CarouselController::class, 'index']);
         // popular products
+
         Route::get('/most-sold-products', [ProductController::class, 'mostSoldProducts']);
+        Route::get('/products/new', [ProductController::class, 'newProducts']);
         // Products
         Route::get('/products', [ProductController::class, 'index']);
         Route::get('/products/{id}', [ProductController::class, 'searchById']);
@@ -153,8 +140,6 @@ Route::prefix('v1')->group(function () {
         Route::prefix('discounts')->group(function () {
             Route::get('/', [DiscountController::class, 'index']);
         });
-        Route::get('/discount-categories', [DiscountCategoryController::class, 'index']);
-        Route::get('/discount-categories/{id}', [DiscountCategoryController::class, 'show']);
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
@@ -170,18 +155,22 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
+        // Notify to users
+        Route::post('/push-subscription', [UserController::class, 'savePushSubscription']);
+        Route::delete('/push-subscription', [UserController::class, 'deletePushSubscription']);
+        Route::get('/vapid-public-key', function () {
+            return response()->json(['key' => env('VAPID_PUBLIC_KEY')]);
+        });
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::patch('/notifications/read/{id}', [NotificationController::class, 'markAsRead']);
+        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
         Route::prefix('/payments')->group(function () {
             Route::post('/create', [PayWayController::class, 'create']);
             Route::post('/verify', [PayWayController::class, 'verify']);
-        });
-        // Chatbot
-        Route::prefix('chat')->group(function () {
-            Route::post('/', [ChatbotController::class, 'chat']);
-            Route::post('/conversation', [ChatbotController::class, 'conversation']);
-            Route::post('/custom', [ChatbotController::class, 'customChat']);
         });
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);
@@ -297,9 +286,6 @@ Route::prefix('v1')->group(function () {
             // Discount Categories — full CRUD
             Route::get('/discount-categories', [ProductPermissionController::class, 'discountCategory']);
             Route::get('/discount-categories/{id}', [ProductPermissionController::class, 'discountCategoryId']);
-            Route::post('/discount-categories', [DiscountCategoryController::class, 'store']);
-            Route::post('/discount-categories/{id}', [DiscountCategoryController::class, 'update']);
-            Route::delete('/discount-categories/{id}', [DiscountCategoryController::class, 'destroy']);
 
             // Carousels — full CRUD
             Route::get('/carousels', [ProductPermissionController::class, 'carousel']);
@@ -344,7 +330,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/stats', [DashboardController::class, 'stats']);
                 Route::get('/order-stats', [DashboardController::class, 'orderStat']);
                 Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
-                Route::get('/most-sold-brands', [DashboardController::class, 'mostSoldBrands']);
                 Route::get('/stocks', [DashboardController::class, 'stock']);
                 Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
             });

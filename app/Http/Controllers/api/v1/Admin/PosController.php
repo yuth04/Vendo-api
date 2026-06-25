@@ -89,7 +89,7 @@ class PosController extends Controller
     public function returnHistory()
     {
    
-        $returns = ReturnOrder::with(['user', 'items'])->orderBy('id', 'asc')->latest()->get();
+        $returns = ReturnOrder::with(['user', 'items'])->latest()->get();
         $data = $returns->map(function ($returnOrder) {
             return [
                 'id' => $returnOrder->id,

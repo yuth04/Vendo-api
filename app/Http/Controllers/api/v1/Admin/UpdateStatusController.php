@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\v1\Admin;
 
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\OrderConfirmedMail;
 use App\Mail\OrderDeliveredMail;
@@ -41,13 +42,19 @@ class UpdateStatusController extends Controller
         $order->update([
             'status' => 'confirmed'
         ]);
-        $payemt = $order->payment;
-        if ($payemt) {
-            $payemt->update([
+        $paymemt = $order->payment;
+        if ($paymemt) {
+            $paymemt->update([
                 'status' => 'unpaid',
             ]);
         }
-
+        // Broadcast real-time update
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
+        //Send email
         Mail::to($order->user->email)->send(new OrderConfirmedMail($order));
 
         return response()->json([
@@ -76,11 +83,16 @@ class UpdateStatusController extends Controller
             'status' => 'shipping',
             'shipped_at' => now(),
         ]);
-        $payemt = $order->payment;
-        if ($payemt) {
-            $payemt->update([
+        $paymemt = $order->payment;
+        if ($paymemt) {
+            $paymemt->update([
                 'status' => 'unpaid',
             ]);
+        }
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
         }
         Mail::to($order->user->email)->send(new OrderShippedMail($order));
         return response()->json([
@@ -124,6 +136,11 @@ class UpdateStatusController extends Controller
         $payment_reference = $order->payment->payment_reference;
         $shipping = $this->calculateShipping($order->address->province ?? '');
         $order->load(['items', 'user']);
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
         Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping, $transaction_id, $payment_reference));
 
         return response()->json([
@@ -152,6 +169,11 @@ class UpdateStatusController extends Controller
             'status' => 'completed',
             'completed_at' => now(),
         ]);
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
         return response()->json([
             'message' => 'Order marked as completed successfully',
             'order' => $order
@@ -176,6 +198,11 @@ class UpdateStatusController extends Controller
             'returned_at' => now(),
 
         ]);
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
         return response()->json([
             'message' => 'Order marked as returned successfully',
             'order' => $order
@@ -198,41 +225,101 @@ class UpdateStatusController extends Controller
         $order->update([
             'status' => 'cancelled',
             'cancelled_at' => now(),
-
-
-
         ]);
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
         return response()->json([
             'message' => 'Order marked as cancelled successfully',
             'order' => $order
         ]);
     }
     // Payment status update (Admin only)
+    // public function updatePaymentStatus($id, Request $request)
+    // {
+    //     if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
+    //         return response()->json([
+    //             'message' => 'Only super-admin or staff can access this endpoint',
+    //         ], 403);
+    //     }
+    //     $request->validate([
+    //         'status' => 'required|in:paid,unpaid,refunded',
+    //     ]);
+    //     $order = Order::findOrFail($id);
+    //     $payment = $order->payment;
+    //     if (!$payment) {
+    //         return response()->json([
+    //             'message' => 'Payment not found'
+    //         ], 404);
+    //     }
+    //     if ($payment->status == $request->status) {
+    //         return response()->json([
+    //             'message' => 'Payment is already marked as ' . $request->status
+    //         ], 400);
+    //     }
+
+    //     // Only restrict when marking as PAID
+    //     if (
+    //         $request->status === 'paid' &&
+    //         !in_array($order->status, ['delivered', 'completed'])
+    //     ) {
+    //         return response()->json([
+    //             'message' => 'Only delivered or completed orders can be marked as paid'
+    //         ], 400);
+    //     }
+    //     // Refund only if already paid
+    //     if ($request->status === 'refunded' && $payment->status !== 'paid') {
+    //         return response()->json([
+    //             'message' => 'Only paid orders can be refunded'
+    //         ], 400);
+    //     }
+    //     $payment->update([
+    //         'status' => $request->status,
+    //         'paid_at' => $request->status === 'paid' ? now() : $payment->paid_at,
+    //         'refunded_at' => $request->status === 'refunded' ? now() : $payment->refunded_at,
+    //         'transaction_id' => $payment->method === 'Cash on Delivery'
+    //             ? 'COD-' . $order->order_number
+    //             : $payment->transaction_id,
+    //     ]);
+    //     return response()->json([
+    //         'message' => 'Payment status updated to ' . $request->status . ' successfully',
+    //         'payment' => $payment
+    //     ]);
+    // }
     public function updatePaymentStatus($id, Request $request)
     {
+        // Auth check
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
             return response()->json([
                 'message' => 'Only super-admin or staff can access this endpoint',
             ], 403);
         }
 
+        // Validate
         $request->validate([
             'status' => 'required|in:paid,unpaid,refunded',
         ]);
+
+        // Find order & payment
         $order = Order::findOrFail($id);
         $payment = $order->payment;
+
         if (!$payment) {
             return response()->json([
                 'message' => 'Payment not found'
             ], 404);
         }
-        if ($payment->status == $request->status) {
+
+        // Already same status
+        if ($payment->status === $request->status) {
             return response()->json([
                 'message' => 'Payment is already marked as ' . $request->status
             ], 400);
         }
 
-        // Only restrict when marking as PAID
+        // Only delivered or completed orders can be marked as paid
         if (
             $request->status === 'paid' &&
             !in_array($order->status, ['delivered', 'completed'])
@@ -241,12 +328,15 @@ class UpdateStatusController extends Controller
                 'message' => 'Only delivered or completed orders can be marked as paid'
             ], 400);
         }
-        // Refund only if already paid
+
+        // Only paid orders can be refunded
         if ($request->status === 'refunded' && $payment->status !== 'paid') {
             return response()->json([
                 'message' => 'Only paid orders can be refunded'
             ], 400);
         }
+
+        // Update payment
         $payment->update([
             'status' => $request->status,
             'paid_at' => $request->status === 'paid' ? now() : $payment->paid_at,
@@ -255,12 +345,19 @@ class UpdateStatusController extends Controller
                 ? 'COD-' . $order->order_number
                 : $payment->transaction_id,
         ]);
+
+        // Broadcast real-time update
+        try {
+            broadcast(new OrderStatusUpdated($order->id, $order->status, $payment->status));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'message' => 'Payment status updated to ' . $request->status . ' successfully',
-            'payment' => $payment
+            'payment' => $payment->fresh(), // fresh() to get updated data
         ]);
     }
-
 
 
 }

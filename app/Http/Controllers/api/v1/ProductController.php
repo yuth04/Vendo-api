@@ -7,8 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Models\User;
+use App\Notifications\NewProductNotification;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -122,6 +126,7 @@ class ProductController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
+
         // Create product
         $product = Product::create([
             'productName' => $validated['productName'],
@@ -132,8 +137,33 @@ class ProductController extends Controller
             'brand_id' => $validated['brand_id'],
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
-            'status' => $validated['status']
+            'status' => $validated['status'] ?? 'active',
+            'created_by' => null,
+            'updated_by' => null,
         ]);
+        $user = Auth::user();
+        $auditInfo = [
+            'id' => $user->id,
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'email' => $user->email,
+            'image' => $user->image,
+            'created_at' => now()->format('d-m-Y g:i:s A'),
+        ];
+        $product->update([
+            'created_by' => $auditInfo,
+            'updated_by' => $auditInfo
+        ]);
+
+        try {
+            $customers = User::all();
+            foreach ($customers as $customer) {
+                $customer->notify(new NewProductNotification($product));
+            }
+        } catch (\Exception $e) {
+            \Log::error('Notification error: ' . $e->getMessage());
+
+        }
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Created product successfully',
@@ -143,7 +173,12 @@ class ProductController extends Controller
     // updated product
     public function update(Request $request, $id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        if (!in_array($user->role, ['super-admin', 'admin'])) {
             return response()->json([
                 'message' => 'Only super-admin and admin can update product'
             ], 403);
@@ -209,7 +244,11 @@ class ProductController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
-
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated'
+            ], 401);
+        }
         //Final update
         $product->update([
             'productName' => $validated['productName'],
@@ -221,7 +260,16 @@ class ProductController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $validated['status'] ?? $product->status,
+            'updated_by' => [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'image' => $user->image,
+                'updated_at' => now()->format('d-m-Y g:i:s A'),
+            ],
         ]);
+
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Updated product successfully',
@@ -344,49 +392,120 @@ class ProductController extends Controller
         ]);
     }
     // Top saled products
+    // public function topSales()
+    // {
+    //     try {
+
+    //         $products = DB::table('order_items')
+
+    //             ->join(
+    //                 'product_variants',
+    //                 'order_items.product_variant_id',
+    //                 '=',
+    //                 'product_variants.id'
+    //             )
+
+    //             ->join(
+    //                 'products',
+    //                 'product_variants.product_id',
+    //                 '=',
+    //                 'products.id'
+    //             )
+
+    //             ->join(
+    //                 'orders',
+    //                 'order_items.order_id',
+    //                 '=',
+    //                 'orders.id'
+    //             )
+
+    //             ->join(
+    //                 'payments',
+    //                 'orders.id',
+    //                 '=',
+    //                 'payments.order_id'
+    //             )
+
+    //             ->leftJoin(
+    //                 'categories',
+    //                 'products.category_id',
+    //                 '=',
+    //                 'categories.id'
+    //             )
+
+    //             ->where('payments.status', 'paid')
+
+    //             ->select(
+    //                 'products.id',
+    //                 'products.productName',
+    //                 'products.slug',
+    //                 'products.image',
+    //                 'products.price',
+    //                 'categories.name as category_name',
+
+    //                 DB::raw('SUM(order_items.quantity) as total_sales')
+    //             )
+
+    //             ->groupBy(
+    //                 'products.id',
+    //                 'products.productName',
+    //                 'products.slug',
+    //                 'products.image',
+    //                 'products.price',
+    //                 'categories.name'
+    //             )
+
+    //             ->orderByDesc('total_sales')
+
+    //             ->take(8)
+
+    //             ->get()
+
+    //             ->map(function ($product) {
+
+    //                 return [
+    //                     'id' => $product->id,
+
+    //                     'productName' => $product->productName,
+
+    //                     'slug' => $product->slug,
+
+    //                     'image' => $product->image ?? null,
+
+    //                     'price' => number_format($product->price, 2),
+
+    //                     'category' => $product->category_name,
+
+    //                     'total_sales' => (int) $product->total_sales,
+    //                 ];
+    //             });
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Top sale products retrieved successfully',
+    //             'products' => $products,
+    //         ]);
+
+    //     } catch (\Exception $e) {
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Failed to retrieve top sale products',
+    //             'error' => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
     public function topSales()
     {
         try {
-
             $products = DB::table('order_items')
-
-                ->join(
-                    'product_variants',
-                    'order_items.product_variant_id',
-                    '=',
-                    'product_variants.id'
-                )
-
-                ->join(
-                    'products',
-                    'product_variants.product_id',
-                    '=',
-                    'products.id'
-                )
-
-                ->join(
-                    'orders',
-                    'order_items.order_id',
-                    '=',
-                    'orders.id'
-                )
-
-                ->join(
-                    'payments',
-                    'orders.id',
-                    '=',
-                    'payments.order_id'
-                )
-
-                ->leftJoin(
-                    'categories',
-                    'products.category_id',
-                    '=',
-                    'categories.id'
-                )
-
+                ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
+                ->join('products', 'product_variants.product_id', '=', 'products.id')
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->join('payments', 'orders.id', '=', 'payments.order_id')
+                ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
                 ->where('payments.status', 'paid')
-
+                ->where('orders.created_at', '>=', now()->subMonths(3))
                 ->select(
                     'products.id',
                     'products.productName',
@@ -394,10 +513,8 @@ class ProductController extends Controller
                     'products.image',
                     'products.price',
                     'categories.name as category_name',
-
                     DB::raw('SUM(order_items.quantity) as total_sales')
                 )
-
                 ->groupBy(
                     'products.id',
                     'products.productName',
@@ -406,40 +523,26 @@ class ProductController extends Controller
                     'products.price',
                     'categories.name'
                 )
-
+                ->having(DB::raw('SUM(order_items.quantity)'), '>=', 1)
                 ->orderByDesc('total_sales')
-
-                ->take(8)
-
                 ->get()
-
                 ->map(function ($product) {
-
                     return [
                         'id' => $product->id,
-
                         'productName' => $product->productName,
-
                         'slug' => $product->slug,
-
                         'image' => $product->image ?? null,
-
                         'price' => number_format($product->price, 2),
-
                         'category' => $product->category_name,
-
                         'total_sales' => (int) $product->total_sales,
                     ];
                 });
-
             return response()->json([
-                'success' => true,
                 'message' => 'Top sale products retrieved successfully',
                 'products' => $products,
             ]);
 
         } catch (\Exception $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve top sale products',
@@ -447,11 +550,68 @@ class ProductController extends Controller
             ], 500);
         }
     }
+    // New product
+    public function newProducts()
+    {
+        try {
 
-    // =========================
+            $products = DB::table('products')
+                ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
+                ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
+                ->where('products.created_at', '>=', Carbon::now()->subMonth())
+                ->select(
+                    'products.id',
+                    'products.productName',
+                    'products.slug',
+                    'products.image',
+                    'products.price',
+                    'brands.name as brand_name',
+                    'categories.name as category_name',
+                    'products.created_at'
+                )
+                ->orderByDesc('products.created_at')
+                ->get();
+
+            if ($products->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No new products found',
+                    'products' => []
+                ], 404);
+            }
+
+            $products = $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'productName' => $product->productName,
+                    'slug' => $product->slug,
+                    'image' => $product->image,
+                    'price' => number_format($product->price, 2),
+                    'brand' => $product->brand_name,
+                    'category' => $product->category_name,
+                    'created_at' => Carbon::parse($product->created_at)
+                        ->format('d-m-Y h:i:s A'),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'New products retrieved successfully',
+                'total' => $products->count(),
+                'products' => $products
+            ], 200);
+
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve new products',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
     // Get All Product Images
-    // =========================
-
     public function allImages()
     {
         $images = Product::whereNotNull('image')
@@ -726,7 +886,7 @@ class ProductController extends Controller
             ], 500);
         }
     }
-   
+
     private function refreshAllIndex()
     {
         try {

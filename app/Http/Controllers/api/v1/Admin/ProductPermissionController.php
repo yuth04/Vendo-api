@@ -10,22 +10,56 @@ use App\Models\DiscountCategory;
 use App\Models\ParentCategory;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ProductPermissionController extends Controller
 {
     public function index(Request $request)
     {
-
         $products = Product::with(['category', 'brand', 'variants'])
-            ->orderBy('id', 'asc')
+            ->latest()
             ->get();
+
+        if ($products->isEmpty()) {
+            return response()->json(['message' => 'Product is empty']);
+        }
 
         return response()->json([
             'message' => 'Retrieved products successfully',
-            'product' => $products
+            'product' => $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'productName' => $product->productName,
+                    'slug' => $product->slug,
+                    'description' => $product->description,
+                    'price' => $product->price,
+                    'category' => $product->category,
+                    'brand' => $product->brand,
+                    'image' => $product->image,
+                    'status' => $product->status,
+                    'variants' => $product->variants, // ✅ fixed typo
+                    'created_by' => [
+                        'id' => $product->creator?->id,
+                        'first_name' => $product->creator?->first_name,
+                        'last_name' => $product->creator?->last_name,
+                        'email' => $product->creator?->email,
+                        'role' => $product->creator?->role,
+                        'image' => $product->creator?->image,
+                        'created_at' => Carbon::parse($product->created_at)->format('d-m-Y h:i:s A'),
+                    ],
+                    'updated_by' => [
+                        'id' => $product->updater?->id,   // ✅ fixed: was creator
+                        'first_name' => $product->updater?->first_name,
+                        'last_name' => $product->updater?->last_name,
+                        'email' => $product->updater?->email,
+                        'role' => $product->updater?->role,
+                        'image' => $product->updater?->image,
+                        'updated_at' => Carbon::parse($product->updated_at)->format('d-m-Y h:i:s A'),
+                    ],
+                ];
+            }),
         ]);
-
     }
     public function productId($id)
     {
@@ -52,7 +86,7 @@ class ProductPermissionController extends Controller
                     'id' => $base->id,
                     'name' => $base->name,
                     'status' => $base->status,
-                    'slug'=>$base->slug,
+                    'slug' => $base->slug,
                     'created_at' => $base->created_at->format('d-m-Y g:i:s A'),
                     'updated_at' => $base->updated_at->format('d-m-Y g:i:s A'),
                     'categories' => $base->categories->map(function ($category) {
@@ -97,7 +131,7 @@ class ProductPermissionController extends Controller
             'id' => $base->id,
             'name' => $base->name,
             'status' => $base->status,
-            'slug'=>$base->slug,
+            'slug' => $base->slug,
             'created_at' => $base->created_at,
             'updated_at' => $base->updated_at,
             'categories' => $base->categories->map(function ($category) {

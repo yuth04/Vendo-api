@@ -6,12 +6,13 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use NotificationChannels\WebPush\HasPushSubscriptions;
 
 class User extends Authenticatable
 {
+    use HasPushSubscriptions;
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
-
     /**
      * The attributes that are mass assignable.
      *
@@ -33,7 +34,7 @@ class User extends Authenticatable
         'image_file_id',
         'created_by',
         'updated_by',
-
+        'facebook_id',
     ];
     // protected $appends = ['firstName', 'lastName'];
     protected $casts = [

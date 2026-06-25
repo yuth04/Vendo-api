@@ -107,4 +107,47 @@ class NotificationController extends Controller
             ]
         ]);
     }
+    public function index()
+    {
+        $notifications = auth()->user()
+            ->notifications()
+            ->latest()
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'data' => $notification->data,
+                    'read' => !is_null($notification->read_at),
+                    'created_at' => \Carbon\Carbon::parse($notification->created_at)
+                        ->format('d-m-Y g:i:s A'),
+                ];
+            });
+
+        return response()->json([
+            'message' => 'Notifications retrieved successfully',
+            'notifications' => $notifications,
+            'unread_count' => auth()->user()->unreadNotifications()->count(),
+        ]);
+    }
+
+    public function markAsRead($id)
+    {
+        auth()->user()->notifications()->findOrFail($id)->markAsRead();
+
+        return response()->json(['message' => 'Notification marked as read']);
+    }
+
+    public function markAllAsRead()
+    {
+        auth()->user()->unreadNotifications->markAsRead();
+
+        return response()->json(['message' => 'All notifications marked as read']);
+    }
+
+    public function destroy($id)
+    {
+        auth()->user()->notifications()->findOrFail($id)->delete();
+        
+        return response()->json(['message' => 'Notification deleted']);
+    }
 }

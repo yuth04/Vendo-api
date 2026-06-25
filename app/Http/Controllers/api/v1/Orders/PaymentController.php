@@ -12,104 +12,139 @@ use Bakong\KHQR\Models\IndividualInfo;
 
 class PaymentController extends Controller
 {
-    public function generate(Request $request)
+    /**
+     * Generate KHQR Payment
+     */
+    public function generate(Request $request): JsonResponse
     {
         $request->validate([
-            'order_id' => 'required|exists:orders,id',
-        ]);
-
-        $order = Order::where('id', $request->id)
-            ->where('user_id', $request->user()->id)
-            ->findOrFail();
-
-        if ($order->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order is not payable'
-            ], 422);
-        }
-
-        try {
-            $info = new IndividualInfo();
-            $info->bakongAccountId = config('services.khqr.bakong_id');  // e.g. yourname@wing
-            $info->merchantName = config('services.khqr.merchant_name');
-            $info->merchantCity = config('services.khqr.merchant_city', 'Phnom Penh');
-            $info->amount = (float) $order->total_price;
-            $info->currency = IndividualInfo::USD; // or KHR
-            $info->storeLabel = config('services.khqr.store_label', 'Vendo Store');
-            $info->terminalLabel = 'Order #' . $order->order_number;
-            $info->billNumber = (string) $order->order_number;
-
-
-            $khqr = new KHQR();
-            $result = $khqr->generateIndividual($info);
-
-
-            return response()->json([
-                'success' => true,
-                'qr_string' => $result->data->qr,
-                'qr_image' => $result->data->qrImage, // base64 PNG
-                'md5' => $result->data->md5,     // used to verify payment
-                'order_id' => $order->id,
-                'amount' => $order->total_price,
-                'currency' => 'USD',
-            ]);
-
-        } catch (\Throwable $e) {
-            Log::error('KHQR generate error', ['message' => $e->getMessage()]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to generate QR code.',
-            ], 500);
-        }
-
-    }
-    // verify
-    public function verify(Request $request): JsonResponse
-    {
-        $request->validate([
-            'md5' => 'required|string',
-            'order_id' => 'required|exists:orders,id',
+            'order_id' => ['required', 'exists:orders,id'],
         ]);
 
         $order = Order::where('id', $request->order_id)
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
-        try {
-            $khqr = new KHQR(config('services.khqr.bakong_token'));
-            $result = $khqr->checkTransactionByMd5($request->md5);
+        if ($order->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order is not payable.',
+            ], 422);
+        }
 
-            if ($result->data?->hash ?? null) {
-                // Payment confirmed — update order
+        try {
+            $info = new IndividualInfo();
+
+            $info->bakongAccountId = config('services.khqr.bakong_id');
+            $info->merchantName    = config('services.khqr.merchant_name', 'Vendo Store');
+            $info->merchantCity    = config('services.khqr.merchant_city', 'Phnom Penh');
+
+            $info->amount          = (float) $order->total_price;
+            $info->currency        = IndividualInfo::USD;
+
+            $info->storeLabel      = 'Vendo Store';
+            $info->terminalLabel   = 'Order #' . $order->order_number;
+            $info->billNumber      = (string) $order->order_number;
+
+            $khqr = new KHQR();
+
+            $result = $khqr->generateIndividual($info);
+
+            if (!isset($result->data)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate KHQR.',
+                ], 500);
+            }
+
+            return response()->json([
+                'success'   => true,
+                'order_id'  => $order->id,
+                'amount'    => $order->total_price,
+                'currency'  => 'USD',
+                'qr_string' => $result->data->qr ?? null,
+                'md5'       => $result->data->md5 ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('KHQR Generate Error', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify KHQR Payment
+     */
+    public function verify(Request $request): JsonResponse
+    {
+        $request->validate([
+            'order_id' => ['required', 'exists:orders,id'],
+            'md5'      => ['required', 'string'],
+        ]);
+
+        $order = Order::where('id', $request->order_id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+
+        if ($order->status === 'confirmed') {
+            return response()->json([
+                'success' => true,
+                'paid'    => true,
+                'message' => 'Order already paid.',
+                'order'   => $order,
+            ]);
+        }
+
+        try {
+            $khqr = new KHQR(
+                config('services.khqr.bakong_token')
+            );
+
+            $result = $khqr->checkTransactionByMd5(
+                $request->md5
+            );
+
+            if (
+                isset($result->data) &&
+                !empty($result->data->hash)
+            ) {
                 $order->update([
-                    'status' => 'confirmed',
+                    'status'         => 'confirmed',
                     'payment_method' => 'khqr',
-                    'payment_ref' => $result->data->hash,
-                    'paid_at' => now(),
+                    'payment_ref'    => $result->data->hash,
+                    'paid_at'        => now(),
                 ]);
 
                 return response()->json([
                     'success' => true,
-                    'paid' => true,
+                    'paid'    => true,
                     'message' => 'Payment confirmed.',
-                    'order' => $order->fresh(),
+                    'order'   => $order->fresh(),
                 ]);
             }
 
             return response()->json([
                 'success' => true,
-                'paid' => false,
-                'message' => 'Payment not yet received.',
+                'paid'    => false,
+                'message' => 'Payment not received yet.',
             ]);
-
         } catch (\Throwable $e) {
-            Log::error('KHQR verify error', ['message' => $e->getMessage()]);
+            Log::error('KHQR Verify Error', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to verify payment.',
+                'message' => $e->getMessage(),
             ], 500);
         }
     }

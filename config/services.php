@@ -41,7 +41,7 @@ return [
     ],
     'payway' => [
         'merchant_id' => env('PAYWAY_MERCHANT_ID'),
-        'public_key'=>env('PAYWAY_PUBLIC_KEY'),
+        'public_key' => env('PAYWAY_PUBLIC_KEY'),
         'base_url' => env('PAYWAY_BASE_URL', 'https://checkout.payway.com.kh/api/payment-gateway/v1/payments'),
     ],
     'bakong' => [
@@ -57,6 +57,11 @@ return [
     ],
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
+    ],
+    'facebook' => [
+        'client_id' => env('FACEBOOK_APP_ID'),
+        'client_secret' => env('FACEBOOK_APP_SECRET'),
+        'redirect' => env('FACEBOOK_REDIRECT'),
     ],
 
 ];
