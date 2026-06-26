@@ -15,15 +15,35 @@ use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use App\Services\CartService;
 class AuthController extends Controller
 {
 
+    private function verifyTurnstile(Request $request): bool
+    {
+        $captcha = Http::post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+            'secret' => env('CLOUDFLARE_TURNSTILE_SECRET'),
+            'response' => $request->captcha_token,
+            'remoteip' => $request->ip(),
+        ]);
+        \Log::info('Turnstile response: ', $captcha->json());
+        return $captcha->json('success') === true;
+    }
     public function register(Request $request)
     {
+
         try {
+            // Verify clouldFlare
+            $request->validate([
+                'captcha_token' => 'required',
+            ]);
+            if (!$this->verifyTurnstile($request)) {
+                return response()->json(['message' => 'CAPTCHA verification failed'], 422);
+            }
+
             $validated = $request->validate([
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
@@ -69,6 +89,10 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         try {
+            if (!$this->verifyTurnstile($request)) {
+                return response()->json(['message' => 'CAPTCHA verification failed'], 422);
+            }
+
             $request->validate([
                 'email' => 'required|email',
                 'password' => 'required|string'

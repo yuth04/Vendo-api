@@ -49,6 +49,7 @@ return [
         'merchant_id' => env('BAKONG_MERCHANT_ID'),
         'api_url' => env('BAKONG_API_URL'),
         'token' => env('BAKONG_TOKEN'),
+        env('BAKONG_CURRENCY', '840')
     ],
     'huggingface' => [
         'token' => env('HF_TOKEN'),
@@ -62,6 +63,9 @@ return [
         'client_id' => env('FACEBOOK_APP_ID'),
         'client_secret' => env('FACEBOOK_APP_SECRET'),
         'redirect' => env('FACEBOOK_REDIRECT'),
+    ],
+    'cloudflare' => [
+        'turnstile_secret' => env('CLOUDFLARE_TURNSTILE_SECRET'),
     ],
 
 ];

@@ -67,6 +67,10 @@ class Order extends Model
     {
         return $this->hasOne(ReturnOrder::class);
     }
+    public function latestPayment()
+    {
+        return $this->hasOne(Payment::class)->latest();
+    }
     public function address()
     {
         return $this->belongsTo(Address::class, 'address_id');

@@ -61,7 +61,7 @@ Route::prefix('v1')->group(function () {
         '/orders/{orderId}/invoice',
         [ExportController::class, 'downloadInvoice']
     );
-
+    // uptimerobot for no-sleep
     Route::get('/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -83,8 +83,8 @@ Route::prefix('v1')->group(function () {
         ->name('order.receipt.download')
         ->middleware('signed');
     // Bakong Payment
-    Route::get('/payment/qr/{orderId}', [PaymentController::class, 'generateBakongQr']);
-    Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
+    Route::post('/payment/khqr/generate', [PaymentController::class, 'generate']);
+    Route::get('/payment/khqr/status', [PaymentController::class, 'checkStatus']);
     // ------------------- AUTH -------------------
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');

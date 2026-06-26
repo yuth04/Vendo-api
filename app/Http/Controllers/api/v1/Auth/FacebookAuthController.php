@@ -24,7 +24,7 @@ class FacebookAuthController extends Controller
         try {
             $facebookUser = Socialite::driver('facebook')->stateless()->user();
 
-            $user = User::where('facebook_id', $facebookUser->getId()) // ✅ fix 1: wherer → where
+            $user = User::where('facebook_id', $facebookUser->getId())
                 ->orWhere('email', $facebookUser->getEmail())
                 ->first();
 
@@ -44,11 +44,11 @@ class FacebookAuthController extends Controller
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'email' => $facebookUser->getEmail(),
-                    'password' => bcrypt(Str::random(16)), 
+                    'password' => bcrypt(Str::random(16)),
                     'facebook_id' => $facebookUser->getId(),
                     'image' => $facebookUser->getAvatar() ?? null,
                     'is_verified' => true,
-                    'email_verified_at' => now()->format('d-m-Y h:i:s A'),
+                    'email_verified_at' => now(),
                     'role' => 'customer',
                     'created_by' => [
                         'first_name' => $firstName,
@@ -67,7 +67,7 @@ class FacebookAuthController extends Controller
                 ]);
 
             } else {
-                if (!$user->facebook_id) { // ✅ fix 2: !$user → !$user->facebook_id
+                if (!$user->facebook_id) {
                     $user->update([
                         'facebook_id' => $facebookUser->getId(),
                         'is_verified' => true,
