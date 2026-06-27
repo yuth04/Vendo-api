@@ -24,24 +24,27 @@ class AuthController extends Controller
 
     private function verifyTurnstile(Request $request): bool
     {
+        if (app()->environment('local')) {
+            return true;
+        }
+
         $captcha = Http::post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
             'secret' => env('CLOUDFLARE_TURNSTILE_SECRET'),
             'response' => $request->captcha_token,
             'remoteip' => $request->ip(),
         ]);
+        \Log::info('Turnstile response:', $captcha->json());
         return $captcha->json('success') === true;
     }
     public function register(Request $request)
     {
-
+        // Verify clouldFlare
+        $request->validate(['captcha_token' => 'required|string']);
+        if (!$this->verifyTurnstile($request)) {
+            return response()->json(['message' => 'CAPTCHA verification failed'], 422);
+        }
         try {
-            // Verify clouldFlare
-            $request->validate([
-                'captcha_token' => 'required',
-            ]);
-            if (!$this->verifyTurnstile($request)) {
-                return response()->json(['message' => 'CAPTCHA verification failed'], 422);
-            }
+
 
             $validated = $request->validate([
                 'first_name' => 'required|string|max:255',
@@ -87,10 +90,12 @@ class AuthController extends Controller
     // login
     public function login(Request $request)
     {
+        $request->validate(['captcha_token' => 'required|string']);
+        if (!$this->verifyTurnstile($request)) {
+            return response()->json(['message' => 'CAPTCHA verification failed'], 422);
+        }
         try {
-            if (!$this->verifyTurnstile($request)) {
-                return response()->json(['message' => 'CAPTCHA verification failed'], 422);
-            }
+
 
             $request->validate([
                 'email' => 'required|email',
