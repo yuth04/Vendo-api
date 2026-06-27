@@ -44,8 +44,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'CAPTCHA verification failed'], 422);
         }
         try {
-
-
             $validated = $request->validate([
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
@@ -56,7 +54,7 @@ class AuthController extends Controller
                 'password.confirmed' => 'Password confirmation does not match.'
             ]);
 
-            $verification_code = rand(100000, 999999);
+            $verification_code = random_int(100000, 999999);
             $expire = Carbon::now()->addMinutes(5);
 
             $user = [
@@ -80,6 +78,12 @@ class AuthController extends Controller
                 'message' => 'Verification code sent to email.'
             ], 201);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Registration failed',
@@ -95,8 +99,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'CAPTCHA verification failed'], 422);
         }
         try {
-
-
             $request->validate([
                 'email' => 'required|email',
                 'password' => 'required|string'
@@ -113,7 +115,7 @@ class AuthController extends Controller
                     'message' => 'Your account is inactive. Please contact admin.'
                 ], 403);
             }
-            // 2. Check verification
+            //  Check verification
             if (!$user->is_verified) {
                 return response()->json([
                     'errors' => ['email' => 'Please verify your email before logging in.']
@@ -121,7 +123,7 @@ class AuthController extends Controller
             }
             // Create token (Sanctum)
             // $user->tokens()->delete();
-            $request->user()?->currentAccessToken()?->delete();
+            // $request->user()?->currentAccessToken()?->delete();
 
             $token = $user->createToken('api-token')->plainTextToken;
             Mail::to($user->email)->send(new LoginNotificationMail($user));
@@ -139,6 +141,12 @@ class AuthController extends Controller
                 ]
 
             ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -167,7 +175,7 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
-    // change password     'token' => $token,
+    // change password 
     public function changePassword(Request $request)
     {
         $request->validate([
