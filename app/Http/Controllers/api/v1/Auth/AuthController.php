@@ -135,12 +135,6 @@ class AuthController extends Controller
 
             ], 200);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Login failed',
