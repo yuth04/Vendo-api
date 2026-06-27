@@ -29,7 +29,6 @@ class AuthController extends Controller
             'response' => $request->captcha_token,
             'remoteip' => $request->ip(),
         ]);
-        \Log::info('Turnstile response: ', $captcha->json());
         return $captcha->json('success') === true;
     }
     public function register(Request $request)
