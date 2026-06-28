@@ -40,7 +40,6 @@ class ProductVariantController extends Controller
             'data' => $productVariant
         ]);
     }
-    // store
     public function store(Request $request)
     {
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
@@ -57,8 +56,7 @@ class ProductVariantController extends Controller
                 'color' => 'required|string|max:50',
                 'stock' => 'required|integer|min:0',
                 'status' => 'nullable|string|max:50',
-                //  MUST be exactly 4 images
-                'images' => 'nullable|array|size:4',
+                'images' => 'nullable|array|min:1|max:4',
                 'images.*' => 'image|mimes:jpg,jpeg,png|max:5120',
             ]);
 
@@ -70,24 +68,26 @@ class ProductVariantController extends Controller
                 'status' => $validated['status'] ?? 'active',
             ]);
 
-            foreach ($request->file('images') as $index => $image) {
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $index => $image) {
 
-                $upload = $this->imageKit->upload([
-                    'file' => fopen($image->getPathname(), 'r'),
-                    'fileName' => time() . '_' . $image->getClientOriginalName(),
-                    'folder' => '/variant-images/',
-                ]);
+                    $upload = $this->imageKit->upload([
+                        'file' => fopen($image->getPathname(), 'r'),
+                        'fileName' => time() . '_' . $image->getClientOriginalName(),
+                        'folder' => '/variant-images/',
+                    ]);
 
-                if (isset($upload->error)) {
-                    throw new \Exception($upload->error->message);
+                    if (isset($upload->error)) {
+                        throw new \Exception($upload->error->message);
+                    }
+
+                    $variant->images()->create([
+                        'image' => $upload->result->url,
+                        'image_file_id' => $upload->result->fileId ?? null,
+                        'position' => $index,
+                        'is_primary' => $index === 0
+                    ]);
                 }
-
-                $variant->images()->create([
-                    'image' => $upload->result->url,
-                    'image_file_id' => $upload->result->fileId ?? null,
-                    'position' => $index, // 0,1,2,3
-                    'is_primary' => $index === 0
-                ]);
             }
 
             DB::commit();
@@ -106,6 +106,7 @@ class ProductVariantController extends Controller
             ], 500);
         }
     }
+
     // update
     public function update(Request $request, $id)
     {
@@ -114,6 +115,7 @@ class ProductVariantController extends Controller
                 'message' => 'Only super-admin and admin can update product variant'
             ], 403);
         }
+
         $variant = ProductVariant::with('images')->find($id);
         if (!$variant) {
             return response()->json(['message' => 'Product Variant not found'], 404);
@@ -128,12 +130,10 @@ class ProductVariantController extends Controller
                 'color' => 'nullable|string|max:50',
                 'stock' => 'nullable|integer|min:0',
                 'status' => 'nullable|string|max:50',
-                'images' => 'sometimes|array',
+                'images' => 'sometimes|nullable|array|min:1|max:4',
                 'images.*' => 'image|mimes:jpg,jpeg,png|max:5120',
-
             ]);
 
-            // update fields
             $variant->update(array_filter([
                 'product_id' => $validated['product_id'] ?? null,
                 'size' => $validated['size'] ?? null,
@@ -142,12 +142,10 @@ class ProductVariantController extends Controller
                 'status' => $validated['status'] ?? null,
             ]));
 
-            //  replace images
             if ($request->hasFile('images')) {
 
                 // delete old images
                 foreach ($variant->images as $oldImage) {
-
                     if ($oldImage->image_file_id) {
                         try {
                             $this->imageKit->deleteFile($oldImage->image_file_id);
@@ -155,11 +153,10 @@ class ProductVariantController extends Controller
                             \Log::error($e->getMessage());
                         }
                     }
-
                     $oldImage->delete();
                 }
 
-                // upload new 4 images
+                // upload new images (1-4)
                 foreach ($request->file('images') as $index => $image) {
 
                     $upload = $this->imageKit->upload([
