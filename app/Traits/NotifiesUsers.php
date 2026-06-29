@@ -16,7 +16,7 @@ trait NotifiesUsers
         string $url = '/',
     ): void {
         try {
-            $users = User::whereNotIn('role', ['super-admin', 'admin'])->get();
+            $users = User::get();
 
             if ($users->isEmpty())
                 return;
