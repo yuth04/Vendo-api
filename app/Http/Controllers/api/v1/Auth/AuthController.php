@@ -18,10 +18,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
-use App\Services\CartService;
+use App\Traits\NotifiesUsers;
+
 class AuthController extends Controller
 {
-
+    use NotifiesUsers;
     private function verifyTurnstile(Request $request): bool
     {
 
@@ -127,6 +128,14 @@ class AuthController extends Controller
             // $request->user()?->currentAccessToken()?->delete();
 
             $token = $user->createToken('api-token')->plainTextToken;
+            $this->initializeNotification(
+                $user,
+                'Welcome Back!',
+                'Welcome back, ' . $user->first_name . '! Good to see you again.',
+                'security',
+                'user',
+                '/profile'
+            );
             Mail::to($user->email)->send(new LoginNotificationMail($user));
             return response()->json([
                 'message' => 'Login successful',
@@ -199,6 +208,14 @@ class AuthController extends Controller
         }
         $user->password = Hash::make($request->new_password);
         $user->save();
+        $this->initializeNotification(
+            $user,
+            'Password Changed',
+            'Your password was changed on ' . now()->format('M d, Y h:i A') . '. If this wasn\'t you, contact support immediately.',
+            'security',
+            'lock',
+            '/profile'
+        );
         Mail::to($user->email)->send(new PasswordChangedMail($user));
         return response()->json([
             'message' => 'Password changed successfully',
@@ -264,7 +281,14 @@ class AuthController extends Controller
         $user->verification_code = null;
         $user->verification_code_expire = null;
         $user->save();
-
+        $this->initializeNotification(
+            $user,
+            'Password Reset Successful',
+            'Your password was reset on ' . now()->format('M d, Y h:i A') . '. If this wasn\'t you, contact support immediately.',
+            'security',
+            'lock',
+            '/profile'
+        );
         Mail::to($user->email)->send(new PasswordResetSuccess($user));
         return response()->json([
             'message' => 'Password reset successfully'
@@ -324,6 +348,14 @@ class AuthController extends Controller
             'updated_by' => $auditInfo,
         ]);
         Cache::forget('register_' . $request->email);
+        $this->initializeNotification(
+            $user,
+            'Welcome , ' . $user->first_name . ' to Vendo Store',
+            'Thanks for joining us. Happy shopping!',
+            'security',
+            'user',
+            '/profile'
+        );
         Mail::to($user->email)->send(new WelcomeUserMail($user));
         return response()->json([
             'message' => 'Account verified successfully',

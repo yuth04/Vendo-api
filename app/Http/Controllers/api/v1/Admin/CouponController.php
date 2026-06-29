@@ -4,16 +4,25 @@ namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
+use App\Models\Notification;
+use App\Models\User;
 use Auth;
 use Illuminate\Http\Request;
 use ImageKit\ImageKit;
-
+use App\Traits\NotifiesUsers;
 class CouponController extends Controller
 {
+    use NotifiesUsers;
+    private function authorizeAdminOrStaff(): void
+    {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+            abort(403, 'Only super-admin and admin can access this.');
+        }
+    }
 
     public function index()
     {
-        $coupons = Coupon::orderBy('id', 'asc')->get();
+        $coupons = Coupon::latest()->get();
         if ($coupons->isEmpty()) {
             return response()->json([
                 'message' => "Coupon is empty",
@@ -39,17 +48,8 @@ class CouponController extends Controller
     }
     public function store(Request $request)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can create coupons'
-            ], 403);
-        }
-        $user = Auth::user();
-        if ($user->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only admin can action this.'
-            ]);
-        }
+        $this->authorizeAdminOrStaff();
+
         $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:coupons,code',
@@ -63,12 +63,14 @@ class CouponController extends Controller
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:5048',
             'status' => 'required|string',
-            'discount_id' => 'nullable|exists:discounts,id'
+            'discount_id' => 'nullable|exists:discounts,id',
         ]);
+
+        // IMAGE UPLOAD
         $imageUrl = null;
         $imageFileId = null;
-        if ($request->hasFile('image')) {
 
+        if ($request->hasFile('image')) {
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -76,7 +78,7 @@ class CouponController extends Controller
             );
 
             $upload = $imageKit->upload([
-                'file' => fopen($request->file('image')->getRealPath(), "r"),
+                'file' => fopen($request->file('image')->getRealPath(), 'r'),
                 'fileName' => $request->file('image')->getClientOriginalName(),
                 'folder' => '/coupon-images',
             ]);
@@ -91,6 +93,8 @@ class CouponController extends Controller
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
+
+        // CREATE COUPON
         $coupon = Coupon::create([
             'name' => $request->name,
             'code' => strtoupper($request->code),
@@ -106,14 +110,32 @@ class CouponController extends Controller
             'image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'status' => $request->status,
-            'discount_id' => $request->discount_id
+            'discount_id' => $request->discount_id,
         ]);
+
+        // NOTIFICATION
+        $discount = $coupon->type === 'percent'
+            ? $coupon->value . '% off'
+            : '$' . number_format($coupon->value, 2) . ' off';
+
+        $message = 'Use code "' . $coupon->code . '" to get ' . $discount;
+
+        if ($coupon->min_amount) {
+            $message .= ' on orders over $' . number_format($coupon->min_amount, 2);
+        }
+
+        if ($coupon->end_date) {
+            $message .= '. Expires ' . $coupon->end_date->format('M d, Y');
+        }
+
+        $message .= '.';
+
+        $this->notifyAllUsers('Special Offer Just for You!', $message, 'coupon', 'tag', '/coupons');
 
         return response()->json([
             'message' => 'Coupon created successfully',
-            'coupon' => $coupon
-        ]);
-
+            'coupon' => $coupon,
+        ], 201);
     }
     public function update(Request $request, $id)
     {
@@ -231,4 +253,5 @@ class CouponController extends Controller
             'message' => 'Coupon deleted successfully'
         ], 200);
     }
+
 }

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\OrderConfirmedMail;
 use App\Mail\OrderDeliveredMail;
 use App\Mail\OrderShippedMail;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Http\Request;
@@ -23,14 +24,27 @@ class UpdateStatusController extends Controller
         }
         return 2.0;
     }
-
-    public function markAsConfirmed($id)
+    private function initializeNotification($user, $order, $title, $message)
+    {
+        return Notification::create([
+            'user_id' => $user->id,
+            'title' => $title,
+            'message' => $message,
+            'icon' => 'shopping-bag',
+            'url' => '/profile/orders/' . $order->id
+        ]);
+    }
+    private function authorizeAdminOrStaff(): void
     {
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
+            abort(response()->json([
+                'message' => 'Only super-admin or staff can access this endpoint'
+            ], 403));
         }
+    }
+    public function markAsConfirmed($id)
+    {
+        $this->authorizeAdminOrStaff();
         $order = Order::findOrFail($id);
 
         if ($order->status !== 'pending') {
@@ -42,12 +56,13 @@ class UpdateStatusController extends Controller
         $order->update([
             'status' => 'confirmed'
         ]);
-        $paymemt = $order->payment;
-        if ($paymemt) {
-            $paymemt->update([
+        $payment = $order->payment;
+        if ($payment) {
+            $payment->update([
                 'status' => 'unpaid',
             ]);
         }
+
         // Broadcast real-time update
         try {
             broadcast(new OrderStatusUpdated($order->id, $order->status));
@@ -56,7 +71,12 @@ class UpdateStatusController extends Controller
         }
         //Send email
         Mail::to($order->user->email)->send(new OrderConfirmedMail($order));
-
+        $this->initializeNotification(
+            $order->user,
+            $order,
+            'Order Confirmed',
+            'Your order #' . $order->id . ' has been confirmed.'
+        );
         return response()->json([
             'message' => 'Order confirmed successfully',
             'order' => $order
@@ -65,11 +85,7 @@ class UpdateStatusController extends Controller
     // Mark shipping (Admin only)
     public function markAsShipping($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
 
         $order = Order::findOrFail($id);
 
@@ -95,6 +111,12 @@ class UpdateStatusController extends Controller
             \Log::error('Broadcast failed: ' . $e->getMessage());
         }
         Mail::to($order->user->email)->send(new OrderShippedMail($order));
+        $this->initializeNotification(
+            $order->user,
+            $order,
+            'Order Shipped',
+            'Your order #' . $order->id . ' has been shipped.'
+        );
         return response()->json([
             'message' => 'Order marked as shipping successfully',
             'order' => $order
@@ -104,11 +126,7 @@ class UpdateStatusController extends Controller
     // Mark delivered (Admin only)
     public function markAsDelivered($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
 
         $order = Order::findOrFail($id);
 
@@ -118,19 +136,14 @@ class UpdateStatusController extends Controller
             ], 400);
         }
 
-        $order->update([
-            'status' => 'delivered',
-            'delivered_at' => now(),
-        ]);
-        if ($order->status === 'delivered') {
-            $payment = $order->payment;
-            if ($payment) {
-                $payment->update([
-                    'status' => 'paid',
-                    'paid_at' => now(),
-                    'transaction_id' => 'COD-' . $order->order_number,
-                ]);
-            }
+        $order->update(['status' => 'delivered', 'delivered_at' => now()]);
+        $payment = $order->payment;
+        if ($payment) {
+            $payment->update([
+                'status' => 'paid',
+                'paid_at' => now(),
+                'transaction_id' => 'COD-' . $order->order_number,
+            ]);
         }
         $transaction_id = $order->payment->transaction_id;
         $payment_reference = $order->payment->payment_reference;
@@ -142,7 +155,12 @@ class UpdateStatusController extends Controller
             \Log::error('Broadcast failed: ' . $e->getMessage());
         }
         Mail::to($order->user->email)->send(new OrderDeliveredMail($order, $shipping, $transaction_id, $payment_reference));
-
+        $this->initializeNotification(
+            $order->user,
+            $order,
+            'Order Delivered',
+            'Your order #' . $order->id . ' has been delivered.'
+        );
         return response()->json([
             'message' => 'Order delivered successfully',
             'order' => $order
@@ -151,15 +169,8 @@ class UpdateStatusController extends Controller
     // Mark completed (Admin only)
     public function markAsCompleted($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
-        }
-        $order = Order::find($id);
-        if (!$order) {
-            return response()->json(['message' => 'Order not found'], 404);
-        }
+        $this->authorizeAdminOrStaff();
+        $order = Order::findOrFail($id);
         if ($order->status !== 'delivered') {
             return response()->json([
                 'message' => 'Only delivered orders can be marked as completed'
@@ -174,6 +185,7 @@ class UpdateStatusController extends Controller
         } catch (\Exception $e) {
             \Log::error('Broadcast failed: ' . $e->getMessage());
         }
+        
         return response()->json([
             'message' => 'Order marked as completed successfully',
             'order' => $order
@@ -182,11 +194,7 @@ class UpdateStatusController extends Controller
     // Return order (Admin only)
     public function markAsReturned($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
         $order = Order::findOrFail($id);
         if ($order->status !== 'completed') {
             return response()->json([
@@ -211,11 +219,7 @@ class UpdateStatusController extends Controller
     // Cancel order (Admin only)
     public function markAsCancelled($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
         $order = Order::findOrFail($id);
         if (!in_array($order->status, ['pending', 'confirmed'])) {
             return response()->json([
@@ -290,13 +294,8 @@ class UpdateStatusController extends Controller
     // }
     public function updatePaymentStatus($id, Request $request)
     {
-        // Auth check
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'staff') {
-            return response()->json([
-                'message' => 'Only super-admin or staff can access this endpoint',
-            ], 403);
-        }
 
+        $this->authorizeAdminOrStaff();
         // Validate
         $request->validate([
             'status' => 'required|in:paid,unpaid,refunded',

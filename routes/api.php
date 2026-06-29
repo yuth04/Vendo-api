@@ -21,6 +21,7 @@ use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
+use App\Http\Controllers\api\v1\NotifyController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
@@ -161,10 +162,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/vapid-public-key', function () {
             return response()->json(['key' => env('VAPID_PUBLIC_KEY')]);
         });
-        Route::get('/notifications', [NotificationController::class, 'index']);
-        Route::patch('/notifications/read/{id}', [NotificationController::class, 'markAsRead']);
-        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
-        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+        // Notifications
+        Route::get('/notifications', [NotifyController::class, 'getAll']);
+        Route::get('/notifications/unread-count', [NotifyController::class, 'unreadCount']);
+        Route::patch('/notifications/read-all', [NotifyController::class, 'markAllAsRead']);
+        Route::patch('/notifications/{id}', [NotifyController::class, 'markAsRead']);
+
+
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
