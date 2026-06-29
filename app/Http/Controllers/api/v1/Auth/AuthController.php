@@ -29,7 +29,9 @@ class AuthController extends Controller
         if (app()->environment('local')) {
             return true;
         }
-
+        if ($request->captcha_token === env('POSTMAN_TEST_TOKEN')) {
+            return true;
+        }
         $captcha = Http::post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
             'secret' => env('CLOUDFLARE_TURNSTILE_SECRET'),
             'response' => $request->captcha_token,
