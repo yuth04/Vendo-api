@@ -96,7 +96,6 @@ Route::prefix('v1')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     // Reviews
     Route::get('/reviews', [ReviewController::class, 'index']);
-    Route::get('/', [CartController::class, 'index']);
 
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
@@ -156,12 +155,6 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
-        // Notify to users
-        Route::post('/push-subscription', [UserController::class, 'savePushSubscription']);
-        Route::delete('/push-subscription', [UserController::class, 'deletePushSubscription']);
-        Route::get('/vapid-public-key', function () {
-            return response()->json(['key' => env('VAPID_PUBLIC_KEY')]);
-        });
         // Notifications
         Route::get('/notifications', [NotifyController::class, 'getAll']);
         Route::get('/notifications/unread-count', [NotifyController::class, 'unreadCount']);

@@ -1,11 +1,13 @@
 <?php
 namespace App\Traits;
 
+use App\Events\NotificationCreated;
 use App\Models\Notification;
 use App\Models\User;
 
 trait NotifiesUsers
 {
+    // ─── Broadcast to ALL users ───────────────────────────────
     private function notifyAllUsers(
         string $title,
         string $message,
@@ -33,12 +35,23 @@ trait NotifiesUsers
                 'updated_at' => $now,
             ])->toArray();
 
+            // 1. Save to DB
             Notification::insert($notifications);
+
+            // 2. Broadcast to each user
+            foreach ($users as $user) {
+                $notification = Notification::where('user_id', $user->id)
+                    ->latest()
+                    ->first();
+
+                broadcast(new NotificationCreated($notification));
+            }
 
         } catch (\Exception $e) {
             \Log::error('Notification insert failed: ' . $e->getMessage());
         }
     }
+
     // ─── Send to a SINGLE user (orders, returns) ─────────────
     private function initializeNotification(
         $user,
@@ -49,7 +62,8 @@ trait NotifiesUsers
         string $url = '/',
     ): void {
         try {
-            Notification::create([
+            // 1. Save to DB
+            $notification = Notification::create([
                 'user_id' => $user->id,
                 'title' => $title,
                 'message' => $message,
@@ -58,6 +72,10 @@ trait NotifiesUsers
                 'url' => $url,
                 'is_read' => false,
             ]);
+
+            // 2. Broadcast real-time
+            broadcast(new NotificationCreated($notification));
+
         } catch (\Exception $e) {
             \Log::error('Notification failed: ' . $e->getMessage());
         }
