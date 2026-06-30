@@ -121,5 +121,8 @@ return [
         'driver' => env('APP_MAINTENANCE_DRIVER', 'file'),
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
+    'bakong_account_id' => env('BAKONG_ACCOUNT_ID'),
+    'bakong_merchant_name' => env('BAKONG_MERCHANT_NAME'),
+    'bakong_merchant_city' => env('BAKONG_MERCHANT_CITY'),
 
 ];

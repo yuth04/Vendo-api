@@ -42,9 +42,9 @@ class PaymentController extends Controller
 
         // Correct way using withOptionalArray
         $individualInfo = IndividualInfo::withOptionalArray(
-            env('BAKONG_ACCOUNT_ID'),
-            env('BAKONG_MERCHANT_NAME'),
-            env('BAKONG_MERCHANT_CITY'),
+            config('app.bakong_account_id'),
+            config('app.bakong_merchant_name'),
+            config('app.bakong_merchant_city'),
             [
                 'currency' => KHQRData::CURRENCY_USD,
                 'amount' => (float) $order->total_price,
