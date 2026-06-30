@@ -160,7 +160,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/unread-count', [NotifyController::class, 'unreadCount']);
         Route::patch('/notifications/read-all', [NotifyController::class, 'markAllAsRead']);
         Route::patch('/notifications/{id}', [NotifyController::class, 'markAsRead']);
-
+        Route::delete('/notifications/delete/{id}', [NotifyController::class,'delete']);      
+        Route::delete('/notifications/delete-all', [NotifyController::class,'clearAll']);     
 
         Route::get('/user', function (Request $request) {
             return $request->user();

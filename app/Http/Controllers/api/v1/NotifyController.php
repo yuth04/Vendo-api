@@ -10,7 +10,7 @@ class NotifyController extends Controller
 {
     public function getAll()
     {
-        $notifications = Notification::where('user_id', auth()->id())->where('is_read', false)->latest()->get();
+        $notifications = Notification::where('user_id', auth()->id())->latest()->get();
         return response()->json([
             'message' => $notifications->isEmpty()
                 ? 'No notifications found'
@@ -70,6 +70,30 @@ class NotifyController extends Controller
 
         return response()->json([
             'message' => 'Success'
+        ]);
+    }
+    //delete single notification
+    public function delete($id)
+    {
+        $notification = Notification::where('user_id', auth()->id())
+            ->where('id', $id)
+            ->firstOrFail();
+
+        $notification->delete();
+
+        return response()->json([
+            'message' => 'Notification deleted successfully'
+        ]);
+    }
+    // Clear all notifications
+    public function clearAll()
+    {
+        $deleted = Notification::where('user_id', auth()->id())->delete();
+
+        return response()->json([
+            'message' => $deleted
+                ? 'All notifications cleared successfully'
+                : 'No notifications to clear'
         ]);
     }
 }

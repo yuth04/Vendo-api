@@ -42,7 +42,6 @@ class AuthController extends Controller
     }
     public function register(Request $request)
     {
-        // Verify clouldFlare
         $request->validate(['captcha_token' => 'required|string']);
         if (!$this->verifyTurnstile($request)) {
             return response()->json(['message' => 'CAPTCHA verification failed'], 422);
@@ -51,7 +50,7 @@ class AuthController extends Controller
             $validated = $request->validate([
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
-                'email' => 'required|email:rfc,dns|unique:users,email',
+                'email' => 'required|email|unique:users,email',
                 'password' => 'required|min:8|confirmed',
             ], [
                 'password.min' => 'Password must be at least 8 characters.',
@@ -77,7 +76,6 @@ class AuthController extends Controller
 
             // send email
             Mail::to($validated['email'])->send(new SendCode($verification_code));
-
             return response()->json([
                 'message' => 'Verification code sent to email.'
             ], 201);
@@ -301,14 +299,14 @@ class AuthController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'verification_code' => 'required'
+            'verification_code' => 'required|string'
         ]);
 
         $data = Cache::get('register_' . $request->email);
 
         if (!$data) {
             return response()->json([
-                'message' => 'Verification expired'
+                'message' => 'Verification expired. Please register again.'
             ], 400);
         }
 
@@ -316,53 +314,75 @@ class AuthController extends Controller
             Cache::forget('register_' . $request->email);
 
             return response()->json([
-                'message' => 'Verification code expired'
+                'message' => 'Verification code expired. Please request a new one.'
             ], 400);
         }
 
-        if ($data['verification_code'] != $request->verification_code) {
+        if ((string) $data['verification_code'] !== (string) $request->verification_code) {
             return response()->json([
-                'message' => 'Invalid verification code'
+                'message' => 'Invalid verification code.'
             ], 400);
         }
 
-        $user = User::create([
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'email' => $data['email'],
-            'password' => $data['password'],
-            'role' => 'customer',
-            'is_verified' => true,
-            'email_verified_at' => now(),
-            'created_by' => null,
-            'updated_by' => null,
-        ]);
-        $auditInfo = [
-            'id' => $user->id,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'email' => $user->email,
-            'image' => $user->image,
-            'created_at' => now()->format('d-m-Y g:i:s A'),
-        ];
-        $user->update([
-            'created_by' => $auditInfo,
-            'updated_by' => $auditInfo,
-        ]);
-        Cache::forget('register_' . $request->email);
-        $this->initializeNotification(
-            $user,
-            'Welcome , ' . $user->first_name . ' to Vendo Store',
-            'Thanks for joining us. Happy shopping!',
-            'security',
-            'user',
-            '/profile'
-        );
-        Mail::to($user->email)->send(new WelcomeUserMail($user));
-        return response()->json([
-            'message' => 'Account verified successfully',
-            'user' => $user
-        ]);
+        try {
+            $user = User::create([
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'password' => $data['password'],
+                'role' => 'customer',
+                'is_verified' => true,
+                'email_verified_at' => now(),
+                'created_by' => null,
+                'updated_by' => null,
+            ]);
+
+            $auditInfo = [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'image' => $user->image,
+                'created_at' => now()->format('d-m-Y g:i:s A'),
+            ];
+
+            $user->update([
+                'created_by' => $auditInfo,
+                'updated_by' => $auditInfo,
+            ]);
+
+            Cache::forget('register_' . $request->email);
+
+            $this->initializeNotification(
+                $user,
+                'Welcome, ' . $user->first_name . ' to Vendo Store!',
+                'Thanks for joining us. Happy shopping!',
+                'security',
+                'user',
+                '/profile'
+            );
+
+            Mail::to($user->email)->send(new WelcomeUserMail($user));
+
+            return response()->json([
+                'message' => 'Account verified successfully',
+                'user' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'image' => $user->image,
+                    'is_verified' => $user->is_verified,
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Account creation failed.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function resendCode(Request $request)
@@ -379,7 +399,7 @@ class AuthController extends Controller
             ], 404);
         }
 
-        $newCode = rand(100000, 999999);
+        $newCode = random_int(100000, 999999);
 
         $data['verification_code'] = $newCode;
 
