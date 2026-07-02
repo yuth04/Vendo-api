@@ -12,7 +12,7 @@ class ReviewController extends Controller
 
     public function index(Request $request)
     {
-        $query = Review::with(['user', 'product','replies.user']) ->whereNull('parent_id')->where('is_approved', true)
+        $query = Review::with(['user', 'product', 'replies.user'])->whereNull('parent_id')->where('is_approved', true)
         ;
 
         if ($request->has('product_id')) {
@@ -20,6 +20,29 @@ class ReviewController extends Controller
         }
 
         $reviews = $query->latest()->get();
+
+        $reviews = $reviews->map(function ($review) {
+            return [
+                'id' => $review->id,
+                'user' => $review->user,
+                'product' => $review->product,
+                'rating' => $review->rating,
+                'comment' => $review->comment,
+                'is_approved' => $review->is_approved,
+                'image' => $review->image,
+                'created_at' => $review->created_at,
+                'created_at_human' => $review->created_at?->diffForHumans(),
+                'replies' => $review->replies->map(function ($reply) {
+                    return [
+                        'id' => $reply->id,
+                        'user' => $reply->user,
+                        'comment' => $reply->comment,
+                        'created_at' => $reply->created_at,
+                        'created_at_human' => $reply->created_at?->diffForHumans(),
+                    ];
+                }),
+            ];
+        });
 
         return response()->json([
             'message' => 'Reviews retrieved successfully',
@@ -239,7 +262,7 @@ class ReviewController extends Controller
     public function getById($id)
     {
         $review = Review::with(['user', 'replies.user', 'product'])
-            ->whereNull('parent_id') 
+            ->whereNull('parent_id')
             ->findOrFail($id);
 
         return response()->json([
@@ -314,7 +337,7 @@ class ReviewController extends Controller
     }
     public function delete($id)
     {
- 
+
         $review = Review::findOrFail($id);
 
         // ✅ Check if it's a reply
