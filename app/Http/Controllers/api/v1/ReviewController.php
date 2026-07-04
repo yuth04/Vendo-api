@@ -21,24 +21,57 @@ class ReviewController extends Controller
 
         $reviews = $query->latest()->get();
 
-        $reviews = $reviews->map(function ($review) {
+        $review = $reviews->map(function ($review) {
             return [
                 'id' => $review->id,
-                'user' => $review->user,
-                'product' => $review->product,
+                'user_id' => $review->user_id,
+                'product_id' => $review->product_id,
                 'rating' => $review->rating,
                 'comment' => $review->comment,
                 'is_approved' => $review->is_approved,
                 'image' => $review->image,
                 'created_at' => $review->created_at,
                 'created_at_human' => $review->created_at?->diffForHumans(),
+                'parent_id' => $review->parent_id,
+                'user' => [
+                    'id' => $review->user->id,
+                    'name' => $review->user->name,
+                    'email' => $review->user->email,
+                    'image' => $review->user->image,
+                    'created_at' => $review->user->created_at,
+                    'role' => $review->user->role,
+                    'status' => $review->user->status,
+                ],
+                'product' => [
+                    'id' => $review->product->id,
+                    'name' => $review->product->name,
+                    'slug' => $review->product->slug,
+                    'price' => $review->product->price,
+                    'description' => $review->product->description,
+                    'image' => $review->product->image,
+                    'discount_price'=> $review->product->discount_price,
+                ],
                 'replies' => $review->replies->map(function ($reply) {
                     return [
                         'id' => $reply->id,
-                        'user' => $reply->user,
+                        'user_id' => $reply->user_id,
+                        'product_id' => $reply->product_id,
+                        'rating' => $reply->rating,
                         'comment' => $reply->comment,
+                        'is_approved' => $reply->is_approved,
+                        'image' => $reply->image,
                         'created_at' => $reply->created_at,
                         'created_at_human' => $reply->created_at?->diffForHumans(),
+                        'parent_id' => $reply->parent_id,
+                        'user' => [
+                            'id' => $reply->user->id,
+                            'name' => $reply->user->name,
+                            'email' => $reply->user->email,
+                            'image' => $reply->user->image,
+                            'role' => $reply->user->role,
+                            'status' => $reply->user->status,
+                            'created_at' => $reply->user->created_at,
+                        ],
                     ];
                 }),
             ];
@@ -46,7 +79,7 @@ class ReviewController extends Controller
 
         return response()->json([
             'message' => 'Reviews retrieved successfully',
-            'data' => $reviews
+            'data' => $review
         ]);
     }
 
