@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
 
+use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
@@ -17,9 +18,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use ImageKit\ImageKit;
+use App\Traits\NotifiesUsers;
 class ProductController extends Controller
 {
-
+    use NotifiesUsers;
     public function index(Request $request)
     {
 
@@ -154,16 +156,15 @@ class ProductController extends Controller
             'created_by' => $auditInfo,
             'updated_by' => $auditInfo
         ]);
+        // NOTIFICATION
+        $this->notifyAllUsers(
+            'New Product Available!',
+            'Check out our new product "' . $product->productName . '" — available now.',
+            'product',
+            'shopping-bag',
+            '/products/' . $product->slug
+        );
 
-        try {
-            $customers = User::all();
-            foreach ($customers as $customer) {
-                $customer->notify(new NewProductNotification($product));
-            }
-        } catch (\Exception $e) {
-            \Log::error('Notification error: ' . $e->getMessage());
-
-        }
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Created product successfully',

@@ -45,7 +45,7 @@ class GoogleAuthController extends Controller
                     'google_id' => $googleUser->id,
                     'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
                     'is_verified' => true,
-                    'email_verified_at' => now()->format('d-m-Y h:i:s A'),
+                    'email_verified_at' => now(),
                     'role' => 'customer',
                     'created_by' => [
                         'first_name' => $googleUser->user['given_name'],

@@ -8,6 +8,7 @@ use App\Mail\AdminOrderPlaced;
 use App\Mail\OrderPlaced;
 use App\Models\Address;
 use App\Models\Coupon;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\ProductVariant;
@@ -65,9 +66,7 @@ class OrderController extends Controller
 
             $result = DB::transaction(function () use ($user, $request, &$orderModel) {
 
-                // -------------------------
                 // ADDRESS & ORDER INIT
-                // -------------------------
                 $address = $this->resolveOrderAddress($user, $request);
                 $order = $this->initializeOrder($user, $address);
 
@@ -75,17 +74,14 @@ class OrderController extends Controller
                     $order->update(['note' => $request->note]);
                 }
 
-                // -------------------------
                 // PROCESS ITEMS
-                // -------------------------
                 $totals = $this->processOrderItems($order, $request->items);
 
                 $originalTotal = $totals['original_total']; // before discount
                 $subtotal = $totals['final_total'];         // after product discount
 
-                // -------------------------
+
                 // SHIPPING
-                // -------------------------
                 $shipping = (float) $this->calculateShipping($address->province);
 
 
@@ -131,14 +127,10 @@ class OrderController extends Controller
                 }
 
 
-                // -------------------------
                 // TOTAL CALCULATION
-                // -------------------------
                 $totalAmount = max(0, round(($subtotal - $couponDiscount) + $shipping, 2));
 
-                // -------------------------
                 // UPDATE ORDER (IMPORTANT)
-                // -------------------------
                 $order->update([
                     'original_price' => round($originalTotal, 2),
                     'sub_total_price' => round($subtotal, 2),
@@ -150,9 +142,7 @@ class OrderController extends Controller
                     'coupon_discount' => $couponDiscount,
                 ]);
 
-                // -------------------------
                 // PAYMENT
-                // -------------------------
                 $payment = Payment::create([
                     'order_id' => $order->id,
                     'payment_method' => $request->payment_method,
@@ -161,15 +151,12 @@ class OrderController extends Controller
                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
                     'paid_at' => null,
                 ]);
-
+                $this->initializeNotification($user, $order);
                 $orderModel = $order;
 
                 return $this->prepareCheckoutResponse($order, $payment);
             });
-
-            // -------------------------
             // SEND EMAILS
-            // -------------------------
             if ($orderModel) {
                 $orderModel->load(['items.variant.product', 'user', 'address', 'payment']);
 
@@ -177,6 +164,7 @@ class OrderController extends Controller
                 Mail::to($user->email)->send(new OrderPlaced($orderModel));
             }
 
+            // reposne
             return response()->json([
                 'message' => $result['message'],
                 'order' => $result['order']
@@ -220,6 +208,17 @@ class OrderController extends Controller
             'coupon_code' => null,
             'coupon_discount' => 0
 
+        ]);
+    }
+    // create notification
+    private function initializeNotification($user, $order)
+    {
+        return Notification::create([
+            'user_id' => $user->id,
+            'title' => "Order Created",
+            'message' => 'Your order #' . $order->id . ' has been placed.',
+            'icon' => 'shopping-bag',
+            'url' => '/profile/orders/' . $order->id
         ]);
     }
     private function processOrderItems(Order $order, array $frontendItems)

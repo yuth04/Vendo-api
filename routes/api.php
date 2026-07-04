@@ -21,6 +21,7 @@ use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
+use App\Http\Controllers\api\v1\NotifyController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Orders\PaymentController;
@@ -61,7 +62,7 @@ Route::prefix('v1')->group(function () {
         '/orders/{orderId}/invoice',
         [ExportController::class, 'downloadInvoice']
     );
-
+    // uptimerobot for no-sleep
     Route::get('/health', function () {
         return response()->json(['status' => 'ok']);
     });
@@ -83,8 +84,8 @@ Route::prefix('v1')->group(function () {
         ->name('order.receipt.download')
         ->middleware('signed');
     // Bakong Payment
-    Route::get('/payment/qr/{orderId}', [PaymentController::class, 'generateBakongQr']);
-    Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
+    Route::post('/payment/khqr/generate', [PaymentController::class, 'generate']);
+    Route::get('/payment/khqr/status', [PaymentController::class, 'checkStatus']);
     // ------------------- AUTH -------------------
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');
@@ -95,7 +96,6 @@ Route::prefix('v1')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     // Reviews
     Route::get('/reviews', [ReviewController::class, 'index']);
-    Route::get('/', [CartController::class, 'index']);
 
     // ------------------- PUBLIC -------------------
     Route::prefix('public')->group(function () {
@@ -155,16 +155,14 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
-        // Notify to users
-        Route::post('/push-subscription', [UserController::class, 'savePushSubscription']);
-        Route::delete('/push-subscription', [UserController::class, 'deletePushSubscription']);
-        Route::get('/vapid-public-key', function () {
-            return response()->json(['key' => env('VAPID_PUBLIC_KEY')]);
-        });
-        Route::get('/notifications', [NotificationController::class, 'index']);
-        Route::patch('/notifications/read/{id}', [NotificationController::class, 'markAsRead']);
-        Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
-        Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+        // Notifications
+        Route::get('/notifications', [NotifyController::class, 'getAll']);
+        Route::get('/notifications/unread-count', [NotifyController::class, 'unreadCount']);
+        Route::patch('/notifications/read-all', [NotifyController::class, 'markAllAsRead']);
+        Route::patch('/notifications/{id}', [NotifyController::class, 'markAsRead']);
+        Route::delete('/notifications/delete/{id}', [NotifyController::class,'delete']);      
+        Route::delete('/notifications/delete-all', [NotifyController::class,'clearAll']);     
+
         Route::get('/user', function (Request $request) {
             return $request->user();
         });

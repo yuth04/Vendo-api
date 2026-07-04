@@ -18,8 +18,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use ImageKit\ImageKit;
+use App\Traits\NotifiesUsers;
 class ReturnOrderController extends Controller
 {
+    use NotifiesUsers;
     // view all return (Admin)
     public function getAll()
     {
@@ -282,6 +284,14 @@ class ReturnOrderController extends Controller
             ]);
 
             DB::commit();
+            $this->initializeNotification(
+                $order->user,
+                'Return Requested',
+                'Your return for order #' . $order->order_number . ' has been submitted.',
+                'return order',
+                'shopping-bag',
+                '/profile/orders/' . $order->id
+            );
 
             $adminEmail = config('mail.admin_email');
 
@@ -371,6 +381,14 @@ class ReturnOrderController extends Controller
             ]);
 
             DB::commit();
+            $this->initializeNotification(
+                $return->user,
+                'Return Approved',
+                'Your return for order #' . $return->order->order_number . ' has been approved.',
+                'return order',
+                'shopping-bag',
+                '/profile/orders/' . $return->order_id
+            );
             try {
                 broadcast(new OrderStatusUpdated(
                     $return->order_id,
@@ -409,12 +427,20 @@ class ReturnOrderController extends Controller
             'status' => 'rejected',
             'rejected_at' => now()
         ]);
+        $this->initializeNotification(
+            $return->user,
+            'Return Rejected',
+            'Your return for order #' . $return->order->order_number . ' has been rejected.',
+            'return order',
+            'shopping-bag',
+            '/profile/orders/' . $return->order_id
+        );
         try {
             broadcast(new OrderStatusUpdated(
                 $return->order_id,
                 'reject',
                 'unpaid',
-                true 
+                true
             ));
         } catch (\Exception $e) {
             \Log::error('Broadcast failed: ' . $e->getMessage());
@@ -456,6 +482,14 @@ class ReturnOrderController extends Controller
             ]);
 
             DB::commit();
+            $this->initializeNotification(
+                $return->user,
+                'Return Completed',
+                'Your return for order #' . $return->order->order_number . ' is completed. Refund has been issued.',
+                'return order',
+                'shopping-bag',
+                '/profile/orders/' . $return->order_id
+            );
             try {
                 broadcast(new OrderStatusUpdated(
                     $return->order_id,

@@ -59,7 +59,6 @@ class User extends Authenticatable
         'verification_code',
         'verification_code_expire',
         'email_verified_at',
-
         'created_by',
         'updated_by',
     ];
@@ -89,13 +88,17 @@ class User extends Authenticatable
     {
         return $this->hasMany(Address::class);
     }
-    public function creator()
+    public function notifications()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->hasMany(Notification::class);
     }
+    // public function creator()
+    // {
+    //     return $this->belongsTo(User::class, 'created_by');
+    // }
 
-    public function updater()
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
+    // public function updater()
+    // {
+    //     return $this->belongsTo(User::class, 'updated_by');
+    // }
 }

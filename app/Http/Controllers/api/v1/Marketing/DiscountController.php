@@ -6,14 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\Discount;
 use App\Models\DiscountItem;
+use App\Models\Notification;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use ImageKit\ImageKit;
-
+use App\Traits\NotifiesUsers;
 class DiscountController extends Controller
 {
+    use NotifiesUsers;
+    private function authorizeAdminOrStaff(): void
+    {
+        if (!in_array(auth()->user()->role, ['super-admin', 'admin'])) {
+            abort(403, 'Only super-admin and admin can access this.');
+        }
+    }
+
     private function calculateDiscountPrice($price, $discount)
     {
         $price = (float) $price;
@@ -139,6 +149,19 @@ class DiscountController extends Controller
             'is_active' => $validated['is_active'] ?? false,
 
         ]);
+        // NOTIFICATION
+        $amount = $discount->type === 'percent'
+            ? $discount->amount . '% off'
+            : '$' . number_format($discount->amount, 2) . ' off';
+
+        $message = 'Get ' . $amount . ' on selected products';
+
+        if ($discount->end_date) {
+            $message .= '. Expires ' . $discount->end_date->format('M d, Y');
+        }
+
+        $message .= '.';
+        $this->notifyAllUsers('New Promotion!', $message, 'promotion', 'discount', '/promotions');
         return response()->json([
             'message' => 'Discount created successfully',
             'data' => $discount
@@ -147,11 +170,7 @@ class DiscountController extends Controller
     // Update an existing discount
     public function update(Request $request, $id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can update discounts'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
         $discount = Discount::find($id);
 
         if (!$discount) {
@@ -217,7 +236,7 @@ class DiscountController extends Controller
         return DB::transaction(function () use ($discount, $validated) {
 
             $discount->update($validated);
-
+            $discount->refresh();
             if (isset($validated['is_active']) && $validated['is_active'] == false) {
                 foreach ($discount->products as $product) {
                     $product->update(['discount_price' => 0]);
@@ -260,17 +279,15 @@ class DiscountController extends Controller
     // Delete a discount
     public function destroy($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can delete discounts'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
         $discount = Discount::find($id);
 
         if (!$discount) {
             return response()->json(['message' => 'Not found'], 404);
         }
-
+        foreach ($discount->products as $product) {
+            $product->update(['discount_price' => 0]);
+        }
         $discount->delete();
 
         return response()->json([

@@ -15,26 +15,49 @@ use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
-use App\Services\CartService;
+use App\Traits\NotifiesUsers;
+
 class AuthController extends Controller
 {
+    use NotifiesUsers;
+    private function verifyTurnstile(Request $request): bool
+    {
 
+        if (app()->environment('local')) {
+            return true;
+        }
+        if ($request->captcha_token === env('POSTMAN_TEST_TOKEN')) {
+            return true;
+        }
+        $captcha = Http::post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+            'secret' => env('CLOUDFLARE_TURNSTILE_SECRET'),
+            'response' => $request->captcha_token,
+            'remoteip' => $request->ip(),
+        ]);
+        \Log::info('Turnstile response:', $captcha->json());
+        return $captcha->json('success') === true;
+    }
     public function register(Request $request)
     {
+        $request->validate(['captcha_token' => 'required|string']);
+        if (!$this->verifyTurnstile($request)) {
+            return response()->json(['message' => 'CAPTCHA verification failed'], 422);
+        }
         try {
             $validated = $request->validate([
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
-                'email' => 'required|email:rfc,dns|unique:users,email',
+                'email' => 'required|email|unique:users,email',
                 'password' => 'required|min:8|confirmed',
             ], [
                 'password.min' => 'Password must be at least 8 characters.',
                 'password.confirmed' => 'Password confirmation does not match.'
             ]);
 
-            $verification_code = rand(100000, 999999);
+            $verification_code = random_int(100000, 999999);
             $expire = Carbon::now()->addMinutes(5);
 
             $user = [
@@ -53,10 +76,15 @@ class AuthController extends Controller
 
             // send email
             Mail::to($validated['email'])->send(new SendCode($verification_code));
-
             return response()->json([
                 'message' => 'Verification code sent to email.'
             ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -68,6 +96,10 @@ class AuthController extends Controller
     // login
     public function login(Request $request)
     {
+        $request->validate(['captcha_token' => 'required|string']);
+        if (!$this->verifyTurnstile($request)) {
+            return response()->json(['message' => 'CAPTCHA verification failed'], 422);
+        }
         try {
             $request->validate([
                 'email' => 'required|email',
@@ -85,7 +117,7 @@ class AuthController extends Controller
                     'message' => 'Your account is inactive. Please contact admin.'
                 ], 403);
             }
-            // 2. Check verification
+            //  Check verification
             if (!$user->is_verified) {
                 return response()->json([
                     'errors' => ['email' => 'Please verify your email before logging in.']
@@ -93,9 +125,17 @@ class AuthController extends Controller
             }
             // Create token (Sanctum)
             // $user->tokens()->delete();
-            $request->user()?->currentAccessToken()?->delete();
+            // $request->user()?->currentAccessToken()?->delete();
 
             $token = $user->createToken('api-token')->plainTextToken;
+            $this->initializeNotification(
+                $user,
+                'Welcome Back!',
+                'Welcome back, ' . $user->first_name . '! Good to see you again.',
+                'security',
+                'user',
+                '/profile'
+            );
             Mail::to($user->email)->send(new LoginNotificationMail($user));
             return response()->json([
                 'message' => 'Login successful',
@@ -115,7 +155,7 @@ class AuthController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
 
         } catch (\Exception $e) {
@@ -145,7 +185,7 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
-    // change password     'token' => $token,
+    // change password 
     public function changePassword(Request $request)
     {
         $request->validate([
@@ -168,6 +208,14 @@ class AuthController extends Controller
         }
         $user->password = Hash::make($request->new_password);
         $user->save();
+        $this->initializeNotification(
+            $user,
+            'Password Changed',
+            'Your password was changed on ' . now()->format('M d, Y h:i A') . '. If this wasn\'t you, contact support immediately.',
+            'security',
+            'lock',
+            '/profile'
+        );
         Mail::to($user->email)->send(new PasswordChangedMail($user));
         return response()->json([
             'message' => 'Password changed successfully',
@@ -233,7 +281,14 @@ class AuthController extends Controller
         $user->verification_code = null;
         $user->verification_code_expire = null;
         $user->save();
-
+        $this->initializeNotification(
+            $user,
+            'Password Reset Successful',
+            'Your password was reset on ' . now()->format('M d, Y h:i A') . '. If this wasn\'t you, contact support immediately.',
+            'security',
+            'lock',
+            '/profile'
+        );
         Mail::to($user->email)->send(new PasswordResetSuccess($user));
         return response()->json([
             'message' => 'Password reset successfully'
@@ -244,14 +299,14 @@ class AuthController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'verification_code' => 'required'
+            'verification_code' => 'required|string'
         ]);
 
         $data = Cache::get('register_' . $request->email);
 
         if (!$data) {
             return response()->json([
-                'message' => 'Verification expired'
+                'message' => 'Verification expired. Please register again.'
             ], 400);
         }
 
@@ -259,45 +314,75 @@ class AuthController extends Controller
             Cache::forget('register_' . $request->email);
 
             return response()->json([
-                'message' => 'Verification code expired'
+                'message' => 'Verification code expired. Please request a new one.'
             ], 400);
         }
 
-        if ($data['verification_code'] != $request->verification_code) {
+        if ((string) $data['verification_code'] !== (string) $request->verification_code) {
             return response()->json([
-                'message' => 'Invalid verification code'
+                'message' => 'Invalid verification code.'
             ], 400);
         }
 
-        $user = User::create([
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'email' => $data['email'],
-            'password' => $data['password'],
-            'role' => 'customer',
-            'is_verified' => true,
-            'email_verified_at' => now(),
-            'created_by' => null,
-            'updated_by' => null,
-        ]);
-        $auditInfo = [
-            'id' => $user->id,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-            'email' => $user->email,
-            'image' => $user->image,
-            'created_at' => now()->format('d-m-Y g:i:s A'),
-        ];
-        $user->update([
-            'created_by' => $auditInfo,
-            'updated_by' => $auditInfo,
-        ]);
-        Cache::forget('register_' . $request->email);
-        Mail::to($user->email)->send(new WelcomeUserMail($user));
-        return response()->json([
-            'message' => 'Account verified successfully',
-            'user' => $user
-        ]);
+        try {
+            $user = User::create([
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'password' => $data['password'],
+                'role' => 'customer',
+                'is_verified' => true,
+                'email_verified_at' => now(),
+                'created_by' => null,
+                'updated_by' => null,
+            ]);
+
+            $auditInfo = [
+                'id' => $user->id,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'image' => $user->image,
+                'created_at' => now()->format('d-m-Y g:i:s A'),
+            ];
+
+            $user->update([
+                'created_by' => $auditInfo,
+                'updated_by' => $auditInfo,
+            ]);
+
+            Cache::forget('register_' . $request->email);
+
+            $this->initializeNotification(
+                $user,
+                'Welcome, ' . $user->first_name . ' to Vendo Store!',
+                'Thanks for joining us. Happy shopping!',
+                'security',
+                'user',
+                '/profile'
+            );
+
+            Mail::to($user->email)->send(new WelcomeUserMail($user));
+
+            return response()->json([
+                'message' => 'Account verified successfully',
+                'user' => [
+                    'id' => $user->id,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'image' => $user->image,
+                    'is_verified' => $user->is_verified,
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Account creation failed.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function resendCode(Request $request)
@@ -314,7 +399,7 @@ class AuthController extends Controller
             ], 404);
         }
 
-        $newCode = rand(100000, 999999);
+        $newCode = random_int(100000, 999999);
 
         $data['verification_code'] = $newCode;
 
