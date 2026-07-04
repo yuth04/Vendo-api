@@ -321,8 +321,8 @@ class ReviewController extends Controller
 
             $this->initializeNotification(
                 $parent->user,
-                'Admin replied to your review',
-                'Your review has received a reply from the administrator.',
+                'Your review received a reply',
+                $reply->comment,
                 'review',
                 'message-circle',
                 "/profile/reviews"
