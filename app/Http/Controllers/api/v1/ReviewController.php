@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use ImageKit\ImageKit;
-
+use App\Traits\NotifiesUsers;
 class ReviewController extends Controller
 {
-
+    use NotifiesUsers;
     public function index(Request $request)
     {
         $query = Review::with(['user', 'product', 'replies.user'])->whereNull('parent_id')->where('is_approved', true)
@@ -30,26 +30,28 @@ class ReviewController extends Controller
                 'comment' => $review->comment,
                 'is_approved' => $review->is_approved,
                 'image' => $review->image,
-                'created_at' => $review->created_at,
+                'created_at' => $review->created_at->format('d-m-Y h:i:s A'),
                 'created_at_human' => $review->created_at?->diffForHumans(),
                 'parent_id' => $review->parent_id,
                 'user' => [
                     'id' => $review->user->id,
-                    'name' => $review->user->name,
+                    'first_name' => $review->user->first_name,
+                    'last_name' => $review->user->last_name,
                     'email' => $review->user->email,
                     'image' => $review->user->image,
-                    'created_at' => $review->user->created_at,
+                    'created_at' => $review->user->created_at->format('d-m-Y h:i:s A'),
                     'role' => $review->user->role,
                     'status' => $review->user->status,
                 ],
                 'product' => [
                     'id' => $review->product->id,
-                    'name' => $review->product->name,
+                    'name' => $review->product->productName,
                     'slug' => $review->product->slug,
                     'price' => $review->product->price,
                     'description' => $review->product->description,
                     'image' => $review->product->image,
-                    'discount_price'=> $review->product->discount_price,
+                    'discount_price' => $review->product->discount_price,
+                    'created_at' => $review->product->created_at->format('d-m-Y h:i:s A'),
                 ],
                 'replies' => $review->replies->map(function ($reply) {
                     return [
@@ -60,12 +62,13 @@ class ReviewController extends Controller
                         'comment' => $reply->comment,
                         'is_approved' => $reply->is_approved,
                         'image' => $reply->image,
-                        'created_at' => $reply->created_at,
+                        'created_at' => $reply->created_at->format('d-m-Y h:i:s A'),
                         'created_at_human' => $reply->created_at?->diffForHumans(),
                         'parent_id' => $reply->parent_id,
                         'user' => [
                             'id' => $reply->user->id,
-                            'name' => $reply->user->name,
+                            'first_name' => $reply->user->first_name,
+                            'last_name' => $reply->user->last_name,
                             'email' => $reply->user->email,
                             'image' => $reply->user->image,
                             'role' => $reply->user->role,
@@ -82,10 +85,8 @@ class ReviewController extends Controller
             'data' => $review
         ]);
     }
+    //  Store review (any logged-in user)
 
-    /**
-     * Store review (any logged-in user)
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -153,10 +154,8 @@ class ReviewController extends Controller
             'data' => $review
         ], 201);
     }
+    //  Update review (only owner)
 
-    /**
-     * Update review (only owner)
-     */
     public function update(Request $request, $id)
     {
         $review = Review::findOrFail($id);
@@ -229,22 +228,21 @@ class ReviewController extends Controller
         ]);
     }
 
-    /**
-     * Delete review (only owner)
-     */
+    //  Delete review (only owner)
+
     public function destroy(Request $request, $id)
     {
         $review = Review::findOrFail($id);
         $user = $request->user();
 
-        // ✅ Authorization: only owner or admin
+        // Authorization: only owner or admin
         if ($user->id !== $review->user_id && $user->role !== 'admin') {
             return response()->json([
                 'message' => 'You cannot delete someone else\'s review.'
             ], 403);
         }
 
-        // ✅ Delete image from ImageKit (if exists)
+        // Delete image from ImageKit (if exists)
         if ($review->image_file_id) {
             try {
                 $imageKit = new ImageKit(
@@ -260,7 +258,7 @@ class ReviewController extends Controller
             }
         }
 
-        // ✅ Delete review
+        //  Delete review
         $review->delete();
 
         return response()->json([
@@ -319,7 +317,17 @@ class ReviewController extends Controller
             'parent_id' => $parent->id,
             'is_approved' => 1
         ]);
+        if ($parent->user_id != auth()->id()) {
 
+            $this->initializeNotification(
+                $parent->user,
+                'Admin replied to your review',
+                'Your review has received a reply from the administrator.',
+                'review',
+                'message-circle',
+                "/profile/reviews"
+            );
+        }
         return response()->json([
             'message' => 'Reply created',
             'data' => $reply
