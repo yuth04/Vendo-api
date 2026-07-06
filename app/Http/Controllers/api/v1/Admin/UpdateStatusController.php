@@ -30,8 +30,10 @@ class UpdateStatusController extends Controller
             'user_id' => $user->id,
             'title' => $title,
             'message' => $message,
+            'type' => 'order',
             'icon' => 'shopping-bag',
-            'url' => '/profile/orders/' . $order->id
+            'url' => "/account/orders/{$order->id}",
+            'is_read' => false,
         ]);
     }
     private function authorizeAdminOrStaff(): void
@@ -185,7 +187,7 @@ class UpdateStatusController extends Controller
         } catch (\Exception $e) {
             \Log::error('Broadcast failed: ' . $e->getMessage());
         }
-        
+
         return response()->json([
             'message' => 'Order marked as completed successfully',
             'order' => $order

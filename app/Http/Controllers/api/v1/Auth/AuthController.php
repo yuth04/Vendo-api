@@ -8,6 +8,8 @@ use App\Mail\PasswordResetSuccess;
 use App\Mail\ResendNewCode;
 use App\Mail\SendCode;
 use App\Mail\WelcomeUserMail;
+use App\Models\LoginHistory;
+use App\Models\Notification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use App\Http\Controllers\Controller;
@@ -128,6 +130,7 @@ class AuthController extends Controller
             // $request->user()?->currentAccessToken()?->delete();
 
             $token = $user->createToken('api-token')->plainTextToken;
+            $this->checkNewLogin($user, $request);
             $this->initializeNotification(
                 $user,
                 'Welcome Back!',
@@ -136,6 +139,7 @@ class AuthController extends Controller
                 'user',
                 '/profile'
             );
+
             Mail::to($user->email)->send(new LoginNotificationMail($user));
             return response()->json([
                 'message' => 'Login successful',
@@ -165,7 +169,79 @@ class AuthController extends Controller
             ], 500);
         }
     }
+    // check new login and save login history
+    private function checkNewLogin($user, Request $request)
+    {
+        $ip = $request->ip();
+        $userAgent = $request->userAgent();
+        $device = $this->parseDevice($userAgent);
+        $location = $this->parseLocation($ip);
 
+
+        $login = LoginHistory::firstOrCreate([
+            [
+                'user_id' => $user->id,
+                'ip_address' => $ip,
+                'user_agent' => $userAgent,
+            ],
+            [
+                'device' => $device,
+                'location' => $location,
+                'last_seen_at' => now(),
+            ]
+        ]);
+        if ($login->wasRecentlyCreated) {
+            $isFirstLogin = LoginHistory::where('user_id', $user->id)->count() === 1;
+
+            if (!$isFirstLogin) {
+                $this->initializeLoginNotification($user, $ip, $device, $location);
+            }
+        } else {
+            $login->update(['last_seen_at' => now()]);
+        }
+
+
+
+    }
+    private function parseDevice(?string $userAgent): ?string
+    {
+        if (!$userAgent)
+            return 'Unknown device';
+
+        if (str_contains($userAgent, 'Mobile'))
+            return 'Mobile device';
+        if (str_contains($userAgent, 'Windows'))
+            return 'Windows PC';
+        if (str_contains($userAgent, 'Macintosh'))
+            return 'Mac';
+        if (str_contains($userAgent, 'Linux'))
+            return 'Linux PC';
+
+        return 'Unknown device';
+    }
+    private function parseLocation(?string $ip): ?string
+    {
+        if (in_array($ip, ['127.0.0.1', '::1'])) {
+            return 'Localhost';
+        }
+
+        // Placeholder — wire up a geoip package for real city/country lookup
+        return null;
+    }
+    private function initializeLoginNotification($user, $ip, $device, $location)
+    {
+        $locationText = $location ? " from {$location}" : '';
+
+        return Notification::create([
+            'user_id' => $user->id,
+            'title' => 'New Login Detected',
+            'message' => "A new login was detected{$locationText} ({$device}, {$ip}).",
+            'type' => 'security',
+            'icon' => 'shield-alert',
+            'url' => '/account/security',
+            'is_read' => false,
+        ]);
+    }
     public function logout(Request $request)
     {
         if ($request->user()) {

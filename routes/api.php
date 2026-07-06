@@ -155,12 +155,15 @@ Route::prefix('v1')->group(function () {
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         // Notifications
-        Route::get('/notifications', [NotifyController::class, 'getAll']);
-        Route::get('/notifications/unread-count', [NotifyController::class, 'unreadCount']);
-        Route::patch('/notifications/read-all', [NotifyController::class, 'markAllAsRead']);
-        Route::patch('/notifications/{id}', [NotifyController::class, 'markAsRead']);
-        Route::delete('/notifications/delete/{id}', [NotifyController::class, 'delete']);
-        Route::delete('/notifications/delete-all', [NotifyController::class, 'clearAll']);
+        Route::prefix('notifications')->group(function () {
+            Route::get('/', [NotifyController::class, 'getAll']);
+            Route::get('/{id}', [NotifyController::class, 'redirect']);
+            Route::get('/unread-count', [NotifyController::class, 'unreadCount']);
+            Route::patch('/read-all', [NotifyController::class, 'markAllAsRead']);
+            Route::patch('/{id}', [NotifyController::class, 'markAsRead']);
+            Route::delete('/delete/{id}', [NotifyController::class, 'delete']);
+            Route::delete('/delete-all', [NotifyController::class, 'clearAll']);
+        });
 
         Route::get('/user', function (Request $request) {
             return $request->user();
@@ -193,6 +196,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::post('/checkout-test', [OrderController::class, 'checkout1']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
+        Route::get('/orders/{orderId}', [OrderController::class, 'show']);
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
 

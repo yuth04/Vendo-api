@@ -33,6 +33,7 @@ class NotificationController extends Controller
 
         return "last {$diffInDays}d";
     }
+    // Get the latest 10 unseen orders with their details
     public function notifications()
     {
         $orders = Order::with(['items.product', 'user'])
@@ -64,7 +65,7 @@ class NotificationController extends Controller
             'orders' => $orders
         ]);
     }
-
+    // Mark a specific order as seen
     public function markAsSeen($id)
     {
         Order::where('id', $id)->update([
@@ -73,6 +74,7 @@ class NotificationController extends Controller
 
         return response()->json(['success' => true]);
     }
+    // Get a specific order by ID
     public function getById($id)
     {
         $order = Order::with(['items.product', 'user'])
@@ -129,21 +131,21 @@ class NotificationController extends Controller
             'unread_count' => auth()->user()->unreadNotifications()->count(),
         ]);
     }
-
+    // Mark a specific notification as read
     public function markAsRead($id)
     {
         auth()->user()->notifications()->findOrFail($id)->markAsRead();
 
         return response()->json(['message' => 'Notification marked as read']);
     }
-
+    // Mark all notifications as read
     public function markAllAsRead()
     {
         auth()->user()->unreadNotifications->markAsRead();
 
         return response()->json(['message' => 'All notifications marked as read']);
     }
-
+    // Delete a specific notification
     public function destroy($id)
     {
         auth()->user()->notifications()->findOrFail($id)->delete();

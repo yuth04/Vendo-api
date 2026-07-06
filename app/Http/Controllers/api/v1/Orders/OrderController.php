@@ -286,7 +286,6 @@ class OrderController extends Controller
             ], 500);
         }
     }
-
     private function resolveOrderAddress($user, Request $request)
     {
         if ($request->filled('address_id')) {
@@ -480,6 +479,19 @@ class OrderController extends Controller
         return response()->json([
             'message' => $orders->isEmpty() ? 'No orders found' : 'Orders retrieved successfully',
             'orders' => $orders->map(fn($order) => $this->formatOrder($order))
+        ]);
+    }
+    // show order details
+    public function show($orderId)
+    {
+        $user = Auth::user();
+        $order = $user->orders()->with(['items.variant.product', 'payment', 'address'])->find($orderId);
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+        return response()->json([
+            'message' => 'Order details retrieved successfully',
+            'order' => $this->formatOrder($order)
         ]);
     }
     private function formatOrder($order)
