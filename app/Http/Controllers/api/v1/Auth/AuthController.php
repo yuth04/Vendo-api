@@ -177,8 +177,7 @@ class AuthController extends Controller
         $device = $this->parseDevice($userAgent);
         $location = $this->parseLocation($ip);
 
-
-        $login = LoginHistory::firstOrCreate([
+        $login = LoginHistory::firstOrCreate(
             [
                 'user_id' => $user->id,
                 'ip_address' => $ip,
@@ -189,7 +188,8 @@ class AuthController extends Controller
                 'location' => $location,
                 'last_seen_at' => now(),
             ]
-        ]);
+        );
+
         if ($login->wasRecentlyCreated) {
             $isFirstLogin = LoginHistory::where('user_id', $user->id)->count() === 1;
 
@@ -199,10 +199,8 @@ class AuthController extends Controller
         } else {
             $login->update(['last_seen_at' => now()]);
         }
-
-
-
     }
+
     private function parseDevice(?string $userAgent): ?string
     {
         if (!$userAgent)
@@ -219,6 +217,7 @@ class AuthController extends Controller
 
         return 'Unknown device';
     }
+
     private function parseLocation(?string $ip): ?string
     {
         if (in_array($ip, ['127.0.0.1', '::1'])) {
@@ -228,6 +227,7 @@ class AuthController extends Controller
         // Placeholder — wire up a geoip package for real city/country lookup
         return null;
     }
+
     private function initializeLoginNotification($user, $ip, $device, $location)
     {
         $locationText = $location ? " from {$location}" : '';
