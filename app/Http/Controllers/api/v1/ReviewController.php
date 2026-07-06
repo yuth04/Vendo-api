@@ -87,6 +87,72 @@ class ReviewController extends Controller
     }
     //  Store review (any logged-in user)
 
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'product_id' => 'required|exists:products,id',
+    //         'rating' => 'required|integer|min:1|max:5',
+    //         'comment' => 'nullable|string',
+    //         'image' => 'nullable|image|max:5120'
+    //     ]);
+
+    //     $user = $request->user();
+
+    //     $exists = Review::where('user_id', $user->id)
+    //         ->where('product_id', $request->product_id)
+    //         ->whereNull('parent_id')
+    //         ->exists();
+    //     if ($exists) {
+    //         return response()->json([
+    //             'message' => 'You already reviewed this product'
+    //         ], 400);
+    //     }
+
+    //     $imageUrl = null;
+    //     $imageFileId = null;
+
+    //     // Upload image only if exists
+    //     if ($request->hasFile('image')) {
+
+    //         $imageKit = new ImageKit(
+    //             config('imagekit.public_key'),
+    //             config('imagekit.private_key'),
+    //             config('imagekit.url_endpoint')
+    //         );
+
+    //         $upload = $imageKit->upload([
+    //             'file' => fopen($request->file('image')->getRealPath(), "r"),
+    //             'fileName' => $request->file('image')->getClientOriginalName(),
+    //             'folder' => '/review-images',
+    //         ]);
+
+    //         if (isset($upload->error)) {
+    //             return response()->json([
+    //                 'message' => 'Upload failed',
+    //                 'error' => $upload->error->message,
+    //             ], 400);
+    //         }
+
+    //         $imageUrl = $upload->result->url;
+    //         $imageFileId = $upload->result->fileId;
+    //     }
+
+    //     //  Create review
+    //     $review = Review::create([
+    //         'user_id' => $user->id,
+    //         'product_id' => $request->product_id,
+    //         'rating' => $request->rating,
+    //         'comment' => $request->comment,
+    //         'is_approved' => true,
+    //         'image' => $imageUrl,
+    //         'image_file_id' => $imageFileId
+    //     ]);
+
+    //     return response()->json([
+    //         'message' => 'Review submitted successfully',
+    //         'data' => $review
+    //     ], 201);
+    // }
     public function store(Request $request)
     {
         $request->validate([
@@ -98,9 +164,10 @@ class ReviewController extends Controller
 
         $user = $request->user();
 
-        // Check duplicate FIRST (important)
+        // ✅ ONLY top-level review check
         $exists = Review::where('user_id', $user->id)
             ->where('product_id', $request->product_id)
+            ->whereNull('parent_id')
             ->exists();
 
         if ($exists) {
@@ -112,9 +179,7 @@ class ReviewController extends Controller
         $imageUrl = null;
         $imageFileId = null;
 
-        // Upload image only if exists
         if ($request->hasFile('image')) {
-
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -138,7 +203,6 @@ class ReviewController extends Controller
             $imageFileId = $upload->result->fileId;
         }
 
-        //  Create review
         $review = Review::create([
             'user_id' => $user->id,
             'product_id' => $request->product_id,
@@ -146,7 +210,8 @@ class ReviewController extends Controller
             'comment' => $request->comment,
             'is_approved' => true,
             'image' => $imageUrl,
-            'image_file_id' => $imageFileId
+            'image_file_id' => $imageFileId,
+            'parent_id' => null,
         ]);
 
         return response()->json([
@@ -229,7 +294,6 @@ class ReviewController extends Controller
     }
 
     //  Delete review (only owner)
-
     public function destroy(Request $request, $id)
     {
         $review = Review::findOrFail($id);
@@ -267,7 +331,8 @@ class ReviewController extends Controller
     }
     public function productSummary($productId)
     {
-        $reviews = Review::where('product_id', $productId);
+        $reviews = Review::where('product_id', $productId)
+            ->whereNull('parent_id');
 
         return response()->json([
             'average_rating' => round($reviews->avg('rating'), 1),
@@ -317,22 +382,56 @@ class ReviewController extends Controller
             'parent_id' => $parent->id,
             'is_approved' => 1
         ]);
-        if ($parent->user_id != auth()->id()) {
 
+        // notify owner
+        if ($parent->user_id != auth()->id()) {
             $this->initializeNotification(
                 $parent->user,
                 'Your review received a reply',
-                $reply->comment,
+                "replied: {$reply->comment}",
                 'review',
                 'message-circle',
                 "/profile/reviews"
             );
         }
+
         return response()->json([
             'message' => 'Reply created',
             'data' => $reply
         ]);
     }
+    // public function reply(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'comment' => 'required|string'
+    //     ]);
+
+    //     $parent = Review::findOrFail($id);
+
+    //     $reply = Review::create([
+    //         'user_id' => auth()->id(),
+    //         'product_id' => $parent->product_id,
+    //         'comment' => $request->comment,
+    //         'rating' => $parent->rating,
+    //         'parent_id' => $parent->id,
+    //         'is_approved' => 1
+    //     ]);
+    //     if ($parent->user_id != auth()->id()) {
+
+    //         $this->initializeNotification(
+    //             $parent->user,
+    //             'Your review received a reply',
+    //             "replied: {$reply->comment}",
+    //             'review',
+    //             'message-circle',
+    //             "/profile/reviews"
+    //         );
+    //     }
+    //     return response()->json([
+    //         'message' => 'Reply created',
+    //         'data' => $reply
+    //     ]);
+    // }
     public function updateReply(Request $request, $id)
     {
         $request->validate([
@@ -376,24 +475,59 @@ class ReviewController extends Controller
             'data' => $review
         ]);
     }
-    public function delete($id)
+
+    public function delete(Request $request, $id)
     {
-
         $review = Review::findOrFail($id);
+        $user = $request->user();
 
-        // ✅ Check if it's a reply
-        if ($review->parent_id !== null) {
-            $review->delete();
-
+        if ($user->id !== $review->user_id && $user->role !== 'admin') {
             return response()->json([
-                'message' => 'Reply deleted successfully'
-            ]);
+                'message' => 'You cannot delete someone else\'s review.'
+            ], 403);
         }
 
+        // ✅ delete replies first
+        $review->replies()->delete();
+
+        if ($review->image_file_id) {
+            try {
+                $imageKit = new ImageKit(
+                    config('imagekit.public_key'),
+                    config('imagekit.private_key'),
+                    config('imagekit.url_endpoint')
+                );
+
+                $imageKit->deleteFile($review->image_file_id);
+            } catch (\Exception $e) {
+                \Log::warning('Image delete failed: ' . $e->getMessage());
+            }
+        }
+
+        $review->delete();
+
         return response()->json([
-            'message' => 'This is not a reply'
-        ], 400);
+            'message' => 'Review deleted successfully'
+        ]);
     }
+    // public function delete($id)
+    // {
+
+    //     $review = Review::findOrFail($id);
+
+    //     // ✅ Check if it's a reply
+    //     if ($review->parent_id !== null) {
+    //         $review->delete();
+
+    //         return response()->json([
+    //             'message' => 'Reply deleted successfully'
+    //         ]);
+    //     }
+
+    //     return response()->json([
+    //         'message' => 'This is not a reply'
+    //     ], 400);
+    // }
 
 
 }

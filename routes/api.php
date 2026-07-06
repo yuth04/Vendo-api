@@ -148,8 +148,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
         // Khqr payment
 
-        Route::post('generate', [PaymentController::class, 'generate']);
-        Route::post('verify', [PaymentController::class, 'verify']);
+
         Route::post('/payment/webhook', [PayWayController::class, 'webhook']);
     });
 
@@ -160,8 +159,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/unread-count', [NotifyController::class, 'unreadCount']);
         Route::patch('/notifications/read-all', [NotifyController::class, 'markAllAsRead']);
         Route::patch('/notifications/{id}', [NotifyController::class, 'markAsRead']);
-        Route::delete('/notifications/delete/{id}', [NotifyController::class,'delete']);      
-        Route::delete('/notifications/delete-all', [NotifyController::class,'clearAll']);     
+        Route::delete('/notifications/delete/{id}', [NotifyController::class, 'delete']);
+        Route::delete('/notifications/delete-all', [NotifyController::class, 'clearAll']);
 
         Route::get('/user', function (Request $request) {
             return $request->user();
@@ -169,7 +168,11 @@ Route::prefix('v1')->group(function () {
         Route::prefix('/payments')->group(function () {
             Route::post('/create', [PayWayController::class, 'create']);
             Route::post('/verify', [PayWayController::class, 'verify']);
+            Route::post('/method', [PaymentController::class, 'selectMethod']);
+            Route::post('/generate', [PaymentController::class, 'generateKhqrPayment']);
+            Route::post('/checkStatus', [PaymentController::class, 'checkStatus']);
         });
+
         // Coupon
         Route::post('/apply-coupon', [OrderController::class, 'apply']);
         Route::post('/clear-coupon', [OrderController::class, 'clear']);
@@ -188,6 +191,7 @@ Route::prefix('v1')->group(function () {
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
+        Route::post('/checkout-test', [OrderController::class, 'checkout1']);
         Route::get('/orders', [OrderController::class, 'myOrders']);
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
