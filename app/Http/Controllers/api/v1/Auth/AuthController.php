@@ -179,13 +179,14 @@ class AuthController extends Controller
         $device = $this->parseDevice($userAgent);
         $location = $this->parseLocation($ip);
 
+        // Key on device only — IP changes alone (new WiFi, mobile data, VPN) should NOT trigger a notification
         $login = LoginHistory::firstOrCreate(
             [
                 'user_id' => $user->id,
-                'ip_address' => $ip,
                 'user_agent' => $userAgent,
             ],
             [
+                'ip_address' => $ip,
                 'device' => $device,
                 'location' => $location,
                 'last_seen_at' => now(),
@@ -193,20 +194,25 @@ class AuthController extends Controller
         );
 
         if (!$login->wasRecentlyCreated) {
-            $login->update(['last_seen_at' => now()]);
+            // Same device seen before — just update IP/location/last_seen, no notification
+            $login->update([
+                'ip_address' => $ip,
+                'location' => $location,
+                'last_seen_at' => now(),
+            ]);
             return false;
         }
 
         $isFirstLogin = LoginHistory::where('user_id', $user->id)->count() === 1;
 
         if ($isFirstLogin) {
-            return false;
+            return false; // first-ever login — no notification
         }
 
+        // Genuinely new device — notify
         $this->initializeLoginNotification($user, $ip, $device, $location);
         return true;
     }
-
     private function parseDevice(?string $userAgent): string
     {
         if (!$userAgent) {

@@ -45,7 +45,7 @@ class OrderController extends Controller
             'title' => 'Order placed successfully',
             'message' => "Your order #{$order->id} is waiting for payment.",
             'icon' => 'shopping-bag',
-            'url' => '/profile/orders/' . $order->id
+            'url' => '/account/orders/' . $order->id
         ]);
     }
     // Checkout
