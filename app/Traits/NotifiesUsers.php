@@ -62,17 +62,11 @@ trait NotifiesUsers
         string $url = '/'
     ): void {
         try {
-
-            $userId = null;
-
-            if (is_object($user) && isset($user->id)) {
-                $userId = $user->id;
-            } elseif (is_numeric($user)) {
-                $userId = $user;
-            }
+            $userId = is_object($user) && isset($user->id) ? $user->id
+                : (is_numeric($user) ? $user : null);
 
             if (!$userId) {
-                \Log::error('Notification failed: invalid user');
+                \Log::error('Notification failed: invalid user', compact('user', 'title', 'url'));
                 return;
             }
 
@@ -87,7 +81,7 @@ trait NotifiesUsers
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Notification failed: ' . $e->getMessage());
+            \Log::error('Notification failed: ' . $e->getMessage(), compact('user', 'title', 'url'));
         }
     }
 }

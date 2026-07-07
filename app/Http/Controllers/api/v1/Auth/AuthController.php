@@ -130,7 +130,7 @@ class AuthController extends Controller
             // $request->user()?->currentAccessToken()?->delete();
 
             $token = $user->createToken('api-token')->plainTextToken;
-            $this->checkNewLogin($user, $request);
+            $isNewDevice = $this->checkNewLogin($user, $request);
             $this->initializeNotification(
                 $user,
                 'Welcome Back!',
@@ -139,8 +139,10 @@ class AuthController extends Controller
                 'user',
                 '/account/account-info'
             );
-
-            Mail::to($user->email)->send(new LoginNotificationMail($user));
+            if ($isNewDevice) {
+                Mail::to($user->email)->send(new LoginNotificationMail($user));
+            }
+            // Mail::to($user->email)->send(new LoginNotificationMail($user));
             return response()->json([
                 'message' => 'Login successful',
                 'user' => [
@@ -170,7 +172,7 @@ class AuthController extends Controller
         }
     }
     // check new login and save login history
-    private function checkNewLogin($user, Request $request)
+    private function checkNewLogin($user, Request $request): bool
     {
         $ip = $request->ip();
         $userAgent = $request->userAgent();
@@ -190,32 +192,37 @@ class AuthController extends Controller
             ]
         );
 
-        if ($login->wasRecentlyCreated) {
-            $isFirstLogin = LoginHistory::where('user_id', $user->id)->count() === 1;
-
-            if (!$isFirstLogin) {
-                $this->initializeLoginNotification($user, $ip, $device, $location);
-            }
-        } else {
+        if (!$login->wasRecentlyCreated) {
             $login->update(['last_seen_at' => now()]);
+            return false;
         }
+
+        $isFirstLogin = LoginHistory::where('user_id', $user->id)->count() === 1;
+
+        if ($isFirstLogin) {
+            return false;
+        }
+
+        $this->initializeLoginNotification($user, $ip, $device, $location);
+        return true;
     }
 
-    private function parseDevice(?string $userAgent): ?string
+    private function parseDevice(?string $userAgent): string
     {
-        if (!$userAgent)
-            return 'Unknown device';
+        if (!$userAgent) {
+            return 'an unknown device';
+        }
 
         if (str_contains($userAgent, 'Mobile'))
-            return 'Mobile device';
+            return 'a mobile device';
         if (str_contains($userAgent, 'Windows'))
-            return 'Windows PC';
+            return 'a Windows PC';
         if (str_contains($userAgent, 'Macintosh'))
-            return 'Mac';
+            return 'a Mac';
         if (str_contains($userAgent, 'Linux'))
-            return 'Linux PC';
+            return 'a Linux PC';
 
-        return 'Unknown device';
+        return 'an unknown device';
     }
 
     private function parseLocation(?string $ip): ?string
@@ -224,23 +231,21 @@ class AuthController extends Controller
             return 'Localhost';
         }
 
-        // Placeholder — wire up a geoip package for real city/country lookup
         return null;
     }
 
-    private function initializeLoginNotification($user, $ip, $device, $location)
+    private function initializeLoginNotification($user, string $ip, string $device, ?string $location): void
     {
-        $locationText = $location ? " from {$location}" : '';
+        $locationText = $location ? ", {$location}" : '';
 
-        return Notification::create([
-            'user_id' => $user->id,
-            'title' => 'New Login Detected',
-            'message' => "A new login was detected{$device}{$locationText} (IP: {$ip}).",
-            'type' => 'security',
-            'icon' => 'shield-alert',
-            'url' => '/account/security',
-            'is_read' => false,
-        ]);
+        $this->initializeNotification(
+            $user,
+            'New Login Detected',
+            "A new login was detected from {$device}{$locationText} (IP: {$ip}).",
+            'security',
+            'shield-alert',
+            '/account/account-info'
+        );
     }
     public function logout(Request $request)
     {
