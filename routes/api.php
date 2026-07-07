@@ -157,7 +157,7 @@ Route::prefix('v1')->group(function () {
         // Notifications
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotifyController::class, 'getAll']);
-            Route::get('/{id}', [NotifyController::class, 'redirect']);
+            Route::patch('/redirect/{id}', [NotifyController::class, 'redirect']);
             Route::get('/unread-count', [NotifyController::class, 'unreadCount']);
             Route::patch('/read-all', [NotifyController::class, 'markAllAsRead']);
             Route::patch('/{id}', [NotifyController::class, 'markAsRead']);

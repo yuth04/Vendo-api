@@ -454,7 +454,13 @@ class ReviewController extends Controller
                 'message' => 'You cannot delete someone else\'s review.'
             ], 403);
         }
+        $replies = $review->replies;
 
+        foreach ($replies as $reply) {
+            Notification::where('type', 'review')
+                ->where('message', 'replied: ' . $reply->comment)
+                ->delete();
+        }
         // ✅ delete replies first
         $review->replies()->delete();
 

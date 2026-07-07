@@ -235,7 +235,7 @@ class AuthController extends Controller
         return Notification::create([
             'user_id' => $user->id,
             'title' => 'New Login Detected',
-            'message' => "A new login was detected{$locationText} ({$device}, {$ip}).",
+            'message' => "A new login was detected{$device}{$locationText} (IP: {$ip}).",
             'type' => 'security',
             'icon' => 'shield-alert',
             'url' => '/account/security',

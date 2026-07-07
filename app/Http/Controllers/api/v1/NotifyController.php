@@ -59,17 +59,19 @@ class NotifyController extends Controller
         ]);
     }
     // redirect to notification url
+// redirect to notification url
     public function redirect(Request $request, string $id)
     {
-        $notification = $request->user()->notifcations()->findOrFail($id);
+        $notification = Notification::where('user_id', $request->user()->id)
+            ->findOrFail($id);
 
-        if (is_null($notification->read_at)) {
-            $notification->markAsRead();
+        if (!$notification->is_read) {
+            $notification->update(['is_read' => true]);
         }
-        return response()->json([
-            'url' => $notification->data['url'] ?? null
-        ]);
 
+        return response()->json([
+            'url' => $notification->url ?? null
+        ]);
     }
     // read all
     public function markAllAsRead()
