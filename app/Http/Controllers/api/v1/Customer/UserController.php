@@ -321,10 +321,9 @@ class UserController extends Controller
         $authUser = Auth::user();
         if ($authUser->role !== 'super-admin' && $authUser->role !== 'admin') {
             return response()->json([
-                'message' => 'Only super-admin can access this endpoint',
+                'message' => 'Only super-admin or admin can access this endpoint.',
             ], 403);
         }
-
         $request->validate([
             'role' => 'required|string|in:super-admin,admin,staff,customer'
         ]);
@@ -335,6 +334,13 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'User not found.'
             ], 404);
+        }
+        if ($user->email === "yuth.code@gmail.com") {
+            if ($authUser->email !== "yuth.code@gmail.com") {
+                return response()->json([
+                    'message' => "You cannot change the role of this user."
+                ], 403);
+            }
         }
         if ($user->id === $authUser->id) {
             return response()->json([
