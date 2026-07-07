@@ -137,7 +137,7 @@ class AuthController extends Controller
                 'Welcome back, ' . $user->first_name . '! Good to see you again.',
                 'security',
                 'user',
-                '/profile'
+                '/account/account-info'
             );
 
             Mail::to($user->email)->send(new LoginNotificationMail($user));
