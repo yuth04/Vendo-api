@@ -415,14 +415,11 @@ class ReviewController extends Controller
     {
         $review = Review::findOrFail($id);
 
-        $replies = $review->replies; // a Collection, keep the plural name to avoid confusion
+        $replies = $review->replies;
 
-        foreach ($replies as $reply) {
-            Notification::where('type', 'review')
-                ->where('url', 'like', '%reply_id=' . $reply->id)
-                ->delete();
-        }
-
+        Notification::where('type', 'review')
+            ->where('url', 'like', '%reply_id=' . $review->id)
+            ->delete();
         $review->replies()->delete();
 
         if ($review->image_file_id) {
