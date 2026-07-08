@@ -414,7 +414,7 @@ class ReviewController extends Controller
     {
         $review = Review::findOrFail($id);
 
-        $replies = $review->replies;
+        // $replies = $review->replies;
 
         Notification::where('type', 'review')
             ->where('url', 'like', '%reply_id=' . $review->id)
