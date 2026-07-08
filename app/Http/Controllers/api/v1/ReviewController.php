@@ -20,7 +20,7 @@ class ReviewController extends Controller
             'message' => 'replied: ' . $reply->comment,
             'type' => 'review',
             'icon' => 'chat',
-            'url' => "/product-details/{$review->product_id}",
+            'url' => "/product-details/{$review->product_id}?reply_id={$reply->id}",
             'is_read' => false,
         ]);
     }
@@ -422,7 +422,11 @@ class ReviewController extends Controller
         $review->update([
             'comment' => $request->comment
         ]);
-
+        Notification::where('type', 'review')
+            ->where('url', 'like', '%reply_id=' . $review->id)
+            ->update([
+                'message' => 'replied: ' . $review->comment,
+            ]);
         return response()->json([
             'message' => 'Reply updated successfully',
             'data' => $review
@@ -445,21 +449,13 @@ class ReviewController extends Controller
     public function delete(Request $request, $id)
     {
         $review = Review::findOrFail($id);
-        // $user = $request->user();
 
-        // if ($user->id !== $review->user_id && $user->role !== 'admin') {
-        //     return response()->json([
-        //         'message' => 'You cannot delete someone else\'s review.'
-        //     ], 403);
-        // }
-        $replies = $review->replies;
+        $reply = $review->replies;
 
-        foreach ($replies as $reply) {
-            Notification::where('type', 'review')
-                ->where('message', 'replied: ' . $reply->comment)
-                ->delete();
-        }
-        // ✅ delete replies first
+        Notification::where('type', 'review')
+            ->where('url', 'like', '%reply_id=' . $reply->id)
+            ->delete();
+
         $review->replies()->delete();
 
         if ($review->image_file_id) {
