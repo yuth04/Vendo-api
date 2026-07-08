@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use App\Traits\NotifiesUsers;
+use Illuminate\Support\Facades\RateLimiter;
+use Str;
 
 class AuthController extends Controller
 {
@@ -230,7 +232,6 @@ class AuthController extends Controller
 
         return 'an unknown device';
     }
-
     private function parseLocation(?string $ip): ?string
     {
         if (in_array($ip, ['127.0.0.1', '::1'])) {
@@ -239,7 +240,6 @@ class AuthController extends Controller
 
         return null;
     }
-
     private function initializeLoginNotification($user, string $ip, string $device, ?string $location): void
     {
         $locationText = $location ? ", {$location}" : '';
@@ -308,78 +308,6 @@ class AuthController extends Controller
             'message' => 'Password changed successfully',
         ]);
 
-    }
-    public function forgotPassword(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email|exists:users,email'
-        ]);
-        $user = User::where('email', $request->email)->first();
-
-        $otp = rand(100000, 999999);
-        $expired = 5;
-
-        $user->verification_code = $otp;
-        $user->verification_code_expire = now()->addMinutes($expired);
-        $user->save();
-
-        Mail::to($user->email)->send(new ForgotPasswordMail($otp, $expired));
-        return response()->json([
-            'message' => 'Verification code sent to your email'
-        ]);
-
-    }
-    // Verify otp
-    public function verifycode(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'code' => 'required'
-        ]);
-        $user = User::where('email', $request->email)
-            ->where('verification_code', $request->code)
-            ->first();
-        if (!$user) {
-            return response()->json([
-                'message' => 'Invalid verification code'
-            ], 400);
-        }
-        if (now()->gt($user->verification_code_expire)) {
-            return response()->json([
-                'message' => 'Verification code expired'
-            ], 400);
-
-        }
-        return response()->json([
-            'message' => 'Code verified successfully'
-        ]);
-    }
-    // reset password
-    public function resetPassword(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|min:8|confirmed'
-        ]);
-
-        $user = User::where('email', $request->email)->first();
-
-        $user->password = Hash::make($request->password);
-        $user->verification_code = null;
-        $user->verification_code_expire = null;
-        $user->save();
-        $this->initializeNotification(
-            $user,
-            'Password Reset Successful',
-            'Your password was reset on ' . now()->format('M d, Y h:i A') . '. If this wasn\'t you, contact support immediately.',
-            'security',
-            'lock',
-            '/profile'
-        );
-        Mail::to($user->email)->send(new PasswordResetSuccess($user));
-        return response()->json([
-            'message' => 'Password reset successfully'
-        ]);
     }
     // verify email for create account
     public function verifyEmail(Request $request)
@@ -471,32 +399,248 @@ class AuthController extends Controller
             ], 500);
         }
     }
-
-    public function resendCode(Request $request)
+    public function forgotPassword(Request $request)
     {
         $request->validate([
-            'email' => 'required|email'
+            'email' => 'required|email|exists:users,email'
         ]);
-
-        $data = Cache::get('register_' . $request->email);
-
-        if (!$data) {
-            return response()->json([
-                'message' => 'Verification session expired. Please register again.'
-            ], 404);
-        }
-
-        $newCode = random_int(100000, 999999);
-
-        $data['verification_code'] = $newCode;
-
-        // reset cache with new code
-        Cache::put('register_' . $request->email, $data, now()->addMinutes(5));
-
-        Mail::to($request->email)->send(new ResendNewCode($newCode));
-
+        $user = User::where('email', $request->email)->first();
+        $otp = rand(100000, 999999);
+        $expired = 5;
+        $user->verification_code = $otp;
+        $user->verification_code_expire = now()->addMinutes($expired);
+        $user->save();
+        Mail::to($user->email)->send(new ForgotPasswordMail($otp, $expired));
         return response()->json([
-            'message' => 'New verification code sent'
+            'message' => 'Verification code sent to your email'
         ]);
     }
+    // reset password
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|min:8|confirmed'
+        ]);
+        $user = User::where('email', $request->email)->first();
+        $user->password = Hash::make($request->password);
+        $user->verification_code = null;
+        $user->verification_code_expire = null;
+        $user->save();
+        Mail::to($user->email)->send(new PasswordResetSuccess($user));
+        return response()->json([
+            'message' => 'Password reset successfully'
+        ]);
+    }
+    // Verify otp
+    public function verifycode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required'
+        ]);
+        $user = User::where('email', $request->email)
+            ->where('verification_code', $request->code)
+            ->first();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Invalid verification code'
+            ], 400);
+        }
+        if (now()->gt($user->verification_code_expire)) {
+            return response()->json([
+                'message' => 'Verification code expired'
+            ], 400);
+        }
+        return response()->json([
+            'message' => 'Code verified successfully'
+        ]);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // public function resendCode(Request $request)
+    // {
+    //     $request->validate([
+    //         'email' => 'required|email'
+    //     ]);
+
+    //     $data = Cache::get('register_' . $request->email);
+
+    //     if (!$data) {
+    //         return response()->json([
+    //             'message' => 'Verification session expired. Please register again.'
+    //         ], 404);
+    //     }
+
+    //     $newCode = random_int(100000, 999999);
+
+    //     $data['verification_code'] = $newCode;
+
+    //     // reset cache with new code
+    //     Cache::put('register_' . $request->email, $data, now()->addMinutes(5));
+
+    //     Mail::to($request->email)->send(new ResendNewCode($newCode));
+
+    //     return response()->json([
+    //         'message' => 'New verification code sent'
+    //     ]);
+    // }
+    //     // forgot password
+    // public function forgotPassword(Request $request)
+    // {
+    //     $request->validate([
+    //         'email' => 'required|email'
+    //     ]);
+
+    //     // Rate limit: max 3 requests per 10 minutes per email+IP combo
+    //     $key = 'forgot-password:' . $request->ip() . '|' . $request->email;
+    //     if (RateLimiter::tooManyAttempts($key, 3)) {
+    //         $seconds = RateLimiter::availableIn($key);
+    //         return response()->json([
+    //             'message' => "Too many attempts. Please try again in {$seconds} seconds."
+    //         ], 429);
+    //     }
+    //     RateLimiter::hit($key, 600); // 10 minutes
+
+    //     $user = User::where('email', $request->email)->first();
+
+    //     // Always return the same generic response, whether or not the email exists.
+    //     // Prevents attackers from discovering which emails are registered.
+    //     if ($user) {
+    //         $otp = random_int(100000, 999999);
+    //         $expiredMinutes = 5;
+
+    //         $user->verification_code = Hash::make((string) $otp); // hashed, not plaintext
+    //         $user->verification_code_expire = now()->addMinutes($expiredMinutes);
+    //         $user->verification_attempts = 0; // reset attempt counter
+    //         $user->save();
+
+    //         Mail::to($user->email)->send(new ForgotPasswordMail($otp, $expiredMinutes));
+    //     }
+
+    //     return response()->json([
+    //         'message' => 'If that email exists in our system, a verification code has been sent.'
+    //     ]);
+    // }
+    // // verify OTP Code
+    // public function verifycode(Request $request)
+    // {
+    //     $request->validate([
+    //         'email' => 'required|email',
+    //         'code' => 'required|digits:6'
+    //     ]);
+
+    //     $key = 'verify-otp:' . $request->ip() . '|' . $request->email;
+    //     if (RateLimiter::tooManyAttempts($key, 5)) {
+    //         $seconds = RateLimiter::availableIn($key);
+    //         return response()->json([
+    //             'message' => "Too many attempts. Please try again in {$seconds} seconds."
+    //         ], 429);
+    //     }
+
+    //     $user = User::where('email', $request->email)->first();
+
+    //     if (!$user || !$user->verification_code || !$user->verification_code_expire) {
+    //         RateLimiter::hit($key, 900); // 15 min lockout on invalid attempt
+    //         return response()->json(['message' => 'Invalid verification code'], 400);
+    //     }
+
+    //     if (now()->gt($user->verification_code_expire)) {
+    //         return response()->json(['message' => 'Verification code expired'], 400);
+    //     }
+
+    //     if (!Hash::check($request->code, $user->verification_code)) {
+    //         RateLimiter::hit($key, 900);
+    //         $user->increment('verification_attempts');
+
+    //         // Lock out after 5 wrong attempts, force requesting a new OTP
+    //         if ($user->verification_attempts >= 5) {
+    //             $user->verification_code = null;
+    //             $user->verification_code_expire = null;
+    //             $user->save();
+    //             return response()->json([
+    //                 'message' => 'Too many incorrect attempts. Please request a new code.'
+    //             ], 400);
+    //         }
+
+    //         $user->save();
+    //         return response()->json(['message' => 'Invalid verification code'], 400);
+    //     }
+
+    //     RateLimiter::clear($key);
+
+    //     // Issue a short-lived, single-use reset token — required by resetPassword.
+    //     // This proves OTP verification happened; without it resetPassword must fail.
+    //     $resetToken = Str::random(64);
+    //     $user->password_reset_token = Hash::make($resetToken);
+    //     $user->password_reset_token_expire = now()->addMinutes(10);
+    //     $user->save();
+
+    //     return response()->json([
+    //         'message' => 'Code verified successfully',
+    //         'reset_token' => $resetToken // frontend must send this back to resetPassword
+    //     ]);
+    // }
+    // // reset password
+    // public function resetPassword(Request $request)
+    // {
+    //     $request->validate([
+    //         'email' => 'required|email',
+    //         'reset_token' => 'required|string',
+    //         'password' => 'required|min:8|confirmed'
+    //     ]);
+
+    //     $user = User::where('email', $request->email)->first();
+
+    //     if (
+    //         !$user ||
+    //         !$user->password_reset_token ||
+    //         !$user->password_reset_token_expire ||
+    //         now()->gt($user->password_reset_token_expire) ||
+    //         !Hash::check($request->reset_token, $user->password_reset_token)
+    //     ) {
+    //         return response()->json([
+    //             'message' => 'Invalid or expired reset session. Please verify your code again.'
+    //         ], 400);
+    //     }
+
+    //     $user->password = Hash::make($request->password);
+
+    //     // Clear everything — OTP, attempts, and reset token — all single-use
+    //     $user->verification_code = null;
+    //     $user->verification_code_expire = null;
+    //     $user->verification_attempts = 0;
+    //     $user->password_reset_token = null;
+    //     $user->password_reset_token_expire = null;
+    //     $user->save();
+
+    //     // Invalidate all existing sessions/tokens — critical after a password reset
+    //     $user->tokens()->delete();
+
+    //     $this->initializeNotification(
+    //         $user,
+    //         'Password Reset Successful',
+    //         'Your password was reset on ' . now()->format('M d, Y h:i A') . '. If this wasn\'t you, contact support immediately.',
+    //         'security',
+    //         'lock',
+    //         '/account/security'
+    //     );
+
+    //     Mail::to($user->email)->send(new PasswordResetSuccess($user));
+
+    //     return response()->json([
+    //         'message' => 'Password reset successfully'
+    //     ]);
+    // }
 }
