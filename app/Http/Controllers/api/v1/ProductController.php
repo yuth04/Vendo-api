@@ -162,7 +162,7 @@ class ProductController extends Controller
             'Check out our new product "' . $product->productName . '" — available now.',
             'product',
             'shopping-bag',
-            "/product-details/{$product->id}"
+            "/products"
         );
 
         $this->refreshAllIndex();

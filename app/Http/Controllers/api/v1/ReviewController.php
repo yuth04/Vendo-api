@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\api\v1;
 
-use App\Events\ReviewReplied;
+use App\Events\ReviewChanged;
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use App\Models\Review;
@@ -387,7 +387,7 @@ class ReviewController extends Controller
             'parent_id' => $parent->id,
             'is_approved' => 1
         ]);
-        broadcast(new ReviewReplied($reply))->toOthers();
+       broadcast(new ReviewChanged($reply, 'reply'))->toOthers();
         // notify owner
         $this->initializeReviewNotification($parent->user, $parent, $reply);
 
@@ -396,7 +396,6 @@ class ReviewController extends Controller
             'data' => $reply
         ]);
     }
-
     // approve or unapprove review (only admin)
     public function approved(Request $request, $id)
     {
@@ -437,7 +436,7 @@ class ReviewController extends Controller
         }
 
         $review->delete();
-
+        broadcast(new ReviewChanged($review, 'delete'))->toOthers();
         return response()->json([
             'message' => 'Review deleted successfully'
         ]);
@@ -460,7 +459,7 @@ class ReviewController extends Controller
         $review->update([
             'comment' => $request->comment
         ]);
-
+        broadcast(new ReviewChanged($review, 'update'))->toOthers();
         Notification::where('type', 'review')
             ->where('url', 'like', '%reply_id=' . $review->id)
             ->update([
