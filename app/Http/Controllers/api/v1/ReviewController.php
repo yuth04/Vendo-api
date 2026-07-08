@@ -389,9 +389,7 @@ class ReviewController extends Controller
         ]);
         broadcast(new ReviewReplied($reply))->toOthers();
         // notify owner
-        if ($parent->user_id != auth()->id()) {
-            $this->initializeReviewNotification($parent->user, $parent, $reply);
-        }
+        $this->initializeReviewNotification($parent->user, $parent, $reply);
 
         return response()->json([
             'message' => 'Reply created',
