@@ -396,42 +396,7 @@ class ReviewController extends Controller
             'data' => $reply
         ]);
     }
-    // update replied
-    public function updateReply(Request $request, $id)
-    {
-        $request->validate([
-            'comment' => 'required|string'
-        ]);
 
-        $review = Review::findOrFail($id);
-
-        //  Check if it's a reply
-        if ($review->parent_id === null) {
-            return response()->json([
-                'message' => 'This is not a reply'
-            ], 400);
-        }
-
-        // Optional: only allow owner/admin
-        // if (auth()->id() !== $review->user_id) {
-        //     return response()->json([
-        //         'message' => 'Unauthorized'
-        //     ], 403);
-        // }
-
-        $review->update([
-            'comment' => $request->comment
-        ]);
-        Notification::where('type', 'review')
-            ->where('url', 'like', '%reply_id=' . $review->id)
-            ->update([
-                'message' => 'replied: ' . $review->comment,
-            ]);
-        return response()->json([
-            'message' => 'Reply updated successfully',
-            'data' => $review
-        ]);
-    }
     // approve or unapprove review (only admin)
     public function approved(Request $request, $id)
     {
@@ -450,11 +415,13 @@ class ReviewController extends Controller
     {
         $review = Review::findOrFail($id);
 
-        $reply = $review->replies;
+        $replies = $review->replies; // a Collection, keep the plural name to avoid confusion
 
-        Notification::where('type', 'review')
-            ->where('url', 'like', '%reply_id=' . $reply->id)
-            ->delete();
+        foreach ($replies as $reply) {
+            Notification::where('type', 'review')
+                ->where('url', 'like', '%reply_id=' . $reply->id)
+                ->delete();
+        }
 
         $review->replies()->delete();
 
@@ -476,6 +443,36 @@ class ReviewController extends Controller
 
         return response()->json([
             'message' => 'Review deleted successfully'
+        ]);
+    }
+    // update reply comment (only owner or admin)
+    public function updateReply(Request $request, $id)
+    {
+        $request->validate([
+            'comment' => 'required|string'
+        ]);
+
+        $review = Review::findOrFail($id);
+
+        if ($review->parent_id === null) {
+            return response()->json([
+                'message' => 'This is not a reply'
+            ], 400);
+        }
+
+        $review->update([
+            'comment' => $request->comment
+        ]);
+
+        Notification::where('type', 'review')
+            ->where('url', 'like', '%reply_id=' . $review->id)
+            ->update([
+                'message' => 'replied: ' . $review->comment,
+            ]);
+
+        return response()->json([
+            'message' => 'Reply updated successfully',
+            'data' => $review
         ]);
     }
 
