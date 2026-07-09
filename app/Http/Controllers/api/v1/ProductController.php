@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
 
+use App\Models\Discount;
 use App\Models\Notification;
 use App\Models\Product;
 use App\Models\ProductImage;
@@ -270,7 +271,28 @@ class ProductController extends Controller
                 'updated_at' => now()->format('d-m-Y g:i:s A'),
             ],
         ]);
+        // Recalculate discount price if product has active discount
+        $product->refresh();
+        if ($product->discount_id) {
+            $discount = Discount::find(
+                $product->discount_id
+            );
+            if ($discount && $discount->is_active) {
+             if ($discount->type === 'percent') {
 
+                    $discountPrice =
+                        $product->price -
+                        ($product->price * $discount->amount / 100);
+                } else {
+                    $discountPrice = $product->price - $discount->amount;
+                }
+                $product->update(['discount_price' => max(0, round($discountPrice, 2))
+                ]);
+            } else {
+                // Discount inactive/expired
+                $product->update(['discount_price' => 0]);
+            }
+        }
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Updated product successfully',
