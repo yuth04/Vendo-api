@@ -58,6 +58,21 @@ class NotifyController extends Controller
             'message' => 'Mark read successfully'
         ]);
     }
+    // redirect to notification url
+// redirect to notification url
+    public function redirect(Request $request, string $id)
+    {
+        $notification = Notification::where('user_id', $request->user()->id)
+            ->findOrFail($id);
+
+        if (!$notification->is_read) {
+            $notification->update(['is_read' => true]);
+        }
+
+        return response()->json([
+            'url' => $notification->url ?? null
+        ]);
+    }
     // read all
     public function markAllAsRead()
     {
@@ -72,6 +87,7 @@ class NotifyController extends Controller
             'message' => 'Success'
         ]);
     }
+
     //delete single notification
     public function delete($id)
     {

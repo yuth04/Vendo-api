@@ -59,12 +59,19 @@ trait NotifiesUsers
         string $message,
         string $type = 'order',
         string $icon = 'shopping-bag',
-        string $url = '/',
+        string $url = '/'
     ): void {
         try {
-            // 1. Save to DB
-            $notification = Notification::create([
-                'user_id' => $user->id,
+            $userId = is_object($user) && isset($user->id) ? $user->id
+                : (is_numeric($user) ? $user : null);
+
+            if (!$userId) {
+                \Log::error('Notification failed: invalid user', compact('user', 'title', 'url'));
+                return;
+            }
+
+            Notification::create([
+                'user_id' => $userId,
                 'title' => $title,
                 'message' => $message,
                 'icon' => $icon,
@@ -73,11 +80,8 @@ trait NotifiesUsers
                 'is_read' => false,
             ]);
 
-            // 2. Broadcast real-time
-            broadcast(new NotificationCreated($notification));
-
         } catch (\Exception $e) {
-            \Log::error('Notification failed: ' . $e->getMessage());
+            \Log::error('Notification failed: ' . $e->getMessage(), compact('user', 'title', 'url'));
         }
     }
 }

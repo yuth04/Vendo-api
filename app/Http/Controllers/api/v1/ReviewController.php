@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\api\v1;
 
+use App\Events\ReviewChanged;
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use ImageKit\ImageKit;
@@ -10,6 +12,18 @@ use App\Traits\NotifiesUsers;
 class ReviewController extends Controller
 {
     use NotifiesUsers;
+    private function initializeReviewNotification($user, $review, $reply)
+    {
+        return Notification::create([
+            'user_id' => $user->id,
+            'title' => 'Your review received a reply',
+            'message' => 'replied: ' . $reply->comment,
+            'type' => 'review',
+            'icon' => 'chat',
+            'url' => "/product-details/{$review->product_id}?reply_id={$reply->id}",
+            'is_read' => false,
+        ]);
+    }
     public function index(Request $request)
     {
         $query = Review::with(['user', 'product', 'replies.user'])->whereNull('parent_id')->where('is_approved', true)
@@ -73,7 +87,7 @@ class ReviewController extends Controller
                             'image' => $reply->user->image,
                             'role' => $reply->user->role,
                             'status' => $reply->user->status,
-                            'created_at' => $reply->user->created_at,
+                            'created_at' => $reply->user->created_at->format('d-m-Y h:i:s A'),
                         ],
                     ];
                 }),
@@ -86,7 +100,6 @@ class ReviewController extends Controller
         ]);
     }
     //  Store review (any logged-in user)
-
     public function store(Request $request)
     {
         $request->validate([
@@ -98,9 +111,10 @@ class ReviewController extends Controller
 
         $user = $request->user();
 
-        // Check duplicate FIRST (important)
+        // ✅ ONLY top-level review check
         $exists = Review::where('user_id', $user->id)
             ->where('product_id', $request->product_id)
+            ->whereNull('parent_id')
             ->exists();
 
         if ($exists) {
@@ -112,9 +126,7 @@ class ReviewController extends Controller
         $imageUrl = null;
         $imageFileId = null;
 
-        // Upload image only if exists
         if ($request->hasFile('image')) {
-
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -138,7 +150,6 @@ class ReviewController extends Controller
             $imageFileId = $upload->result->fileId;
         }
 
-        //  Create review
         $review = Review::create([
             'user_id' => $user->id,
             'product_id' => $request->product_id,
@@ -146,7 +157,8 @@ class ReviewController extends Controller
             'comment' => $request->comment,
             'is_approved' => true,
             'image' => $imageUrl,
-            'image_file_id' => $imageFileId
+            'image_file_id' => $imageFileId,
+            'parent_id' => null,
         ]);
 
         return response()->json([
@@ -155,7 +167,6 @@ class ReviewController extends Controller
         ], 201);
     }
     //  Update review (only owner)
-
     public function update(Request $request, $id)
     {
         $review = Review::findOrFail($id);
@@ -227,9 +238,7 @@ class ReviewController extends Controller
             'data' => $review
         ]);
     }
-
     //  Delete review (only owner)
-
     public function destroy(Request $request, $id)
     {
         $review = Review::findOrFail($id);
@@ -265,15 +274,18 @@ class ReviewController extends Controller
             'message' => 'Review deleted successfully'
         ]);
     }
+    // Get product summary (average rating and total reviews)
     public function productSummary($productId)
     {
-        $reviews = Review::where('product_id', $productId);
+        $reviews = Review::where('product_id', $productId)
+            ->whereNull('parent_id');
 
         return response()->json([
             'average_rating' => round($reviews->avg('rating'), 1),
             'total_reviews' => $reviews->count()
         ]);
     }
+    // Get all reviews (including unapproved) for admin
     public function getAll(Request $request)
     {
         $query = Review::with(['user', 'replies.user', 'product'])
@@ -284,12 +296,70 @@ class ReviewController extends Controller
         }
 
         $reviews = $query->latest()->get();
-
+        $review = $reviews->map(function ($review) {
+            return [
+                'id' => $review->id,
+                'user_id' => $review->user_id,
+                'product_id' => $review->product_id,
+                'rating' => $review->rating,
+                'comment' => $review->comment,
+                'is_approved' => $review->is_approved,
+                'image' => $review->image,
+                'created_at' => $review->created_at->format('d-m-Y h:i:s A'),
+                'created_at_human' => $review->created_at?->diffForHumans(),
+                'parent_id' => $review->parent_id,
+                'user' => [
+                    'id' => $review->user->id,
+                    'first_name' => $review->user->first_name,
+                    'last_name' => $review->user->last_name,
+                    'email' => $review->user->email,
+                    'image' => $review->user->image,
+                    'created_at' => $review->user->created_at->format('d-m-Y h:i:s A'),
+                    'role' => $review->user->role,
+                    'status' => $review->user->status,
+                ],
+                'product' => [
+                    'id' => $review->product->id,
+                    'name' => $review->product->productName,
+                    'slug' => $review->product->slug,
+                    'price' => $review->product->price,
+                    'description' => $review->product->description,
+                    'image' => $review->product->image,
+                    'discount_price' => $review->product->discount_price,
+                    'created_at' => $review->product->created_at->format('d-m-Y h:i:s A'),
+                ],
+                'replies' => $review->replies->map(function ($reply) {
+                    return [
+                        'id' => $reply->id,
+                        'user_id' => $reply->user_id,
+                        'product_id' => $reply->product_id,
+                        'rating' => $reply->rating,
+                        'comment' => $reply->comment,
+                        'is_approved' => $reply->is_approved,
+                        'image' => $reply->image,
+                        'created_at' => $reply->created_at->format('d-m-Y h:i:s A'),
+                        'created_at_human' => $reply->created_at?->diffForHumans(),
+                        'parent_id' => $reply->parent_id,
+                        'user' => [
+                            'id' => $reply->user->id,
+                            'first_name' => $reply->user->first_name,
+                            'last_name' => $reply->user->last_name,
+                            'email' => $reply->user->email,
+                            'image' => $reply->user->image,
+                            'role' => $reply->user->role,
+                            'status' => $reply->user->status,
+                            'created_at' => $reply->user->created_at->format('d-m-Y h:i:s A'),
+                        ],
+                    ];
+                }),
+            ];
+        });
         return response()->json([
             'message' => 'Reviews retrieved successfully',
-            'data' => $reviews
+            'data' => $review
         ]);
     }
+    // Get review by ID (including replies)
     public function getById($id)
     {
         $review = Review::with(['user', 'replies.user', 'product'])
@@ -317,53 +387,16 @@ class ReviewController extends Controller
             'parent_id' => $parent->id,
             'is_approved' => 1
         ]);
-        if ($parent->user_id != auth()->id()) {
+       broadcast(new ReviewChanged($reply, 'reply'))->toOthers();
+        // notify owner
+        $this->initializeReviewNotification($parent->user, $parent, $reply);
 
-            $this->initializeNotification(
-                $parent->user,
-                'Admin replied to your review',
-                'Your review has received a reply from the administrator.',
-                'review',
-                'message-circle',
-                "/profile/reviews"
-            );
-        }
         return response()->json([
             'message' => 'Reply created',
             'data' => $reply
         ]);
     }
-    public function updateReply(Request $request, $id)
-    {
-        $request->validate([
-            'comment' => 'required|string'
-        ]);
-
-        $review = Review::findOrFail($id);
-
-        //  Check if it's a reply
-        if ($review->parent_id === null) {
-            return response()->json([
-                'message' => 'This is not a reply'
-            ], 400);
-        }
-
-        // Optional: only allow owner/admin
-        // if (auth()->id() !== $review->user_id) {
-        //     return response()->json([
-        //         'message' => 'Unauthorized'
-        //     ], 403);
-        // }
-
-        $review->update([
-            'comment' => $request->comment
-        ]);
-
-        return response()->json([
-            'message' => 'Reply updated successfully',
-            'data' => $review
-        ]);
-    }
+    // approve or unapprove review (only admin)
     public function approved(Request $request, $id)
     {
         $review = Review::findOrFail($id);
@@ -376,24 +409,67 @@ class ReviewController extends Controller
             'data' => $review
         ]);
     }
-    public function delete($id)
+    // delete review and its replies
+    public function delete(Request $request, $id)
     {
+        $review = Review::findOrFail($id);
+
+        // $replies = $review->replies;
+
+        Notification::where('type', 'review')
+            ->where('url', 'like', '%reply_id=' . $review->id)
+            ->delete();
+        $review->replies()->delete();
+
+        if ($review->image_file_id) {
+            try {
+                $imageKit = new ImageKit(
+                    config('imagekit.public_key'),
+                    config('imagekit.private_key'),
+                    config('imagekit.url_endpoint')
+                );
+
+                $imageKit->deleteFile($review->image_file_id);
+            } catch (\Exception $e) {
+                \Log::warning('Image delete failed: ' . $e->getMessage());
+            }
+        }
+
+        $review->delete();
+        broadcast(new ReviewChanged($review, 'delete'))->toOthers();
+        return response()->json([
+            'message' => 'Review deleted successfully'
+        ]);
+    }
+    // update reply comment (only owner or admin)
+    public function updateReply(Request $request, $id)
+    {
+        $request->validate([
+            'comment' => 'required|string'
+        ]);
 
         $review = Review::findOrFail($id);
 
-        // ✅ Check if it's a reply
-        if ($review->parent_id !== null) {
-            $review->delete();
-
+        if ($review->parent_id === null) {
             return response()->json([
-                'message' => 'Reply deleted successfully'
-            ]);
+                'message' => 'This is not a reply'
+            ], 400);
         }
 
-        return response()->json([
-            'message' => 'This is not a reply'
-        ], 400);
-    }
+        $review->update([
+            'comment' => $request->comment
+        ]);
+        broadcast(new ReviewChanged($review, 'update'))->toOthers();
+        Notification::where('type', 'review')
+            ->where('url', 'like', '%reply_id=' . $review->id)
+            ->update([
+                'message' => 'replied: ' . $review->comment,
+            ]);
 
+        return response()->json([
+            'message' => 'Reply updated successfully',
+            'data' => $review
+        ]);
+    }
 
 }

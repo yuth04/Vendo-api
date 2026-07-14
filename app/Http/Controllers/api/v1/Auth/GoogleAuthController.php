@@ -32,7 +32,9 @@ class GoogleAuthController extends Controller
                 ->orWhere('email', $googleUser->email)
                 ->first();
             if ($user && $user->status === 'inactive') {
-                return redirect(config('app.frontend_url') . '/auth/login?error=inactive');
+                return response()->json([
+                    'message' => 'Your account is inactive. Please contact support.',
+                ], 403);
             }
 
             if (!$user) {

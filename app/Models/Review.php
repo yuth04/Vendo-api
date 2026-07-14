@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Review extends Model
 {
     protected $fillable = ['user_id', 'product_id', 'rating', 'comment', 'is_approved', 'image', 'image_file_id', 'parent_id'];
-    protected $hidden = ['created_at', 'updated_at'];
+    protected $hidden = [ 'updated_at'];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',

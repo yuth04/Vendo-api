@@ -46,23 +46,23 @@ class ReturnOrderController extends Controller
         $data = $returns->map(function ($return) {
             $order = $return->order;
 
-            // -------------------------
+
             // ORIGINAL SUBTOTAL (before discount)
-            // -------------------------
+
             $originalSubtotal = $order->items->sum(function ($item) {
                 return (float) ($item->variant->product->price ?? 0) * $item->quantity;
             });
 
-            // -------------------------
+
             // FINAL SUBTOTAL (after product discount)
-            // -------------------------
+
             $finalSubtotal = $order->items->sum(function ($item) {
                 return (float) $item->price * $item->quantity;
             });
 
-            // -------------------------
+
             // DISCOUNTS
-            // -------------------------
+
             $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
             $couponDiscount = (float) ($order->coupon_discount ?? 0);
             $shipping = (float) ($order->shipping_fee ?? 0);
@@ -75,25 +75,25 @@ class ReturnOrderController extends Controller
                 'order_number' => $return->order->order_number,
                 'reason' => $return->reason,
                 'note' => $return->note,
-                'original_price' => round($originalSubtotal, 2),         // added
-                'product_discount' => round($productDiscount, 2),          // fixed
-                'sub_total_price' => round($finalSubtotal, 2),            // fixed
+                'original_price' => round($originalSubtotal, 2),
+                'product_discount' => round($productDiscount, 2),
+                'sub_total_price' => round($finalSubtotal, 2),
                 'coupon_discount' => round($couponDiscount, 2),
                 'shipping_fee' => $shipping,
-                'total_price' => round($totalPayment, 2),             // fixed
-                'save' => round($productDiscount + $couponDiscount, 2), // added
-                'coupon' => [                                               // added
+                'total_price' => round($totalPayment, 2),
+                'save' => round($productDiscount + $couponDiscount, 2),
+                'coupon' => [
                     'code' => $order->coupon_code,
                     'discount' => $couponDiscount,
                 ],
-                'created_at' => $return->created_at->format('d-m-Y H:i:s'),
+                'created_at' => $return->created_at->format('d-m-Y h:i:s A'),
                 'image' => $return->image,
                 'payment' => [
                     'payment_method' => optional($return->order->payment)->payment_method ?? 'N/A',
                     'payment_status' => optional($return->order->payment)->status ?? 'N/A',
                     'reference' => $return->order->payment->payment_reference ?? 'N/A',
                     'paid_at' => optional($return->order->payment)->paid_at
-                        ? $return->order->payment->paid_at->format('d-m-Y H:i:s')
+                        ? $return->order->payment->paid_at->format('d-m-Y h:i:s A')
                         : 'N/A',
                 ],
                 'customer' => [
@@ -110,8 +110,8 @@ class ReturnOrderController extends Controller
                     return [
                         'return_item_id' => $item->id,
                         'quantity' => $item->quantity,
-                        'discount' => round(max(0, $originalPrice - $finalPrice), 2), // added
-                        'subtotal' => round($finalPrice * $item->quantity, 2),        // added
+                        'discount' => round(max(0, $originalPrice - $finalPrice), 2),
+                        'subtotal' => round($finalPrice * $item->quantity, 2),
                         'product' => [
                             'product_id' => $item->orderItem->productVariant->product->id,
                             'name' => $item->orderItem->product_name,
@@ -285,12 +285,12 @@ class ReturnOrderController extends Controller
 
             DB::commit();
             $this->initializeNotification(
-                $order->user,
+                $returnOrder->user,
                 'Return Requested',
-                'Your return for order #' . $order->order_number . ' has been submitted.',
+                'Your return for order #' . $returnOrder->order_number . ' has been submitted.',
                 'return order',
                 'shopping-bag',
-                '/profile/orders/' . $order->id
+                "/account/returns/{$returnOrder->id}"
             );
 
             $adminEmail = config('mail.admin_email');
@@ -387,7 +387,7 @@ class ReturnOrderController extends Controller
                 'Your return for order #' . $return->order->order_number . ' has been approved.',
                 'return order',
                 'shopping-bag',
-                '/profile/orders/' . $return->order_id
+                "/account/orders/{$return->id}"
             );
             try {
                 broadcast(new OrderStatusUpdated(
@@ -433,7 +433,7 @@ class ReturnOrderController extends Controller
             'Your return for order #' . $return->order->order_number . ' has been rejected.',
             'return order',
             'shopping-bag',
-            '/profile/orders/' . $return->order_id
+            "/account/orders/{$return->id}"
         );
         try {
             broadcast(new OrderStatusUpdated(
@@ -488,7 +488,7 @@ class ReturnOrderController extends Controller
                 'Your return for order #' . $return->order->order_number . ' is completed. Refund has been issued.',
                 'return order',
                 'shopping-bag',
-                '/profile/orders/' . $return->order_id
+                "/account/orders/{$return->id}"
             );
             try {
                 broadcast(new OrderStatusUpdated(
