@@ -92,7 +92,6 @@
             text-transform: uppercase;
             color: #1a1a2e;
         }
-
         .inv-meta-rows {
             margin-top: 10px;
             font-size: 11px;
@@ -401,8 +400,11 @@
                                 default => 'badge-default',
                             };
                         @endphp
-                        <span class="badge {{ $cls }}">{{ ucfirst($order->status) }}</span>
+                        <span class="badge {{ $cls }}">{{ ucfirst($order->status) }}</span> <br/>
+                        
                     </div>
+
+                    <span class="badge ">{{ ucfirst($order->payment->payment_method) }}</span>
                 </div>
             </div>
 
@@ -483,7 +485,7 @@
                         {{-- Subtotal (before any deductions) --}}
                         <tr>
                             <td>Subtotal</td>
-                            <td>${{ number_format($order->sub_total, 2) }}</td>
+                            <td>${{ number_format($order->sub_total_price, 2) }}</td>
                         </tr>
 
                         {{-- Discount amount (e.g. sale / manual discount) --}}

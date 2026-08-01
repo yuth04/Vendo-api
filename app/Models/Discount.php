@@ -28,11 +28,6 @@ class Discount extends Model
         'end_date' => 'datetime:d-m-Y h:i:s A',
         'is_active' => 'boolean'
     ];
-    public function discountCategory()
-    {
-        return $this->belongsTo(DiscountCategory::class, 'discount_category_id');
-    }
-
     public function coupon()
     {
         return $this->hasOne(Coupon::class, 'discount_id')->where('status', 'active');

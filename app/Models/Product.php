@@ -16,7 +16,6 @@ class Product extends Model
         'brand_id',
         'image',
         'image_file_id',
-        'discount_id',
         'status',
         'created_by',
         'updated_by'
@@ -27,7 +26,7 @@ class Product extends Model
         'updated_by' => 'array',
         'created_by' => 'array',
     ];
-    protected $hidden = ['pivot', 'created_at', 'updated_at', 'discount_id'];
+    protected $hidden = ['pivot', 'created_at', 'updated_at'];
     public function category()
     {
         return $this->belongsTo(Category::class);

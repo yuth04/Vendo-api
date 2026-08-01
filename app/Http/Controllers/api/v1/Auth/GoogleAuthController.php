@@ -61,7 +61,7 @@ class GoogleAuthController extends Controller
                         'last_name' => $googleUser->user['family_name'],
                         'email' => $googleUser->email,
                         'image' => $googleUser->user['picture'] ?? $googleUser->avatar ?? null,
-                        'created_at' => now()->format('d-m-Y h:i:s A'),
+                        'created_at' => now()
                     ],
                 ]);
                 // Mail::to($user->email)->send(new GoogleWelcomeMail($user));
@@ -70,8 +70,9 @@ class GoogleAuthController extends Controller
                     $user->update([
                         'google_id' => $googleUser->id,
                         'is_verified' => true,
-                        'email_verified_at' => now(),
+                        'email_verified_at' => now()->format('d-m-Y h:i:s A'),
                         'image' => $user->image ?? ($googleUser->avatar ?? $googleUser->user['picture'] ?? null),
+                        'last_login_at' => now()
                     ]);
                 }
             }

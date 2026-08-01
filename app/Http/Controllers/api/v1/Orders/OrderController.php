@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers\Api\v1\Orders;
-
 use App\Exports\OrderHistoryExport;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminOrderPlaced;
@@ -19,23 +18,23 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Traits\NotifiesUsers;
+
 class OrderController extends Controller
 {
 
     private function calculateShipping(?string $province): float
     {
         if (!$province) {
-            return 1.50; // default preview rate
+            return 0; 
         }
 
         $province = strtolower(trim($province));
 
         if (in_array($province, ['phnom penh', 'ភ្នំពេញ', 'pp'])) {
-            return 1.50;
+            return 0;
         }
 
-        return 2.00;
+        return 0;
     }
     // create notification
     private function initializeNotification($user, $order)
@@ -163,25 +162,19 @@ class OrderController extends Controller
                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
                     'paid_at' => null,
                 ]);
+                // KHQR
+                $khqrData = null;
+                if ($request->payment_method === 'KHQR') {
+                    $bakongService = new BakongService();
+                    $khqrData = $bakongService->generateKhqrPayment($order);
+                }
                 $this->initializeNotification($user, $order);
 
                 $orderModel = $order;
 
-                return $this->prepareCheckoutResponse($order, $payment);
+                return $this->prepareCheckoutResponse($order, $payment, $khqrData);
             });
-            // SEND EMAILS
-            if ($orderModel) {
-                $orderModel->load(['items.variant.product', 'user', 'address', 'payment']);
-
-                Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($orderModel));
-                Mail::to($user->email)->send(new OrderPlaced($orderModel));
-            }
-
-            // reposne
-            return response()->json([
-                'message' => $result['message'],
-                'order' => $result['order']
-            ], 201);
+            return response()->json($result, 201);
 
         } catch (\Exception $e) {
             return response()->json([
@@ -371,19 +364,31 @@ class OrderController extends Controller
             'final_total' => $finalTotal
         ];
     }
-    private function prepareCheckoutResponse(Order $order, Payment $payment)
+    private function prepareCheckoutResponse(Order $order, Payment $payment, ?array $khqrData = null)
     {
+        // Base response structure for all payment types
+        $response = [
+            'message' => 'Order placed successfully',
+            'order' => [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'total_price' => $order->total_price,
+                'payment_method' => $payment->payment_method,
+            ]
+        ];
         if ($payment->payment_method === "Cash on Delivery") {
-            return [
-                'message' => 'Order placed successfully',
-                'order' => [
-                    'order_id' => $order->id,
-                    'order_number' => $order->order_number
-                ]
-            ];
+            $order->load(['items.variant.product', 'user', 'address', 'payment']);
+            Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($order));
+            Mail::to($order->user->email)->send(new OrderPlaced($order));
+
+            return $response;
         }
 
+        if ($khqrData) {
+            $response['khqr'] = $khqrData;
+        }
 
+        return $response;
     }
     //Apply Coupon 
     public function apply(Request $request)
