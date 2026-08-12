@@ -35,13 +35,17 @@ class User extends Authenticatable
         'created_by',
         'updated_by',
         'facebook_id',
+        'last_login_at',
+        'reset_token',
+        'reset_token_expire'
     ];
-    // protected $appends = ['firstName', 'lastName'];
     protected $casts = [
         'verification_code_expire' => 'datetime:d-m-Y g:i:s A',
+        'reset_token_expire' => 'datetime:d-m-Y g:i:s A',
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
         'email_verified_at' => 'datetime:d-m-Y g:i:s A',
+        'last_login_at'=> 'datetime:d-m-Y g:i:s A',
         'created_by' => 'array',
         'updated_by' => 'array',
     ];
@@ -76,10 +80,7 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
-    public function cart()
-    {
-        return $this->hasOne(Cart::class);
-    }
+
     public function orders()
     {
         return $this->hasMany(Order::class);

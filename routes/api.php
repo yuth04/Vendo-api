@@ -9,6 +9,7 @@ use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Admin\StoreSettingController;
 use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
+use App\Http\Controllers\api\v1\BakongCallbackController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -83,9 +84,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/orders/{order}/receipt/download', [OrderController::class, 'downloadReceipt'])
         ->name('order.receipt.download')
         ->middleware('signed');
-    // Bakong Payment
-    Route::post('/payment/khqr/generate', [PaymentController::class, 'generate']);
-    Route::get('/payment/khqr/status', [PaymentController::class, 'checkStatus']);
+
     // ------------------- AUTH -------------------
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login'])->name('login');
@@ -146,10 +145,7 @@ Route::prefix('v1')->group(function () {
         // Footer
         Route::get('/footers', [StoreSettingController::class, 'index']);
         Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
-        // Khqr payment
 
-
-        Route::post('/payment/webhook', [PayWayController::class, 'webhook']);
     });
 
     // ------------------- PROTECTED -------------------
@@ -164,21 +160,9 @@ Route::prefix('v1')->group(function () {
             Route::delete('/delete/{id}', [NotifyController::class, 'delete']);
             Route::delete('/delete-all', [NotifyController::class, 'clearAll']);
         });
-
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
-        Route::prefix('/payments')->group(function () {
-            Route::post('/create', [PayWayController::class, 'create']);
-            Route::post('/verify', [PayWayController::class, 'verify']);
-            Route::post('/method', [PaymentController::class, 'selectMethod']);
-            Route::post('/generate', [PaymentController::class, 'generateKhqrPayment']);
-            Route::post('/checkStatus', [PaymentController::class, 'checkStatus']);
-        });
-
-        // Coupon
-        Route::post('/apply-coupon', [OrderController::class, 'apply']);
-        Route::post('/clear-coupon', [OrderController::class, 'clear']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
@@ -192,6 +176,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/profile/upload-image', [ProfileController::class, 'uploadProfileImage']);
         Route::get('/profile/images', [ProfileController::class, 'getProfileImage']);
         Route::put('/profile/change-password', [AuthController::class, 'changePassword']);
+        // Coupon
+        Route::post('/apply-coupon', [OrderController::class, 'apply']);
+        Route::post('/clear-coupon', [OrderController::class, 'clear']);
         // Checkout & Orders
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::post('/checkout-test', [OrderController::class, 'checkout1']);
@@ -199,7 +186,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders/{orderId}', [OrderController::class, 'show']);
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
-
+        // Bakong Payment
+        Route::post('/payment/khqr/generate', [PaymentController::class, 'generate']);
+        Route::get('/payment/khqr/status', [PaymentController::class, 'checkStatus']);
+        // Bakong callback
+        Route::post('/payments/bakong/callback', [BakongCallbackController::class, 'handle']);
         // Wishlists
         Route::prefix('wishlists')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);

@@ -17,12 +17,6 @@ class DiscountItem extends Model
         'pivot'
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relationships
-    |--------------------------------------------------------------------------
-    */
-
     public function discount()
     {
         return $this->belongsTo(Discount::class);

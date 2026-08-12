@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use Illuminate\Http\Request;
@@ -20,6 +21,18 @@ class ProductVariantController extends Controller
             config('imagekit.private_key'),
             config('imagekit.url_endpoint')
         );
+    }
+    private function generateSKU($product, $color, $size)
+    {
+        $productCode = strtoupper(substr($product->name, 0, 3));
+        $colorCode = strtoupper(substr($color, 0, 3));
+        $sizeCode = strtoupper($size);
+
+        do {
+            $sku = $productCode . '-' . $colorCode . '-' . $sizeCode . '-' . rand(100, 999);
+        } while (ProductVariant::where('sku', $sku)->exists());
+
+        return $sku;
     }
     public function index()
     {
@@ -59,9 +72,10 @@ class ProductVariantController extends Controller
                 'images' => 'nullable|array|min:1|max:4',
                 'images.*' => 'image|mimes:jpg,jpeg,png|max:5120',
             ]);
-
+            $product = Product::findOrFail($validated['product_id']);
             $variant = ProductVariant::create([
                 'product_id' => $validated['product_id'],
+                'sku' => $this->generateSKU($product, $validated['color'], $validated['size']),
                 'size' => $validated['size'],
                 'color' => $validated['color'],
                 'stock' => $validated['stock'],
@@ -126,6 +140,7 @@ class ProductVariantController extends Controller
         try {
             $validated = $request->validate([
                 'product_id' => 'nullable|exists:products,id',
+                'sku' => 'nullable|string|max:100|unique:product_variants,sku,' . $id,
                 'size' => 'nullable|string|max:50',
                 'color' => 'nullable|string|max:50',
                 'stock' => 'nullable|integer|min:0',
@@ -136,12 +151,13 @@ class ProductVariantController extends Controller
 
             $variant->update(array_filter([
                 'product_id' => $validated['product_id'] ?? null,
+                'sku' => $validated['sku'] ?? null,
                 'size' => $validated['size'] ?? null,
                 'color' => $validated['color'] ?? null,
                 'stock' => $validated['stock'] ?? null,
                 'status' => $validated['status'] ?? null,
             ]));
-
+            //imageKit 
             if ($request->hasFile('images')) {
 
                 // delete old images
