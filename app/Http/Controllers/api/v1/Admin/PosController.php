@@ -13,7 +13,7 @@ class PosController extends Controller
     public function orderHistory()
     {
 
-        $orders = Order::with(['user', 'items'])->latest()->get();
+        $orders = Order::with(['user', 'items', 'payment'])->where('created_at', '>=', now()->subMonths(2))->latest()->get();
         $data = $orders->map(function ($order) {
             return [
                 'id' => $order->id,
@@ -25,9 +25,10 @@ class PosController extends Controller
                 'email' => $order->user->email,
                 'avatar' => $order->user->image,
                 'total_price' => $order->total_price,
+                'payment_method' => $order->payment->payment_method ?? null,
                 'items_count' => $order->items->count(),
                 'status' => $order->status,
-                'payment' => $order->payment->status
+                'payment' => $order->payment->status ?? null,
 
             ];
         });
@@ -39,7 +40,7 @@ class PosController extends Controller
     // Order Details
     public function orderDetails($id)
     {
- 
+
         $order = Order::with([
             'user',
             'items.variant.product',
@@ -88,7 +89,7 @@ class PosController extends Controller
     // Return History
     public function returnHistory()
     {
-   
+
         $returns = ReturnOrder::with(['user', 'items'])->latest()->get();
         $data = $returns->map(function ($returnOrder) {
             return [

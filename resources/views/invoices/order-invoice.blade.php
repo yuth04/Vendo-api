@@ -456,7 +456,7 @@
                                 @endif
                             </td>
                             <td class="c">{{ $item->quantity }}</td>
-                            <td class="r">${{ number_format($item->price, 2) }}</td>
+                            <td class="r">${{ number_format($item->order->original_price, 2) }}</td>
                             <td class="r" style="font-weight:bold;color:#1a1a2e;">
                                 ${{ number_format($item->price * $item->quantity, 2) }}
                             </td>
@@ -515,10 +515,12 @@
                             <td>${{ number_format($order->shipping_fee, 2) }}</td>
                         </tr>
 
-                        {{-- Grand total = total_price (already discounted) + shipping --}}
+                        {{-- Grand total = total_price, already computed in checkout
+                             (subtotal − coupon discount + shipping). Do NOT
+                             recalculate here — keep a single source of truth. --}}
                         <tr class="grand">
                             <td>Grand total</td>
-                            <td>${{ number_format($order->total_price + $order->shipping_fee, 2) }}</td>
+                            <td>${{ number_format($order->total_price, 2) }}</td>
                         </tr>
 
                         {{-- Payment status --}}

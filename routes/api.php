@@ -25,7 +25,7 @@ use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\NotifyController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
-use App\Http\Controllers\api\v1\Orders\PaymentController;
+use App\Http\Controllers\api\v1\Payment\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
@@ -142,10 +142,6 @@ Route::prefix('v1')->group(function () {
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
-        // Footer
-        Route::get('/footers', [StoreSettingController::class, 'index']);
-        Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
-
     });
 
     // ------------------- PROTECTED -------------------
@@ -187,10 +183,11 @@ Route::prefix('v1')->group(function () {
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
         // Bakong Payment
-        Route::post('/payment/khqr/generate', [PaymentController::class, 'generate']);
-        Route::get('/payment/khqr/status', [PaymentController::class, 'checkStatus']);
-        // Bakong callback
-        Route::post('/payments/bakong/callback', [BakongCallbackController::class, 'handle']);
+        // Route::post('/payments/khqr/generate', [PaymentController::class, 'generate']);
+        Route::post('/payments/khqr/regenerate', [OrderController::class, 'regenerateKhqr']);
+        Route::get('/payments/khqr/status', [PaymentController::class, 'checkStatus']);
+        // Route::post('/payments/bakong/callback', [PaymentController::class, 'handle']);
+
         // Wishlists
         Route::prefix('wishlists')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);
@@ -343,21 +340,16 @@ Route::prefix('v1')->group(function () {
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
             // Settings
-            Route::put('/settings/change-name', [SettingController::class, 'changeName']);
-            Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
-            Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
-
+            Route::prefix('settings')->group(function () {
+                Route::get('/', [SettingController::class, 'index']);
+                Route::post('/', [SettingController::class, 'update']);
+                Route::put('/change-name', [SettingController::class, 'changeName']);
+                Route::put('/change-password', [SettingController::class, 'changePassword']);
+                Route::post('/change-avatar', [SettingController::class, 'changeProfileImage']);
+            });
             // SUPER ADMIN ONLY — danger zone
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
-            });
-            Route::prefix('footers')->group(function () {
-                Route::get('/', [StoreSettingController::class, 'getAll']);
-                Route::get('/{id}', [StoreSettingController::class, 'getById']);
-                Route::post('/', [StoreSettingController::class, 'store']);
-                Route::put('/bulk-update', [StoreSettingController::class, 'bulkUpdate']); // ← must be before /{id}
-                Route::put('/{id}', [StoreSettingController::class, 'update']);
-                Route::delete('/{id}', [StoreSettingController::class, 'destroy']);
             });
         });
     });

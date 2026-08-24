@@ -25,8 +25,8 @@ class Order extends Model
         'completed_at',
         'discount_amount',
         'coupon_code',
-        'coupon_discount'
-
+        'coupon_discount',
+        'payment_transaction_id'
     ];
     protected $casts = [
         'delivered_at' => 'datetime:d-m-Y g:i:s A',

@@ -46,10 +46,11 @@ return [
     ],
     'bakong' => [
         'account_id' => env('BAKONG_ACCOUNT_ID'),
-        'merchant_id' => env('BAKONG_MERCHANT_ID'),
+        'merchant_name' => env('BAKONG_MERCHANT_NAME', 'Vendo Store'),
+        'merchant_city' => env('BAKONG_MERCHANT_CITY', 'Phnom Penh'),
         'api_url' => env('BAKONG_API_URL'),
         'token' => env('BAKONG_TOKEN'),
-        env('BAKONG_CURRENCY', '840')
+        'currency' => env('BAKONG_CURRENCY', '840'),
     ],
     'huggingface' => [
         'token' => env('HF_TOKEN'),
@@ -66,6 +67,11 @@ return [
     ],
     'cloudflare' => [
         'turnstile_secret' => env('CLOUDFLARE_TURNSTILE_SECRET'),
+    ],
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
 ];

@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\api\v1\Marketing;
 
+use App\Events\DiscountCreated;
+use App\Events\DiscountDeleted;
+use App\Events\DiscountUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\Discount;
@@ -90,11 +93,8 @@ class DiscountController extends Controller
     // Create a new discount
     public function store(Request $request)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can create discounts'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
+
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:255',
@@ -105,14 +105,15 @@ class DiscountController extends Controller
             'banner_image' => 'nullable|image|max:5120',
             'is_active' => 'nullable|boolean'
         ]);
+
         $slug = Str::slug($request->name);
         $count = Discount::where('slug', 'like', "{$slug}%")->count();
         $slug = $count ? "{$slug}-{$count}" : $slug;
+
         $imageUrl = null;
         $imageFileId = null;
 
         if ($request->hasFile('banner_image')) {
-
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -147,14 +148,20 @@ class DiscountController extends Controller
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'is_active' => $validated['is_active'] ?? false,
-
         ]);
-        // NOTIFICATION
-        $amount = $discount->type === 'percent'
+
+        // Eager-load relations for the broadcast event payload
+        $discount->load(['products', 'coupon']);
+
+        // Broadcast created event
+        event(new DiscountUpdated('deactivated', $discount));
+
+        // Send notifications
+        $amountStr = $discount->type === 'percent'
             ? $discount->amount . '% off'
             : '$' . number_format($discount->amount, 2) . ' off';
 
-        $message = 'Get ' . $amount . ' on selected products';
+        $message = 'Get ' . $amountStr . ' on selected products';
 
         if ($discount->end_date) {
             $message .= '. Expires ' . $discount->end_date->format('M d, Y');
@@ -162,6 +169,7 @@ class DiscountController extends Controller
 
         $message .= '.';
         $this->notifyAllUsers('New Promotion!', $message, 'promotion', 'discount', '/promotions');
+
         return response()->json([
             'message' => 'Discount created successfully',
             'data' => $discount
@@ -171,6 +179,7 @@ class DiscountController extends Controller
     public function update(Request $request, $id)
     {
         $this->authorizeAdminOrStaff();
+
         $discount = Discount::find($id);
 
         if (!$discount) {
@@ -191,7 +200,6 @@ class DiscountController extends Controller
         ]);
 
         if ($request->filled('name')) {
-
             $slug = Str::slug($request->name);
 
             $count = Discount::where('slug', 'like', "{$slug}%")
@@ -201,9 +209,8 @@ class DiscountController extends Controller
             $validated['slug'] = $count ? "{$slug}-{$count}" : $slug;
         }
 
-        // upload image if exists
+        // Upload image to ImageKit if provided
         if ($request->hasFile('banner_image')) {
-
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -222,10 +229,12 @@ class DiscountController extends Controller
                     'error' => $upload->error->message,
                 ], 400);
             }
+
             if ($discount->image_file_id) {
                 try {
                     $imageKit->deleteFile($discount->image_file_id);
                 } catch (\Exception $e) {
+                    // Suppress deletion errors for missing legacy images
                 }
             }
 
@@ -234,15 +243,14 @@ class DiscountController extends Controller
         }
 
         return DB::transaction(function () use ($discount, $validated) {
-
             $discount->update($validated);
-            $discount->refresh();
+
+            // Recalculate product prices based on active state
             if (isset($validated['is_active']) && $validated['is_active'] == false) {
                 foreach ($discount->products as $product) {
                     $product->update(['discount_price' => 0]);
                 }
             } else {
-                // Recalculate discount prices normally when active
                 foreach ($discount->products as $product) {
                     $price = (float) $product->price;
                     $amount = (float) $discount->amount;
@@ -256,31 +264,41 @@ class DiscountController extends Controller
                     ]);
                 }
             }
-            // foreach ($discount->products as $product) {
 
-            //     $price = (float) $product->price;
-            //     $amount = (float) $discount->amount;
+            // Eager-load relations so WebSocket payload includes coupon & product data
+            $discount->load(['products', 'coupon']);
 
-            //     $discountPrice = $discount->type === 'percent'
-            //         ? $price - ($price * $amount / 100)
-            //         : $price - $amount;
-
-            //     $product->update([
-            //         'discount_price' => max(0, round($discountPrice, 2))
-            //     ]);
-            // }
+            // Broadcast update event
+            event(new DiscountUpdated('updated', $discount));
 
             return response()->json([
                 'message' => 'Discount and products updated successfully',
-                'data' => $discount->load('products')
+                'data' => $discount
             ]);
         });
     }
     // Delete a discount
-    public function destroy($id)
+    // public function destroy($discountId)
+    // {
+    //     $this->authorizeAdminOrStaff();
+    //     $discount = Discount::find($discountId);
+
+    //     if (!$discount) {
+    //         return response()->json(['message' => 'Not found'], 404);
+    //     }
+    //     foreach ($discount->products as $product) {
+    //         $product->update(['discount_price' => 0]);
+    //     }
+    //     $discount->delete();
+    //     event(new DiscountDeleted($discountId));
+    //     return response()->json([
+    //         'message' => 'Discount deleted successfully'
+    //     ]);
+    // }
+    public function destroy($discountId)
     {
         $this->authorizeAdminOrStaff();
-        $discount = Discount::find($id);
+        $discount = Discount::find($discountId);
 
         if (!$discount) {
             return response()->json(['message' => 'Not found'], 404);
@@ -289,7 +307,7 @@ class DiscountController extends Controller
             $product->update(['discount_price' => 0]);
         }
         $discount->delete();
-
+        event(new DiscountDeleted((int) $discountId)); // cast to int
         return response()->json([
             'message' => 'Discount deleted successfully'
         ]);
