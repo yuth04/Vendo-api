@@ -18,18 +18,17 @@ use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\Export\ExportController;
 use App\Http\Controllers\api\v1\Marketing\CarouselController;
-use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\NotifyController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
+use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
 use App\Http\Controllers\api\v1\Payment\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
-use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
@@ -163,7 +162,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
         Route::get('/return-orders/{id}', [ReturnOrderController::class, 'show']);
-        Route::delete('/return-orders/{id}', [ReturnOrderController::class, 'destroy']);
+        Route::patch('/return-orders/cancel/{id}', [ReturnOrderController::class, 'cancel']);
 
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -225,11 +224,14 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
 
             // Return Orders — full management
+
             Route::get('/returns', [PosController::class, 'returnHistory']);
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
+            Route::patch('returns/received/{id}', [ReturnOrderController::class, 'markReceived']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+    
 
             // Products — full CRUD
             Route::get('/products', [ProductPermissionController::class, 'index']);

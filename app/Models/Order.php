@@ -75,6 +75,10 @@ class Order extends Model
     {
         return $this->belongsTo(Address::class, 'address_id');
     }
+    public function refunds()
+    {
+        return $this->hasMany(Refund::class);
+    }
     public function getTimeAgoAttribute()
     {
         return Carbon::parse($this->created_at)->diffForHumans([

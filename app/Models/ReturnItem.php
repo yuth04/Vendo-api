@@ -10,13 +10,16 @@ class ReturnItem extends Model
         'return_order_id',
         'order_item_id',
         'quantity',
-        'reason'
+        'reason',
+        'condition',
+        'restocked'
     ];
     protected $casts = [
         'created_at' => 'datetime:d-m-Y g:i:s A',
-        'updated_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A'
+
     ];
-    protected $hidden =[
+    protected $hidden = [
         'reason'
     ];
     public function returnOrder()
