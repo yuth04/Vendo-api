@@ -3,10 +3,12 @@
 
 
 use App\Http\Controllers\api\v1\Admin\CouponController;
+use App\Http\Controllers\api\v1\admin\ExchangeReturnController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
+use App\Http\Controllers\api\v1\admin\RefundReturnController;
 use App\Http\Controllers\api\v1\Admin\StoreSettingController;
 use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
 use App\Http\Controllers\api\v1\BakongCallbackController;
@@ -229,10 +231,19 @@ Route::prefix('v1')->group(function () {
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
-            Route::patch('returns/received/{id}', [ReturnOrderController::class, 'markReceived']);
+            Route::patch('returns/receive/{id}', [ReturnOrderController::class, 'markReceived']);
+            Route::patch('returns/inspect/{id}', [ReturnOrderController::class, 'inspect']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
-    
 
+            // Exchange type
+            Route::post('/returns/exchange/process/{id}', [ExchangeReturnController::class, 'processExchange']);
+            Route::post('/returns/exchange/shipped/{id}', [ExchangeReturnController::class, 'markExchangeShipped']);
+            Route::post('/returns/exchange/received/{id}', [ExchangeReturnController::class, 'markExchangeReceived']);
+            Route::post('/returns/exchange/complete/{id}', [ExchangeReturnController::class, 'completeExchange']);
+            // Refund type
+            Route::post('/returns/refund/submit-info/{id}',[RefundReturnController::class,'khqrInfo']);
+            Route::post('/returns/refund/process/{id}',[RefundReturnController::class, 'refund']);
+            Route::post('/returns/refund/complete/{id}',[RefundReturnController::class, 'completeRefund']);
             // Products — full CRUD
             Route::get('/products', [ProductPermissionController::class, 'index']);
             Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);

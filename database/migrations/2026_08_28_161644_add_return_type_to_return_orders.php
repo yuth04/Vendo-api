@@ -11,8 +11,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('return_orders', function (Blueprint $table) {
-            $table->string('return_type')->default('refund')->after('user_id');
+            // $table->string('return_type')->default('refund')->after('user_id');
             $table->dropColumn('type');
+            $table->dropColumn('reason');
         });
     }
 
@@ -23,8 +24,9 @@ return new class extends Migration {
     {
         Schema::table('return_orders', function (Blueprint $table) {
             //
-            $table->dropColumn('return_type');
+            // $table->dropColumn('return_type');
             $table->string('type')->nullable();
+            $table->string('reason')->nullable();
 
         });
     }

@@ -161,7 +161,7 @@ class PosController extends Controller
                         'id' => $item->id,
                         'product_name' => $item->orderItem->product_name,
                         'price' => $item->orderItem->price,
-                        'quantity' => $item->orderItem->quantity,
+                        'quantity' => $item->quantity,
                         'subtotal' => $item->orderItem->price * $item->quantity,
                         'size' => $item->orderItem->size,
                         'color' => $item->orderItem->color,

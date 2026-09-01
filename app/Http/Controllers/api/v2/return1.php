@@ -1,4 +1,4 @@
-<!-- <?php
+<?php
 
 namespace App\Http\Controllers\api\v1\Orders;
 
@@ -181,12 +181,25 @@ class ReturnOrderController extends Controller
         $request->validate([
             'order_id' => 'required|exists:orders,id',
             'reason' => 'required|string',
-            'note' => 'nullable|string',
-            'order_item_id' => 'required|exists:order_items,id',
-            'quantity' => 'required|integer|min:1',
+            'note' => ['nullable', 'string', 'max:1000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.order_item_id' => ['required', 'exists:order_items,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.reason' => 'required|string',
             'image' => 'nullable|image|mimes:jpg,png|max:2048'
         ]);
-
+        // $request->validate([
+        //     'order_id' => ['required', 'exists:orders,id'],
+        //     'note' => ['nullable', 'string', 'max:1000'],
+        //     'items' => ['required', 'array', 'min:1'],
+        //     'items.*.order_item_id' => ['required', 'exists:order_items,id'],
+        //     'items.*.quantity' => ['required', 'integer', 'min:1'],
+        //     'items.*.reason' => 'required|string',
+        //     'items.*.replacement_variant_id' => ['nullable', 'required_if:return_type,exchange', 'exists:product_variants,id'],
+        //     'items.*.exchange_quantity' => ['nullable', 'integer', 'min:1', 'required_if:return_type,exchange'],
+        //     'images' => ['nullable', 'array', 'max:6'],
+        //     'images.*' => ['image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        // ]);
         $order = Order::where('id', $request->order_id)
             ->where('user_id', Auth::id())
             ->first();
@@ -533,83 +546,5 @@ class ReturnOrderController extends Controller
             ], 500);
         }
     }
-    // public function complete($id)
-    // {
-    //     $return = ReturnOrder::with([
-    //         'items.orderItem.variant',
-    //         'items.orderItem.product',
-    //         'user'
-    //     ])->findOrFail($id);
-
-    //     if ($return->status === 'completed') {
-    //         return response()->json(['message' => 'Already completed'], 400);
-    //     }
-
-    //     if ($return->status !== 'approved') {
-    //         return response()->json(['message' => 'Not approved'], 400);
-    //     }
-
-    //     DB::beginTransaction();
-
-    //     try {
-    //         foreach ($return->items as $item) {
-    //             if (!$item->orderItem || !$item->orderItem->variant) {
-    //                 continue;
-    //             }
-
-    //             $variant = $item->orderItem->variant;
-    //             $variant->increment('stock', $item->quantity);
-    //         }
-
-    //         $return->update([
-    //             'status' => 'completed',
-    //             'completed_at' => now(),
-    //             'refund_status' => 'refunded',
-    //         ]);
-    //         $return->order()->update([
-    //             'status' => 'returned',
-    //         ]);
-    //         DB::commit();
-    //         $this->initializeNotification(
-    //             $return->user,
-    //             'Return Completed',
-    //             'Your return for order #' . $return->order->order_number . ' is completed. Refund has been issued.',
-    //             'return order',
-    //             'shopping-bag',
-    //             "/account/orders/{$return->id}"
-    //         );
-    //         try {
-    //             broadcast(new OrderStatusUpdated(
-    //                 $return->order_id,
-    //                 'completed',
-    //                 'unpaid',
-    //                 true
-    //             ));
-    //         } catch (\Exception $e) {
-    //             \Log::error('Broadcast failed: ' . $e->getMessage());
-    //         }
-    //         DB::afterCommit(function () use ($return) {
-    //             if ($return->user && $return->user->email) {
-    //                 Mail::to($return->user->email)->send(new ReturnCompletedMail($return));
-    //             }
-    //         });
-
-    //         return response()->json([
-    //             'message' => 'Return completed successfully',
-    //             'data' => $return->fresh([
-    //                 'items.orderItem.variant',
-    //                 'items.orderItem.product',
-    //                 // 'user'
-    //             ])
-    //         ]);
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-
-    //         return response()->json([
-    //             'message' => 'Failed to complete return',
-    //             'error' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-} -->
+   
+}

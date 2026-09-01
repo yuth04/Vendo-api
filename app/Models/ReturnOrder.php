@@ -9,99 +9,57 @@ class ReturnOrder extends Model
     protected $fillable = [
         'order_id',
         'user_id',
-        'reason',
+        // 'return_type',
+        // 'reason',
         'note',
         'status',
-        'refund_amount',
-        'refund_status',
         'approved_at',
         'rejected_at',
-        'completed_at',
-        'image',
-        'refund_method',
-        'admin_note',
         'received_at',
+        'inspected_at',
+        'completed_at',
         'tracking_number',
         'carrier',
-        'return_type'
+        'admin_note',
+        'image',
     ];
 
     protected $casts = [
         'approved_at' => 'datetime:d-m-Y g:i:s A',
         'rejected_at' => 'datetime:d-m-Y g:i:s A',
+        'received_at' => 'datetime:d-m-Y g:i:s A',
+        'inspected_at' => 'datetime:d-m-Y g:i:s A',
         'completed_at' => 'datetime:d-m-Y g:i:s A',
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
-        'received_at' => 'datetime:d-m-Y g:i:s A',
     ];
+    public const TYPE_REFUND = 'refund';
+    public const TYPE_EXCHANGE = 'exchange';
 
     protected $attributes = [
-        'status' => 'requested',
-        'refund_status' => 'pending',
+        'status' => self::STATUS_REQUESTED,
     ];
 
     protected $hidden = [
-        'approved_at',
-        'rejected_at',
-        'completed_at',
-        'updated_at',
         'user_id',
+        'updated_at',
     ];
 
-    // Status constants
-    const STATUS_REQUESTED = 'requested';
-    const STATUS_APPROVED = 'approved';
-    const STATUS_RECEIVED = 'received';
-    const STATUS_REJECTED = 'rejected';
-    const STATUS_PROCESSING = 'processing';
-    const STATUS_COMPLETED = 'completed';
-    const TYPE_REFUND = 'refund';
-    const TYPE_EXCHANGE = 'exchange';
-    const REFUND_PENDING = 'pending';
-    const REFUND_REFUNDED = 'refunded';
 
-    protected static function booted()
-    {
-        static::updating(function ($returnOrder) {
-            if ($returnOrder->isDirty('status')) {
+    // Status
+    public const STATUS_REQUESTED = 'requested';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_RECEIVED = 'received';
+    public const STATUS_INSPECTED = 'inspected';
+    public const STATUS_COMPLETED = 'completed';
 
-                $current = $returnOrder->getOriginal('status');
-                $next = $returnOrder->status;
 
-                $allowed = [
-                    self::STATUS_REQUESTED => [self::STATUS_APPROVED, self::STATUS_REJECTED],
-                    self::STATUS_APPROVED => [self::STATUS_RECEIVED, self::STATUS_COMPLETED],
-                    self::STATUS_RECEIVED => [self::STATUS_COMPLETED],
-                ];
 
-                if (isset($allowed[$current]) && !in_array($next, $allowed[$current], true)) {
-                    throw new \Exception("Invalid status transition: $current → $next");
-                }
+    //  Relationships
 
-                // Handle Timestamps cleanly
-                match ($next) {
-                    self::STATUS_APPROVED => $returnOrder->approved_at = now(),
-                    self::STATUS_RECEIVED => $returnOrder->received_at = now(),
-                    self::STATUS_REJECTED => $returnOrder->rejected_at = now(),
-                    self::STATUS_COMPLETED => $returnOrder->completed_at = now(),
-                    default => null,
-                };
 
-                // Trigger refund logic ONLY when order moves to COMPLETED state
-                if ($next === self::STATUS_COMPLETED && $returnOrder->return_type === self::TYPE_REFUND) {
-                    $returnOrder->refund_status = self::REFUND_REFUNDED;
-
-                    if (!$returnOrder->refund_amount && $returnOrder->relationLoaded('order')) {
-                        $returnOrder->refund_amount = $returnOrder->order?->total;
-                    } elseif (!$returnOrder->refund_amount && $returnOrder->order) {
-                        $returnOrder->refund_amount = $returnOrder->order->total;
-                    }
-                }
-            }
-        });
-    }
-
-    // Relationships
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -121,9 +79,14 @@ class ReturnOrder extends Model
     {
         return $this->hasMany(ReturnImage::class);
     }
-    public function refunds()
+
+    public function refund()
     {
-        return $this->hasMany(Refund::class);
+        return $this->hasOne(Refund::class);
     }
 
+    public function exchange()
+    {
+        return $this->hasOne(Exchange::class);
+    }
 }

@@ -12,16 +12,29 @@ class ReturnItem extends Model
         'quantity',
         'reason',
         'condition',
-        'restocked'
+        'restocked',
+        'return_type',
+        'replacement_variant_id',
+        'exchange_quantity',
+        'exchange_price_difference',
     ];
-    protected $casts = [
-        'created_at' => 'datetime:d-m-Y g:i:s A',
-        'updated_at' => 'datetime:d-m-Y g:i:s A'
+    public const TYPE_REFUND = 'refund';
+    public const TYPE_EXCHANGE = 'exchange';
 
+    protected $casts = [
+        'quantity' => 'integer',
+        'exchange_quantity' => 'integer',
+        'restocked' => 'boolean',
+        'exchange_price_difference' => 'decimal:2',
+
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
+
     protected $hidden = [
-        'reason'
+        'reason',
     ];
+
     public function returnOrder()
     {
         return $this->belongsTo(ReturnOrder::class);
@@ -30,5 +43,13 @@ class ReturnItem extends Model
     public function orderItem()
     {
         return $this->belongsTo(OrderItem::class);
+    }
+
+    public function replacementVariant()
+    {
+        return $this->belongsTo(
+            ProductVariant::class,
+            'replacement_variant_id'
+        );
     }
 }
