@@ -160,6 +160,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
+        Route::get('/orders/returnable-items/{orderId}',[ExchangeReturnController::class, 'getReturnableItem']);
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
@@ -241,9 +242,9 @@ Route::prefix('v1')->group(function () {
             Route::post('/returns/exchange/received/{id}', [ExchangeReturnController::class, 'markExchangeReceived']);
             Route::post('/returns/exchange/complete/{id}', [ExchangeReturnController::class, 'completeExchange']);
             // Refund type
-            Route::post('/returns/refund/submit-info/{id}',[RefundReturnController::class,'khqrInfo']);
-            Route::post('/returns/refund/process/{id}',[RefundReturnController::class, 'refund']);
-            Route::post('/returns/refund/complete/{id}',[RefundReturnController::class, 'completeRefund']);
+            Route::post('/returns/refund/submit-info/{id}', [RefundReturnController::class, 'khqrInfo']);
+            Route::post('/returns/refund/process/{id}', [RefundReturnController::class, 'refund']);
+            Route::post('/returns/refund/complete/{id}', [RefundReturnController::class, 'completeRefund']);
             // Products — full CRUD
             Route::get('/products', [ProductPermissionController::class, 'index']);
             Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);

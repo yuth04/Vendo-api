@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Mail\ReturnCompletedMail;
 use App\Mail\ReturnShippedMail;
 use App\Models\Exchange;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\ProductVariant;
 use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
@@ -32,6 +34,75 @@ class ExchangeReturnController extends Controller
         );
     }
 
+
+    public function getReturnableItem($orderItemId)
+    {
+        $user = auth()->user();
+
+        $item = OrderItem::with([
+            'order',
+            'productVariant.product.variants',
+        ])
+            ->where('id', $orderItemId)
+            ->whereHas('order', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->first();
+
+        if (!$item) {
+            return response()->json([
+                'message' => 'Order item not found.'
+            ], 404);
+        }
+
+        $purchasedVariant = $item->productVariant;
+
+        if (!$purchasedVariant) {
+            return response()->json([
+                'message' => 'Product variant not found for this order item.'
+            ], 404);
+        }
+
+        $product = $purchasedVariant->product;
+
+        $replacementVariants = $product->variants
+            ->where('stock', '>', 0)
+            ->map(function ($variant) {
+                return [
+                    'id' => $variant->id,
+                    'size' => $variant->size,
+                    'color' => $variant->color,
+                    'stock' => $variant->stock,
+                    'image'=> $variant->images()->first()?->image ?? null,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'message' => 'Returnable item retrieved successfully.',
+
+            'order_item' => [
+                'id' => $item->id,
+                'quantity' => $item->quantity,
+
+                'product' => [
+                    'id' => $product->id,
+                    'name' => $product->productName,
+                ],
+
+                // Variant customer originally purchased
+                'purchased_variant' => [
+                    'id' => $purchasedVariant->id,
+                    'size' => $purchasedVariant->size,
+                    'color' => $purchasedVariant->color,
+                    
+                ],
+
+                // Variants customer can select for exchange
+                'replacement_variants' => $replacementVariants,
+            ],
+        ]);
+    }
     // Admin: Process Exchange
     public function processExchange(Request $request, $id)
     {
