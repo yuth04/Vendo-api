@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductVariant extends Model
 {
-    protected $fillable = ['product_id', 'size', 'color', 'stock', 'status','sku'];
-    
+    protected $fillable = ['product_id', 'size', 'color', 'stock', 'status', 'sku'];
+
     protected $hidden = ['created_at', 'updated_at'];
-        protected $casts = [
+    protected $casts = [
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
         'product_id' => 'integer',
@@ -17,7 +17,7 @@ class ProductVariant extends Model
         'color' => 'string',
         'stock' => 'integer',
     ];
-    
+
     public function product()
     {
         return $this->belongsTo(Product::class);
@@ -31,5 +31,5 @@ class ProductVariant extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
-    
+
 }

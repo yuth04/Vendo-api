@@ -8,6 +8,7 @@ class ReturnOrder extends Model
 {
     protected $fillable = [
         'order_id',
+        'return_number',
         'user_id',
         // 'return_type',
         // 'reason',

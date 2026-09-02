@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use ImageKit\ImageKit;
 
@@ -220,13 +221,110 @@ class ReturnOrderController extends Controller
     }
 
     // Customer: Show Return
+    // public function show($id)
+    // {
+    //     $return = ReturnOrder::with([
+    //         'user',
+    //         'items.orderItem.productVariant.product',
+    //         'items.replacementVariant.product',
+    //         'order.payment',
+    //         'refund',
+    //         'exchange',
+    //     ])
+    //         ->where('user_id', Auth::id())
+    //         ->find($id);
+
+    //     if (!$return) {
+    //         return response()->json([
+    //             'message' => 'Return order not found.',
+    //         ], 404);
+    //     }
+
+    //     return response()->json([
+    //         'message' => 'Retrieved return order details successfully',
+    //         'data' => [
+    //             'id' => $return->id,
+    //             'order_number' => $return->order->order_number,
+    //             'status' => $return->status,
+    //             'return_type' => $return->return_type,
+    //             'approved_at' => $return->approved_at->format('d-m-Y g:i:s A'),
+    //             'received_at' => $return->received_at->format('d-m-Y g:i:s A'),
+    //             'inspected_at' => $return->inspected_at->format('d-m-Y g:i:s A'),
+    //             'completed_at' => $return->completed_at->format('d-m-Y g:i:s A'),
+    //             'refund' => $return->refund ? [
+    //                 'id' => $return->refund->id,
+    //                 'amount' => $return->refund->amount,
+    //                 'method' => $return->refund->method,
+    //                 'provider' => $return->refund->provider,
+    //                 'status' => $return->refund->status,
+    //                 'reference' => $return->refund->refund_reference,
+    //                 'processed_at' => $return->refund->processed_at?->format('d-m-Y g:i:s A'),
+    //             ] : null,
+
+    //             'exchange' => $return->exchange ? [
+    //                 'id' => $return->exchange->id,
+    //                 'status' => $return->exchange->status,
+    //                 'price_difference' => $return->exchange->price_difference,
+    //                 'tracking_number' => $return->exchange->tracking_number,
+    //                 'carrier' => $return->exchange->carrier,
+    //                 'processing_at' => $return->exchange->processing_at?->format('d-m-Y g:i:s A'),
+    //                 'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y g:i:s A'),
+    //                 'received_at' => $return->exchange->received_at?->format('d-m-Y g:i:s A'),
+    //             ] : null,
+
+    //             'tracking_number' => $return->tracking_number,
+    //             'carrier' => $return->carrier,
+
+    //             'payment_status' => optional($return->order->payment)->status ?? 'N/A',
+    //             'payment_method' => optional($return->order->payment)->payment_method ?? 'N/A',
+    //             'shipping_fee' => $return->order->shipping_fee,
+    //             'total_price' => $return->order->total_price,
+
+    //             'customer' => [
+    //                 'first_name' => $return->user->first_name,
+    //                 'last_name' => $return->user->last_name,
+    //                 'email' => $return->user->email,
+    //                 'avatar' => $return->user->image,
+    //             ],
+
+    //             'shipping_address' => $return->order->address,
+
+    //             'items' => $return->items->map(function ($item) {
+    //                 return [
+    //                     'id' => $item->id,
+    //                     'product_name' => $item->orderItem->product_name,
+    //                     'price' => $item->orderItem->price,
+    //                     'quantity' => $item->quantity,
+    //                     'subtotal' => number_format((float) $item->orderItem->price * $item->quantity, 2, '.', ''),
+    //                     'size' => $item->orderItem->size,
+    //                     'color' => $item->orderItem->color,
+    //                     'reason' => $item->reason,
+    //                     'condition' => $item->condition,
+    //                     'restocked' => (bool) $item->restocked,
+    //                     'replacement_variant_id' => $item->replacement_variant_id,
+    //                     'exchange_quantity' => $item->exchange_quantity,
+    //                     'exchange_price_difference' => $item->exchange_price_difference,
+    //                     'replacement_variant' => $item->replacementVariant ? [
+    //                         'id' => $item->replacementVariant->id,
+    //                         'unit_price' => (float) ($item->replacementVariant->product->price ?? 0),
+    //                         'stock' => $item->replacementVariant->stock,
+    //                     ] : null,
+    //                     'product_image' => $item->orderItem->product_image,
+    //                 ];
+    //             }),
+    //         ],
+    //     ]);
+    // }
     public function show($id)
     {
         $return = ReturnOrder::with([
             'user',
-            'items.orderItem.productVariant.product',
+            'items.orderItem.variant.product',
             'items.replacementVariant.product',
+            'order.items.variant.product',
             'order.payment',
+            'order.address',
+            'order.user',
             'refund',
             'exchange',
         ])
@@ -239,46 +337,100 @@ class ReturnOrderController extends Controller
             ], 404);
         }
 
+        $order = $return->order;
+
+        // Standard Order Calculations
+        $shipping = (float) ($order->shipping_fee ?? '');
+
+        $originalSubtotal = $order->items->sum(function ($item) {
+            return (float) ($item->variant->product->price ?? 0) * $item->quantity;
+        });
+
+        $finalSubtotal = $order->items->sum(function ($item) {
+            return (float) $item->price * $item->quantity;
+        });
+
+        $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
+        $couponDiscount = (float) ($order->coupon_discount ?? 0);
+        $totalPayment = max(0, ($finalSubtotal - $couponDiscount) + $shipping);
+
         return response()->json([
             'message' => 'Retrieved return order details successfully',
             'data' => [
                 'id' => $return->id,
-                'order_number' => $return->order->order_number,
+                'return_number' => $return->return_number ?? null,
                 'status' => $return->status,
-                'return_type' => $return->return_type,
-                'approved_at' => $return->approved_at,
-                'received_at' => $return->received_at,
-                'inspected_at' => $return->inspected_at,
-                'completed_at' => $return->completed_at,
+                'return_type' => $return->items()->first()?->return_type,
+                'tracking_number' => $return->tracking_number,
+                'carrier' => $return->carrier,
+                'timestamps' => [
+                    'approved_at' => $return->approved_at?->format('d-m-Y h:i:s A'),
+                    'received_at' => $return->received_at?->format('d-m-Y h:i:s A'),
+                    'inspected_at' => $return->inspected_at?->format('d-m-Y h:i:s A'),
+                    'completed_at' => $return->completed_at?->format('d-m-Y h:i:s A'),
+                    'created_at' => $return->created_at?->format('d-m-Y'),
+                    'time' => $return->created_at?->format('h:i:s A'),
+                ],
+
+                // Refund Details
                 'refund' => $return->refund ? [
                     'id' => $return->refund->id,
-                    'amount' => $return->refund->amount,
+                    'amount' => number_format((float) $return->refund->amount, 2, '.', ''),
                     'method' => $return->refund->method,
                     'provider' => $return->refund->provider,
                     'status' => $return->refund->status,
                     'reference' => $return->refund->refund_reference,
-                    'processed_at' => $return->refund->processed_at?->format('d-m-Y g:i:s A'),
+                    'processed_at' => $return->refund->processed_at?->format('d-m-Y h:i:s A'),
                 ] : null,
 
+                // Exchange Details
                 'exchange' => $return->exchange ? [
                     'id' => $return->exchange->id,
                     'status' => $return->exchange->status,
-                    'price_difference' => $return->exchange->price_difference,
+                    'price_difference' => number_format((float) $return->exchange->price_difference, 2, '.', ''),
                     'tracking_number' => $return->exchange->tracking_number,
                     'carrier' => $return->exchange->carrier,
-                    'processing_at' => $return->exchange->processing_at?->format('d-m-Y g:i:s A'),
-                    'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y g:i:s A'),
-                    'received_at' => $return->exchange->received_at?->format('d-m-Y g:i:s A'),
+                    'processing_at' => $return->exchange->processing_at?->format('d-m-Y h:i:s A'),
+                    'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y h:i:s A'),
+                    'received_at' => $return->exchange->received_at?->format('d-m-Y h:i:s A'),
                 ] : null,
 
-                'tracking_number' => $return->tracking_number,
-                'carrier' => $return->carrier,
+                // Order payload formatted identical to formatOrder()
+                'order' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'status' => $order->status,
+                    'original_price' => number_format((float) $originalSubtotal, 2, '.', ''),
+                    'product_discount' => number_format((float) $productDiscount, 2, '.', ''),
+                    'sub_total_price' => number_format((float) $finalSubtotal, 2, '.', ''),
+                    'coupon_discount' => number_format((float) $couponDiscount, 2, '.', ''),
+                    'shipping_fee' => number_format((float) $shipping, 2, '.', ''),
+                    'total_price' => number_format((float) $totalPayment, 2, '.', ''),
+                    'save' => number_format((float) ($productDiscount + $couponDiscount), 2, '.', ''),
+                    'coupon' => [
+                        'code' => $order->coupon_code,
+                        'discount' => $couponDiscount,
+                    ],
+                    'created_at' => $order->created_at->format('d-m-Y'),
+                    'time' => $order->created_at->format('h:i:s A'),
+                    'payment' => [
+                        'method' => $order->payment->payment_method ?? null,
+                        'status' => $order->payment->status ?? null,
+                        'reference' => $order->payment->payment_reference ?? null,
+                        'paid_at' => $order->payment?->paid_at?->format('d-m-Y h:i:s A'),
+                    ],
+                    'address' => [
+                        'first_name' => $order->address->first_name ?? null,
+                        'last_name' => $order->address->last_name ?? null,
+                        'address_line' => $order->address->address_line ?? null,
+                        'city' => $order->address->city ?? null,
+                        'province' => $order->address->province ?? null,
+                        'phone' => $order->address->phone ?? $order->user->contact ?? null,
+                        'note' => $order->note,
+                    ],
+                ],
 
-                'payment_status' => optional($return->order->payment)->status ?? 'N/A',
-                'payment_method' => optional($return->order->payment)->payment_method ?? 'N/A',
-                'shipping_fee' => $return->order->shipping_fee,
-                'total_price' => $return->order->total_price,
-
+                // Customer Details
                 'customer' => [
                     'first_name' => $return->user->first_name,
                     'last_name' => $return->user->last_name,
@@ -286,35 +438,46 @@ class ReturnOrderController extends Controller
                     'avatar' => $return->user->image,
                 ],
 
-                'shipping_address' => $return->order->address,
+                // Returned Items formatted similarly to Order Items
+                'return_items' => $return->items->map(function ($item) {
+                    $orderItem = $item->orderItem;
+                    $originalPrice = (float) ($orderItem->variant->product->price ?? 0);
+                    $finalPrice = (float) $orderItem->price;
 
-                'items' => $return->items->map(function ($item) {
                     return [
                         'id' => $item->id,
-                        'product_name' => $item->orderItem->product_name,
-                        'price' => $item->orderItem->price,
+                        'order_item_id' => $item->order_item_id,
                         'quantity' => $item->quantity,
-                        'subtotal' => $item->orderItem->price * $item->quantity,
-                        'size' => $item->orderItem->size,
-                        'color' => $item->orderItem->color,
+                        'save' => number_format((float) max(0, $originalPrice - $finalPrice), 2, '.', ''),
+                        'subtotal' => number_format((float) ($finalPrice * $item->quantity), 2, '.', ''),
                         'reason' => $item->reason,
                         'condition' => $item->condition,
                         'restocked' => (bool) $item->restocked,
-                        'replacement_variant_id' => $item->replacement_variant_id,
                         'exchange_quantity' => $item->exchange_quantity,
-                        'exchange_price_difference' => $item->exchange_price_difference,
+                        'exchange_price_difference' => number_format((float) $item->exchange_price_difference, 2, '.', ''),
+                        'item_details' => [
+                            'id' => $orderItem->product_variant_id,
+                            'size' => $orderItem->size,
+                            'color' => $orderItem->color,
+                            'price' => number_format($originalPrice, 2, '.', ''),
+                            'discount_price' => number_format($finalPrice, 2, '.', ''),
+                            'product' => [
+                                'id' => $orderItem->variant->product->id ?? null,
+                                'name' => $orderItem->product_name,
+                                'slug' => $orderItem->variant->product->slug ?? null,
+                                'image' => $orderItem->product_image ?? $orderItem->variant->product->image ?? null,
+                            ],
+                        ],
                         'replacement_variant' => $item->replacementVariant ? [
                             'id' => $item->replacementVariant->id,
-                            'unit_price' => (float) ($item->replacementVariant->product->price ?? 0),
+                            'unit_price' => number_format((float) ($item->replacementVariant->product->price ?? 0), 2, '.', ''),
                             'stock' => $item->replacementVariant->stock,
                         ] : null,
-                        'product_image' => $item->orderItem->product_image,
                     ];
                 }),
             ],
         ]);
     }
-
     // Customer: Submit Return Request
     public function store(Request $request)
     {
@@ -322,11 +485,11 @@ class ReturnOrderController extends Controller
             'order_id' => ['required', 'exists:orders,id'],
             'note' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.order_item_id' => ['required', 'integer', 'exists:order_items,id'],
+            'items.*.order_item_id' => ['required', 'integer', 'distinct', 'exists:order_items,id'],
             'items.*.return_type' => ['required', Rule::in([ReturnItem::TYPE_REFUND, ReturnItem::TYPE_EXCHANGE])],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.reason' => ['required', 'string'],
-            'items.*.replacement_variant_id' => ['nullable', 'required_if:items.*.return_type,exchange', 'integer', 'exists:product_variants,id'],
+            'items.*.replacement_variant_id' => ['nullable', 'required_if:items.*.return_type,' . ReturnItem::TYPE_EXCHANGE, 'integer', 'exists:product_variants,id'],
             'items.*.exchange_quantity' => ['nullable', 'integer', 'min:1'],
             'images' => ['nullable', 'array', 'max:6'],
             'images.*' => ['image', 'mimes:jpg,jpeg,png', 'max:2048'],
@@ -361,6 +524,14 @@ class ReturnOrderController extends Controller
                     ->lockForUpdate()
                     ->get()
                     ->keyBy('id');
+                $returnNumber = 'RET-' . date('Ymd') . '-' . strtoupper(Str::random(4));
+                $return = ReturnOrder::create([
+                    'user_id' => Auth::id(),
+                    'order_id' => $order->id,
+                    'return_number' => $returnNumber,
+                    'note' => $request->note,
+                    'status' => ReturnOrder::STATUS_REQUESTED,
+                ]);
 
                 foreach ($request->items as $line) {
                     $orderItem = $orderItems->get($line['order_item_id']);
@@ -383,6 +554,19 @@ class ReturnOrderController extends Controller
                         throw new \RuntimeException("Return quantity exceeds remaining returnable quantity for item #{$orderItem->id}.");
                     }
 
+                    $returnItemData = [
+                        'return_order_id' => $return->id,
+                        'order_item_id' => $orderItem->id,
+                        'quantity' => $line['quantity'],
+                        'return_type' => $line['return_type'],
+                        'reason' => $line['reason'],
+                        'condition' => null,
+                        'restocked' => false,
+                        'replacement_variant_id' => null,
+                        'exchange_quantity' => null,
+                        'exchange_price_difference' => null,
+                    ];
+
                     if ($line['return_type'] === ReturnItem::TYPE_EXCHANGE) {
                         if (empty($line['replacement_variant_id'])) {
                             throw new \RuntimeException('Replacement variant is required for exchange.');
@@ -398,35 +582,6 @@ class ReturnOrderController extends Controller
                         if ($replacement->stock < $exchangeQuantity) {
                             throw new \RuntimeException('Replacement product is out of stock.');
                         }
-                    }
-                }
-
-                $return = ReturnOrder::create([
-                    'user_id' => Auth::id(),
-                    'order_id' => $order->id,
-                    'note' => $request->note,
-                    'status' => ReturnOrder::STATUS_REQUESTED,
-                ]);
-
-                foreach ($request->items as $line) {
-                    $orderItem = $orderItems->get($line['order_item_id']);
-
-                    $returnItemData = [
-                        'return_order_id' => $return->id,
-                        'order_item_id' => $orderItem->id,
-                        'quantity' => $line['quantity'],
-                        'return_type' => $line['return_type'],
-                        'reason' => $line['reason'],
-                        'condition' => null,
-                        'restocked' => false,
-                        'replacement_variant_id' => null,
-                        'exchange_quantity' => null,
-                        'exchange_price_difference' => null,
-                    ];
-
-                    if ($line['return_type'] === ReturnItem::TYPE_EXCHANGE) {
-                        $replacement = ProductVariant::find($line['replacement_variant_id']);
-                        $exchangeQuantity = $line['exchange_quantity'] ?? $line['quantity'];
 
                         $originalAmount = (float) $orderItem->price * (int) $line['quantity'];
                         $replacementAmount = (float) $replacement->price * (int) $exchangeQuantity;

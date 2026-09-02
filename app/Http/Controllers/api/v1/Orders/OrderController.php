@@ -480,18 +480,18 @@ class OrderController extends Controller
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
+            // 'original_price' => round($originalSubtotal, 2),
+            'original_price' => number_format((float) $originalSubtotal, 2, '.', ''),
+            'product_discount' => number_format((float) $productDiscount, 2, '.', ''),
+            'sub_total_price' => number_format((float) $finalSubtotal, 2, '.', ''),
+            'coupon_discount' => number_format((float) $couponDiscount, 2, '.', ''),
+            'shipping_fee' => number_format((float) $shipping, 2, '.', ''),
+            'total_price' => number_format((float) $totalPayment, 2, '.', ''),
+            // 'total_price' => round($totalPayment, 2),
 
-            'original_price' => round($originalSubtotal, 2),
-            'product_discount' => round($productDiscount, 2),
-            'sub_total_price' => round($finalSubtotal, 2),
 
-            'coupon_discount' => round($couponDiscount, 2),
+            'save' => number_format((float) $productDiscount + $couponDiscount, 2, '.', ''),
 
-            'shipping_fee' => $shipping,
-            'total_price' => round($totalPayment, 2),
-
-
-            'save' => round($productDiscount + $couponDiscount, 2),
 
             'coupon' => [
                 'code' => $order->coupon_code,
@@ -524,14 +524,14 @@ class OrderController extends Controller
                 return [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-                    'save' => round(max(0, $originalPrice - $finalPrice), 2),
-                    'subtotal' => round($finalPrice * $item->quantity, 2),
+                    'save' => number_format((float) max(0, $originalPrice - $finalPrice), 2, '.', ''),
+                    'subtotal' => number_format((float) ($finalPrice * $item->quantity), 2, '.', ''),
                     'variant' => [
                         'id' => $item->product_variant_id,
                         'size' => $item->size,
                         'color' => $item->color,
                         'price' => $originalPrice,
-                        'discount_price' => round($item->price, 2) ?? 0,
+                        'discount_price' => number_format((float) $item->price, 2, '.', '') ?? 0,
                         'product' => [
                             'id' => $item->variant->product->id ?? null,
                             'name' => $item->product_name,
