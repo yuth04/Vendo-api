@@ -3,15 +3,12 @@
 
 
 use App\Http\Controllers\api\v1\Admin\CouponController;
-use App\Http\Controllers\api\v1\admin\ExchangeReturnController;
+use App\Http\Controllers\api\v1\Admin\ExchangeReturnController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
-use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
-use App\Http\Controllers\api\v1\admin\RefundReturnController;
-use App\Http\Controllers\api\v1\Admin\StoreSettingController;
+use App\Http\Controllers\api\v1\Admin\RefundReturnController;
 use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
-use App\Http\Controllers\api\v1\BakongCallbackController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -147,6 +144,7 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
+        Route::get('/orders/returnable-items/{orderId}',[ExchangeReturnController::class, 'getReturnableItem']);
         // Notifications
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotifyController::class, 'getAll']);
@@ -160,7 +158,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
-        Route::get('/orders/returnable-items/{orderId}',[ExchangeReturnController::class, 'getReturnableItem']);
+        
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
