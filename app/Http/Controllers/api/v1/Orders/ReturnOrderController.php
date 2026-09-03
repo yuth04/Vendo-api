@@ -315,6 +315,169 @@ class ReturnOrderController extends Controller
     //         ],
     //     ]);
     // }
+    // public function show($id)
+    // {
+    //     $return = ReturnOrder::with([
+    //         'user',
+    //         'items.orderItem.variant.product',
+    //         'items.replacementVariant.product',
+    //         'order.items.variant.product',
+    //         'order.payment',
+    //         'order.address',
+    //         'order.user',
+    //         'refund',
+    //         'exchange',
+    //     ])
+    //         ->where('user_id', Auth::id())
+    //         ->find($id);
+
+    //     if (!$return) {
+    //         return response()->json([
+    //             'message' => 'Return order not found.',
+    //         ], 404);
+    //     }
+
+    //     $order = $return->order;
+
+    //     // Standard Order Calculations
+    //     $shipping = (float) ($order->shipping_fee ?? '');
+
+    //     $originalSubtotal = $order->items->sum(function ($item) {
+    //         return (float) ($item->variant->product->price ?? 0) * $item->quantity;
+    //     });
+
+    //     $finalSubtotal = $order->items->sum(function ($item) {
+    //         return (float) $item->price * $item->quantity;
+    //     });
+
+    //     $productDiscount = max(0, $originalSubtotal - $finalSubtotal);
+    //     $couponDiscount = (float) ($order->coupon_discount ?? 0);
+    //     $totalPayment = max(0, ($finalSubtotal - $couponDiscount) + $shipping);
+
+    //     return response()->json([
+    //         'message' => 'Retrieved return order details successfully',
+    //         'data' => [
+    //             'id' => $return->id,
+    //             'return_number' => $return->return_number ?? null,
+    //             'status' => $return->status,
+    //             'return_type' => $return->items()->first()?->return_type,
+    //             'tracking_number' => $return->tracking_number,
+    //             'carrier' => $return->carrier,
+    //             'timestamps' => [
+    //                 'approved_at' => $return->approved_at?->format('d-m-Y h:i:s A'),
+    //                 'received_at' => $return->received_at?->format('d-m-Y h:i:s A'),
+    //                 'inspected_at' => $return->inspected_at?->format('d-m-Y h:i:s A'),
+    //                 'completed_at' => $return->completed_at?->format('d-m-Y h:i:s A'),
+    //                 'created_at' => $return->created_at?->format('d-m-Y'),
+    //                 'time' => $return->created_at?->format('h:i:s A'),
+    //             ],
+
+    //             // Refund Details
+    //             'refund' => $return->refund ? [
+    //                 'id' => $return->refund->id,
+    //                 'amount' => number_format((float) $return->refund->amount, 2, '.', ''),
+    //                 'method' => $return->refund->method,
+    //                 'provider' => $return->refund->provider,
+    //                 'status' => $return->refund->status,
+    //                 'reference' => $return->refund->refund_reference,
+    //                 'processed_at' => $return->refund->processed_at?->format('d-m-Y h:i:s A'),
+    //             ] : null,
+
+    //             // Exchange Details
+    //             'exchange' => $return->exchange ? [
+    //                 'id' => $return->exchange->id,
+    //                 'status' => $return->exchange->status,
+    //                 'price_difference' => number_format((float) $return->exchange->price_difference, 2, '.', ''),
+    //                 'tracking_number' => $return->exchange->tracking_number,
+    //                 'carrier' => $return->exchange->carrier,
+    //                 'processing_at' => $return->exchange->processing_at?->format('d-m-Y h:i:s A'),
+    //                 'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y h:i:s A'),
+    //                 'received_at' => $return->exchange->received_at?->format('d-m-Y h:i:s A'),
+    //             ] : null,
+
+    //             // Order payload formatted identical to formatOrder()
+    //             'order' => [
+    //                 'order_id' => $order->id,
+    //                 'order_number' => $order->order_number,
+    //                 'status' => $order->status,
+    //                 'original_price' => number_format((float) $originalSubtotal, 2, '.', ''),
+    //                 'product_discount' => number_format((float) $productDiscount, 2, '.', ''),
+    //                 'sub_total_price' => number_format((float) $finalSubtotal, 2, '.', ''),
+    //                 'coupon_discount' => number_format((float) $couponDiscount, 2, '.', ''),
+    //                 'shipping_fee' => number_format((float) $shipping, 2, '.', ''),
+    //                 'total_price' => number_format((float) $totalPayment, 2, '.', ''),
+    //                 'save' => number_format((float) ($productDiscount + $couponDiscount), 2, '.', ''),
+    //                 'coupon' => [
+    //                     'code' => $order->coupon_code,
+    //                     'discount' => $couponDiscount,
+    //                 ],
+    //                 'created_at' => $order->created_at->format('d-m-Y'),
+    //                 'time' => $order->created_at->format('h:i:s A'),
+    //                 'payment' => [
+    //                     'method' => $order->payment->payment_method ?? null,
+    //                     'status' => $order->payment->status ?? null,
+    //                     'reference' => $order->payment->payment_reference ?? null,
+    //                     'paid_at' => $order->payment?->paid_at?->format('d-m-Y h:i:s A'),
+    //                 ],
+    //                 'address' => [
+    //                     'first_name' => $order->address->first_name ?? null,
+    //                     'last_name' => $order->address->last_name ?? null,
+    //                     'address_line' => $order->address->address_line ?? null,
+    //                     'city' => $order->address->city ?? null,
+    //                     'province' => $order->address->province ?? null,
+    //                     'phone' => $order->address->phone ?? $order->user->contact ?? null,
+    //                     'note' => $order->note,
+    //                 ],
+    //             ],
+
+    //             // Customer Details
+    //             'customer' => [
+    //                 'first_name' => $return->user->first_name,
+    //                 'last_name' => $return->user->last_name,
+    //                 'email' => $return->user->email,
+    //                 'avatar' => $return->user->image,
+    //             ],
+
+    //             // Returned Items formatted similarly to Order Items
+    //             'return_items' => $return->items->map(function ($item) {
+    //                 $orderItem = $item->orderItem;
+    //                 $originalPrice = (float) ($orderItem->variant->product->price ?? 0);
+    //                 $finalPrice = (float) $orderItem->price;
+
+    //                 return [
+    //                     'id' => $item->id,
+    //                     'order_item_id' => $item->order_item_id,
+    //                     'quantity' => $item->quantity,
+    //                     'save' => number_format((float) max(0, $originalPrice - $finalPrice), 2, '.', ''),
+    //                     'subtotal' => number_format((float) ($finalPrice * $item->quantity), 2, '.', ''),
+    //                     'reason' => $item->reason,
+    //                     'condition' => $item->condition,
+    //                     'restocked' => (bool) $item->restocked,
+    //                     'exchange_quantity' => $item->exchange_quantity,
+    //                     'exchange_price_difference' => number_format((float) $item->exchange_price_difference, 2, '.', ''),
+    //                     'item_details' => [
+    //                         'id' => $orderItem->product_variant_id,
+    //                         'size' => $orderItem->size,
+    //                         'color' => $orderItem->color,
+    //                         'price' => number_format($originalPrice, 2, '.', ''),
+    //                         'discount_price' => number_format($finalPrice, 2, '.', ''),
+    //                         'product' => [
+    //                             'id' => $orderItem->variant->product->id ?? null,
+    //                             'name' => $orderItem->product_name,
+    //                             'slug' => $orderItem->variant->product->slug ?? null,
+    //                             'image' => $orderItem->product_image ?? $orderItem->variant->product->image ?? null,
+    //                         ],
+    //                     ],
+    //                     'replacement_variant' => $item->replacementVariant ? [
+    //                         'id' => $item->replacementVariant->id,
+    //                         'unit_price' => number_format((float) ($item->replacementVariant->product->price ?? 0), 2, '.', ''),
+    //                         'stock' => $item->replacementVariant->stock,
+    //                     ] : null,
+    //                 ];
+    //             }),
+    //         ],
+    //     ]);
+    // }
     public function show($id)
     {
         $return = ReturnOrder::with([
@@ -340,7 +503,7 @@ class ReturnOrderController extends Controller
         $order = $return->order;
 
         // Standard Order Calculations
-        $shipping = (float) ($order->shipping_fee ?? '');
+        $shipping = (float) ($order->shipping_fee ?? 0);
 
         $originalSubtotal = $order->items->sum(function ($item) {
             return (float) ($item->variant->product->price ?? 0) * $item->quantity;
@@ -360,7 +523,8 @@ class ReturnOrderController extends Controller
                 'id' => $return->id,
                 'return_number' => $return->return_number ?? null,
                 'status' => $return->status,
-                'return_type' => $return->items()->first()?->return_type,
+                // Fixed: Use collection access instead of relationship method query
+                'return_type' => $return->items->first()?->return_type,
                 'tracking_number' => $return->tracking_number,
                 'carrier' => $return->carrier,
                 'timestamps' => [
@@ -388,14 +552,14 @@ class ReturnOrderController extends Controller
                     'id' => $return->exchange->id,
                     'status' => $return->exchange->status,
                     'price_difference' => number_format((float) $return->exchange->price_difference, 2, '.', ''),
-                    'tracking_number' => $return->exchange->tracking_number,
-                    'carrier' => $return->exchange->carrier,
+                    'tracking_number' => $return->tracking_number,
+                    'carrier' => $return->carrier,
                     'processing_at' => $return->exchange->processing_at?->format('d-m-Y h:i:s A'),
                     'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y h:i:s A'),
                     'received_at' => $return->exchange->received_at?->format('d-m-Y h:i:s A'),
                 ] : null,
 
-                // Order payload formatted identical to formatOrder()
+                // Order payload
                 'order' => [
                     'order_id' => $order->id,
                     'order_number' => $order->order_number,
@@ -411,44 +575,45 @@ class ReturnOrderController extends Controller
                         'code' => $order->coupon_code,
                         'discount' => $couponDiscount,
                     ],
-                    'created_at' => $order->created_at->format('d-m-Y'),
-                    'time' => $order->created_at->format('h:i:s A'),
+                    'created_at' => $order->created_at?->format('d-m-Y'),
+                    'time' => $order->created_at?->format('h:i:s A'),
                     'payment' => [
-                        'method' => $order->payment->payment_method ?? null,
-                        'status' => $order->payment->status ?? null,
-                        'reference' => $order->payment->payment_reference ?? null,
+                        'method' => $order->payment?->payment_method,
+                        'status' => $order->payment?->status,
+                        'reference' => $order->payment?->payment_reference,
                         'paid_at' => $order->payment?->paid_at?->format('d-m-Y h:i:s A'),
                     ],
                     'address' => [
-                        'first_name' => $order->address->first_name ?? null,
-                        'last_name' => $order->address->last_name ?? null,
-                        'address_line' => $order->address->address_line ?? null,
-                        'city' => $order->address->city ?? null,
-                        'province' => $order->address->province ?? null,
-                        'phone' => $order->address->phone ?? $order->user->contact ?? null,
+                        'first_name' => $order->address?->first_name,
+                        'last_name' => $order->address?->last_name,
+                        'address_line' => $order->address?->address_line,
+                        'city' => $order->address?->city,
+                        'province' => $order->address?->province,
+                        'phone' => $order->address?->phone ?? $order->user?->contact,
                         'note' => $order->note,
                     ],
                 ],
 
                 // Customer Details
                 'customer' => [
-                    'first_name' => $return->user->first_name,
-                    'last_name' => $return->user->last_name,
-                    'email' => $return->user->email,
-                    'avatar' => $return->user->image,
+                    'first_name' => $return->user?->first_name,
+                    'last_name' => $return->user?->last_name,
+                    'email' => $return->user?->email,
+                    'avatar' => $return->user?->image,
                 ],
 
-                // Returned Items formatted similarly to Order Items
+                // Returned Items
                 'return_items' => $return->items->map(function ($item) {
                     $orderItem = $item->orderItem;
-                    $originalPrice = (float) ($orderItem->variant->product->price ?? 0);
-                    $finalPrice = (float) $orderItem->price;
+                    $originalPrice = (float) ($orderItem?->variant?->product?->price ?? 0);
+                    $finalPrice = (float) ($orderItem?->price ?? 0);
 
                     return [
                         'id' => $item->id,
                         'order_item_id' => $item->order_item_id,
                         'quantity' => $item->quantity,
-                        'save' => number_format((float) max(0, $originalPrice - $finalPrice), 2, '.', ''),
+                        // Fixed: Multiplied savings by item quantity for accurate item-level savings
+                        'save' => number_format((float) max(0, $originalPrice - $finalPrice) * $item->quantity, 2, '.', ''),
                         'subtotal' => number_format((float) ($finalPrice * $item->quantity), 2, '.', ''),
                         'reason' => $item->reason,
                         'condition' => $item->condition,
@@ -456,20 +621,23 @@ class ReturnOrderController extends Controller
                         'exchange_quantity' => $item->exchange_quantity,
                         'exchange_price_difference' => number_format((float) $item->exchange_price_difference, 2, '.', ''),
                         'item_details' => [
-                            'id' => $orderItem->product_variant_id,
-                            'size' => $orderItem->size,
-                            'color' => $orderItem->color,
+                            'id' => $orderItem?->product_variant_id,
+                            'size' => $orderItem?->size,
+                            'color' => $orderItem?->color,
                             'price' => number_format($originalPrice, 2, '.', ''),
                             'discount_price' => number_format($finalPrice, 2, '.', ''),
                             'product' => [
-                                'id' => $orderItem->variant->product->id ?? null,
-                                'name' => $orderItem->product_name,
-                                'slug' => $orderItem->variant->product->slug ?? null,
-                                'image' => $orderItem->product_image ?? $orderItem->variant->product->image ?? null,
+                                'id' => $orderItem?->variant?->product?->id,
+                                'name' => $orderItem?->product_name,
+                                'slug' => $orderItem?->variant?->product?->slug,
+                                'image' => $orderItem?->product_image ?? $orderItem?->variant?->product?->image,
                             ],
                         ],
                         'replacement_variant' => $item->replacementVariant ? [
                             'id' => $item->replacementVariant->id,
+                            'size' => $item->replacementVariant->size ?? null,
+                            'color' => $item->replacementVariant->color ?? null ,
+                            'image'=> $item->replacementVariant->images()->first()->image ?? null,
                             'unit_price' => number_format((float) ($item->replacementVariant->product->price ?? 0), 2, '.', ''),
                             'stock' => $item->replacementVariant->stock,
                         ] : null,
