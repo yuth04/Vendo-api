@@ -64,8 +64,8 @@ class ReturnOrderController extends Controller
             'items.replacementVariant.product',
             'user',
             'order.payment',
-            'refund',
-            'exchange',
+            'items.refund',
+            'items.exchange',
         ])->latest();
 
         if ($request->filled('status')) {
@@ -95,8 +95,8 @@ class ReturnOrderController extends Controller
             'items.orderItem.productVariant.product',
             'items.replacementVariant.product',
             'user',
-            'refund',
-            'exchange',
+            'items.refund',
+            'items.exchange',
         ])
             ->where('user_id', Auth::id())
             ->latest()
