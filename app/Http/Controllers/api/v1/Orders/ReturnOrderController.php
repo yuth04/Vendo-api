@@ -595,9 +595,7 @@ class ReturnOrderController extends Controller
 
                         'exchange' => $exchange ? [
                             'id' => $exchange->id,
-
                             'status' => $exchange->status,
-
                             'price_difference' => number_format(
                                 (float) (
                                     $exchange->price_difference ?? 0
@@ -606,13 +604,10 @@ class ReturnOrderController extends Controller
                                 '.',
                                 ''
                             ),
-
                             'tracking_number' =>
                                 $exchange->tracking_number,
-
                             'carrier' =>
                                 $exchange->carrier,
-
                             'processing_at' =>
                                 $exchange->processing_at
                                         ?->format('d-m-Y h:i:s A'),
@@ -716,207 +711,19 @@ class ReturnOrderController extends Controller
     }
 
     // Customer: Submit Return Request
-    // public function store(Request $request)
-    // {
-    //     $request->validate([
-    //         'order_id' => ['required', 'exists:orders,id'],
-    //         'note' => ['nullable', 'string', 'max:1000'],
-    //         'items' => ['required', 'array', 'min:1'],
-    //         'items.*.order_item_id' => ['required', 'integer', 'distinct', 'exists:order_items,id'],
-    //         'items.*.return_type' => ['required', Rule::in([ReturnItem::TYPE_REFUND, ReturnItem::TYPE_EXCHANGE])],
-    //         'items.*.quantity' => ['required', 'integer', 'min:1'],
-    //         'items.*.reason' => ['required', 'string'],
-    //         'items.*.replacement_variant_id' => ['nullable', 'required_if:items.*.return_type,' . ReturnItem::TYPE_EXCHANGE, 'integer', 'exists:product_variants,id'],
-    //         'items.*.exchange_quantity' => ['nullable', 'integer', 'min:1'],
-    //         'images' => ['nullable', 'array', 'max:6'],
-    //         'images.*' => ['image', 'mimes:jpg,jpeg,png', 'max:2048'],
-    //     ]);
 
-    //     $order = Order::where('id', $request->order_id)
-    //         ->where('user_id', Auth::id())
-    //         ->first();
-
-    //     if (!$order) {
-    //         return response()->json(['message' => 'Order not found for this user.'], 404);
-    //     }
-
-    //     if ($order->status !== 'completed') {
-    //         return response()->json(['message' => 'Only completed orders can be returned.'], 400);
-    //     }
-
-    //     if (!$order->completed_at) {
-    //         return response()->json(['message' => 'Order completion date not found.'], 400);
-    //     }
-
-    //     if ($order->completed_at->copy()->addDays(self::RETURN_WINDOW_DAYS)->isPast()) {
-    //         return response()->json(['message' => 'Return period expired (' . self::RETURN_WINDOW_DAYS . ' days only).'], 400);
-    //     }
-
-    //     try {
-    //         $return = DB::transaction(function () use ($request, $order) {
-    //             $orderItemIds = collect($request->items)->pluck('order_item_id')->unique();
-
-    //             $orderItems = OrderItem::where('order_id', $order->id)
-    //                 ->whereIn('id', $orderItemIds)
-    //                 ->lockForUpdate()
-    //                 ->get()
-    //                 ->keyBy('id');
-    //             $returnNumber = 'RET-' . date('Ymd') . '-' . strtoupper(Str::random(4));
-    //             $return = ReturnOrder::create([
-    //                 'user_id' => Auth::id(),
-    //                 'order_id' => $order->id,
-    //                 'return_number' => $returnNumber,
-    //                 'note' => $request->note,
-    //                 'status' => ReturnOrder::STATUS_REQUESTED,
-    //             ]);
-
-    //             foreach ($request->items as $line) {
-    //                 $orderItem = $orderItems->get($line['order_item_id']);
-
-    //                 if (!$orderItem) {
-    //                     throw new \RuntimeException("Order item #{$line['order_item_id']} does not belong to this order.");
-    //                 }
-
-    //                 $alreadyReturned = ReturnItem::where('order_item_id', $orderItem->id)
-    //                     ->whereHas('returnOrder', function ($query) {
-    //                         $query->whereNotIn('status', [
-    //                             ReturnOrder::STATUS_REJECTED,
-    //                             ReturnOrder::STATUS_CANCELLED,
-    //                         ]);
-    //                     })->sum('quantity');
-
-    //                 $remaining = $orderItem->quantity - $alreadyReturned;
-
-    //                 if ($line['quantity'] > $remaining) {
-    //                     throw new \RuntimeException("Return quantity exceeds remaining returnable quantity for item #{$orderItem->id}.");
-    //                 }
-
-    //                 $returnItemData = [
-    //                     'return_order_id' => $return->id,
-    //                     'order_item_id' => $orderItem->id,
-    //                     'quantity' => $line['quantity'],
-    //                     'return_type' => $line['return_type'],
-    //                     'reason' => $line['reason'],
-    //                     'condition' => null,
-    //                     'restocked' => false,
-    //                     'replacement_variant_id' => null,
-    //                     'exchange_quantity' => null,
-    //                     'exchange_price_difference' => null,
-    //                 ];
-
-    //                 if ($line['return_type'] === ReturnItem::TYPE_EXCHANGE) {
-    //                     if (empty($line['replacement_variant_id'])) {
-    //                         throw new \RuntimeException('Replacement variant is required for exchange.');
-    //                     }
-
-    //                     $exchangeQuantity = $line['exchange_quantity'] ?? $line['quantity'];
-    //                     $replacement = ProductVariant::lockForUpdate()->find($line['replacement_variant_id']);
-
-    //                     if (!$replacement) {
-    //                         throw new \RuntimeException('Replacement product variant not found.');
-    //                     }
-
-    //                     if ($replacement->stock < $exchangeQuantity) {
-    //                         throw new \RuntimeException('Replacement product is out of stock.');
-    //                     }
-
-    //                     $originalAmount = (float) $orderItem->price * (int) $line['quantity'];
-    //                     $replacementAmount = (float) $replacement->price * (int) $exchangeQuantity;
-    //                     $difference = $replacementAmount - $originalAmount;
-
-    //                     $returnItemData['replacement_variant_id'] = $replacement->id;
-    //                     $returnItemData['exchange_quantity'] = $exchangeQuantity;
-    //                     $returnItemData['exchange_price_difference'] = round($difference, 2);
-    //                 }
-
-    //                 ReturnItem::create($returnItemData);
-    //             }
-
-    //             return $return;
-    //         });
-    //     } catch (\RuntimeException $e) {
-    //         return response()->json(['message' => $e->getMessage()], 400);
-    //     }
-
-    //     if ($request->hasFile('images')) {
-    //         try {
-    //             $imageKit = new ImageKit(
-    //                 config('imagekit.public_key'),
-    //                 config('imagekit.private_key'),
-    //                 config('imagekit.url_endpoint')
-    //             );
-
-    //             foreach ($request->file('images') as $file) {
-    //                 $upload = $imageKit->upload([
-    //                     'file' => fopen($file->getRealPath(), 'r'),
-    //                     'fileName' => $file->getClientOriginalName(),
-    //                     'folder' => '/return-images',
-    //                 ]);
-
-    //                 if (isset($upload->error)) {
-    //                     Log::error('Return image upload failed: ' . $upload->error->message);
-    //                     continue;
-    //                 }
-
-    //                 ReturnImage::create([
-    //                     'return_order_id' => $return->id,
-    //                     'url' => $upload->result->url,
-    //                 ]);
-
-    //                 if (!$return->image) {
-    //                     $return->update(['image' => $upload->result->url]);
-    //                 }
-    //             }
-    //         } catch (\Exception $e) {
-    //             Log::error('Return image upload exception: ' . $e->getMessage());
-    //         }
-    //     }
-
-    //     $return->load([
-    //         'user',
-    //         'items.orderItem.productVariant',
-    //         'items.replacementVariant',
-    //         'refund',
-    //         'exchange',
-    //     ]);
-
-    //     $this->initializeNotification(
-    //         $return->user,
-    //         'Return Requested',
-    //         'Your return request for order #' . $order->order_number . ' has been submitted.',
-    //         'return order',
-    //         'shopping-bag',
-    //         "/account/returns/{$return->id}"
-    //     );
-
-    //     try {
-    //         $adminEmail = config('mail.admin_email');
-    //         Mail::to($adminEmail)->send(new AdminReturnRequestMail($return->load('user', 'items')));
-    //         Mail::to($order->user->email)->send(new ReturnOrderRequestMail($return->load('items')));
-    //     } catch (\Exception $e) {
-    //         Log::error('Return request email failed: ' . $e->getMessage());
-    //     }
-
-    //     return response()->json([
-    //         'message' => 'Return request submitted successfully.',
-    //         'data' => $return,
-    //     ], 200);
-    // }
     public function store(Request $request)
     {
         $request->validate([
             'order_id' => ['required', 'exists:orders,id'],
             'note' => ['nullable', 'string', 'max:1000'],
-
             'items' => ['required', 'array', 'min:1'],
-
             'items.*.order_item_id' => [
                 'required',
                 'integer',
                 'distinct',
                 'exists:order_items,id',
             ],
-
             'items.*.return_type' => [
                 'required',
                 Rule::in([
@@ -924,44 +731,37 @@ class ReturnOrderController extends Controller
                     ReturnItem::TYPE_EXCHANGE,
                 ]),
             ],
-
             'items.*.quantity' => [
                 'required',
                 'integer',
                 'min:1',
             ],
-
             'items.*.reason' => [
                 'required',
                 'string',
             ],
-
             'items.*.replacement_variant_id' => [
                 'nullable',
                 'required_if:items.*.return_type,' . ReturnItem::TYPE_EXCHANGE,
                 'integer',
                 'exists:product_variants,id',
             ],
-
             'items.*.exchange_quantity' => [
                 'nullable',
                 'integer',
                 'min:1',
             ],
-
             'images' => [
                 'nullable',
                 'array',
                 'max:6',
             ],
-
             'images.*' => [
                 'image',
                 'mimes:jpg,jpeg,png',
                 'max:2048',
             ],
         ]);
-
         /*
         |--------------------------------------------------------------------------
         | Find Order
@@ -1291,12 +1091,9 @@ class ReturnOrderController extends Controller
                             'return_item_id' => $returnItem->id,
                             'order_id' => $order->id,
                             'user_id' => Auth::id(),
-
                             'status' =>
                                 Exchange::STATUS_PROCESSING,
-
                             'price_difference' => $difference,
-
                             'tracking_number' => null,
                             'carrier' => null,
                             'processing_at' => now(),
@@ -1454,25 +1251,72 @@ class ReturnOrderController extends Controller
         ], 200);
     }
     // Customer: Cancel Return
+    // public function cancel($id)
+    // {
+    //     $return = ReturnOrder::where('id', $id)
+    //         ->where('user_id', Auth::id())
+    //         ->first();
+
+    //     if (!$return) {
+    //         return response()->json(['message' => 'Return order not found.'], 404);
+    //     }
+
+    //     if ($return->status !== ReturnOrder::STATUS_REQUESTED) {
+    //         return response()->json(['message' => 'Only requested returns can be cancelled.'], 400);
+    //     }
+
+    //     $return->update(['status' => ReturnOrder::STATUS_CANCELLED]);
+
+    //     return response()->json(['message' => 'Return request cancelled successfully.']);
+    // }
     public function cancel($id)
     {
         $return = ReturnOrder::where('id', $id)
             ->where('user_id', Auth::id())
+            ->with('items')
             ->first();
 
         if (!$return) {
-            return response()->json(['message' => 'Return order not found.'], 404);
+            return response()->json([
+                'message' => 'Return order not found.'
+            ], 404);
         }
 
         if ($return->status !== ReturnOrder::STATUS_REQUESTED) {
-            return response()->json(['message' => 'Only requested returns can be cancelled.'], 400);
+            return response()->json([
+                'message' => 'Only requested returns can be cancelled.'
+            ], 400);
         }
 
-        $return->update(['status' => ReturnOrder::STATUS_CANCELLED]);
+        DB::transaction(function () use ($return) {
 
-        return response()->json(['message' => 'Return request cancelled successfully.']);
+            // Cancel related refunds
+            Refund::where('return_order_id', $return->id)
+                ->where('status', Refund::STATUS_PENDING)
+                ->update([
+                    'status' => Refund::STATUS_FAILED,
+                    'failure_reason' => 'Return request was cancelled by customer.',
+                ]);
+
+            // Cancel related exchanges
+            Exchange::where('return_order_id', $return->id)
+                ->where('status', Exchange::STATUS_PROCESSING)
+                ->update([
+                    'status' => Exchange::STATUS_FAILED,
+                    'failure_reason' => 'Return request was cancelled by customer.',
+                    'failed_at' => now(),
+                ]);
+
+            // Cancel return
+            $return->update([
+                'status' => ReturnOrder::STATUS_CANCELLED,
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Return request cancelled successfully.'
+        ]);
     }
-
     // Admin Stage 1: Approve Return Request
     public function approve($id)
     {
