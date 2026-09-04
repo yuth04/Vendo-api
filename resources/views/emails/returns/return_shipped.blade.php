@@ -103,34 +103,174 @@
                         </td>
                     </tr>
 
-                    {{-- Shipped Items --}}
+
+                    {{-- ===================================================== --}}
+                    {{-- SHIPPED REPLACEMENT ITEMS --}}
+                    {{-- ===================================================== --}}
                     <tr>
                         <td style="padding: 0 40px 32px;">
-                            <h4
-                                style="margin: 0 0 16px; font-size: 13px; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">
+
+                            <h4 style="
+            margin: 0 0 16px;
+            font-size: 13px;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        ">
                                 Shipped Replacement Items
                             </h4>
-                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                                @foreach($returnOrder->items as $item)
+
+                            @foreach($returnOrder->items->where('return_type', 'exchange') as $item)
+
+                                @php
+                                    $replacementVariant = $item->replacementVariant;
+                                    $replacementProduct = $replacementVariant?->product;
+
+                                    $productName = $replacementProduct?->name
+                                        ?? 'Replacement Product';
+
+                                    $size = $replacementVariant?->size;
+                                    $color = $replacementVariant?->color;
+
+                                    $quantity = $item->exchange_quantity
+                                        ?? $item->quantity;
+                                @endphp
+
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="
+                                        margin-bottom: 12px;
+                                        border: 1px solid #e2e8f0;
+                                        border-radius: 10px;
+                                        background-color: #ffffff;
+                                    ">
+
                                     <tr>
-                                        <td style="padding: 12px 0; border-bottom: 1px solid #f1f5f9;">
-                                            <div style="font-size: 14px; font-weight: 600; color: #1e293b;">
-                                                {{ $item->orderItem->product->name ?? 'Replacement Product' }}
+                                        <td style="padding: 16px;">
+
+                                            {{-- PRODUCT NAME --}}
+                                            <div style="
+                                                font-size: 15px;
+                                                font-weight: 700;
+                                                color: #1e293b;
+                                                margin-bottom: 12px;
+                                            ">
+                                                {{ $productName }}
                                             </div>
-                                            <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                                                Replacement Variant ID:
-                                                <strong>#{{ $item->replacement_variant_id }}</strong>
+
+                                            {{-- PRODUCT DETAILS --}}
+                                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                                <tr>
+
+                                                    {{-- SIZE --}}
+                                                    <td width="33%" style="vertical-align: top;">
+
+                                                        <div style="
+                                                            font-size: 10px;
+                                                            font-weight: 700;
+                                                            color: #94a3b8;
+                                                            text-transform: uppercase;
+                                                            letter-spacing: 0.05em;
+                                                            margin-bottom: 4px;
+                                                        ">
+                                                            Size
+                                                        </div>
+
+                                                        <div style="
+                                                            font-size: 13px;
+                                                            font-weight: 600;
+                                                            color: #334155;
+                                                        ">
+                                                            {{ $size ?? 'N/A' }}
+                                                        </div>
+
+                                                    </td>
+
+                                                    {{-- COLOR --}}
+                                                    <td width="33%" style="vertical-align: top;">
+
+                                                        <div style="
+                                                            font-size: 10px;
+                                                            font-weight: 700;
+                                                            color: #94a3b8;
+                                                            text-transform: uppercase;
+                                                            letter-spacing: 0.05em;
+                                                            margin-bottom: 4px;
+                                                        ">
+                                                            Color
+                                                        </div>
+
+                                                        <div style="
+                                                            font-size: 13px;
+                                                            font-weight: 600;
+                                                            color: #334155;
+                                                        ">
+                                                            {{ $color ?? 'N/A' }}
+                                                        </div>
+
+                                                    </td>
+
+                                                    {{-- QUANTITY --}}
+                                                    <td width="33%" style="
+                                                        vertical-align: top;
+                                                        text-align: right;
+                                                    ">
+
+                                                        <div style="
+                                                            font-size: 10px;
+                                                            font-weight: 700;
+                                                            color: #94a3b8;
+                                                            text-transform: uppercase;
+                                                            letter-spacing: 0.05em;
+                                                            margin-bottom: 4px;
+                                                        ">
+                                                            Quantity
+                                                        </div>
+
+                                                        <div style="
+                                                            font-size: 13px;
+                                                            font-weight: 700;
+                                                            color: #0284c7;
+                                                        ">
+                                                            {{ $quantity }}
+                                                        </div>
+
+                                                    </td>
+
+                                                </tr>
+                                            </table>
+
+                                            {{-- EXCHANGE BADGE --}}
+                                            <div style="
+                                                margin-top: 12px;
+                                                padding-top: 10px;
+                                                border-top: 1px solid #f1f5f9;
+                                            ">
+                                                <span style="
+                                                    display: inline-block;
+                                                    background-color: #e0f2fe;
+                                                    color: #0369a1;
+                                                    padding: 5px 10px;
+                                                    border-radius: 6px;
+                                                    font-size: 11px;
+                                                    font-weight: 700;
+                                                    text-transform: uppercase;
+                                                    letter-spacing: 0.04em;
+                                                ">
+                                                    Exchange Replacement
+                                                </span>
                                             </div>
-                                        </td>
-                                        <td align="right"
-                                            style="padding: 12px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; color: #0284c7; vertical-align: top;">
-                                            Qty: {{ $item->exchange_quantity ?? $item->quantity }}
+
                                         </td>
                                     </tr>
-                                @endforeach
-                            </table>
+
+                                </table>
+
+                            @endforeach
+
                         </td>
                     </tr>
+
+
 
                     {{-- Footer Callout --}}
                     <tr>

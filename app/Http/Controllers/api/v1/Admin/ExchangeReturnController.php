@@ -4,6 +4,7 @@ namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\ReturnCompletedMail;
+use App\Mail\ReturnReceivedMail;
 use App\Mail\ReturnShippedMail;
 use App\Models\Exchange;
 use App\Models\Order;
@@ -73,7 +74,7 @@ class ExchangeReturnController extends Controller
                     'size' => $variant->size,
                     'color' => $variant->color,
                     'stock' => $variant->stock,
-                    'image'=> $variant->images()->first()?->image ?? null,
+                    'image' => $variant->images()->first()?->image ?? null,
                 ];
             })
             ->values();
@@ -95,7 +96,7 @@ class ExchangeReturnController extends Controller
                     'id' => $purchasedVariant->id,
                     'size' => $purchasedVariant->size,
                     'color' => $purchasedVariant->color,
-                    
+
                 ],
 
                 // Variants customer can select for exchange
@@ -109,8 +110,15 @@ class ExchangeReturnController extends Controller
         $this->ensureAdmin();
 
         try {
+
             $return = DB::transaction(function () use ($id) {
-                $return = ReturnOrder::with(['items.orderItem.productVariant', 'user', 'order', 'exchange'])
+
+                $return = ReturnOrder::with([
+                    'items.orderItem.productVariant',
+                    'items.exchange',
+                    'user',
+                    'order',
+                ])
                     ->lockForUpdate()
                     ->find($id);
 
@@ -118,75 +126,179 @@ class ExchangeReturnController extends Controller
                     throw new \RuntimeException('Return order not found.');
                 }
 
-                $exchangeItems = $return->items->where('return_type', ReturnItem::TYPE_EXCHANGE);
+                $exchangeItems = $return->items
+                    ->where('return_type', ReturnItem::TYPE_EXCHANGE);
 
                 if ($exchangeItems->isEmpty()) {
-                    throw new \RuntimeException('This return request does not contain any exchange items.');
+                    throw new \RuntimeException(
+                        'This return request does not contain any exchange items.'
+                    );
                 }
 
-                // Check allowed status (Received or Inspected)
-                if (!in_array($return->status, [ReturnOrder::STATUS_RECEIVED, ReturnOrder::STATUS_INSPECTED], true)) {
-                    throw new \RuntimeException('Return item(s) must be received before exchange processing.');
+                // Return must be received or inspected
+                if (
+                    !in_array(
+                        $return->status,
+                        [
+                            ReturnOrder::STATUS_RECEIVED,
+                            ReturnOrder::STATUS_INSPECTED
+                        ],
+                        true
+                    )
+                ) {
+                    throw new \RuntimeException(
+                        'Return item(s) must be received before exchange processing.'
+                    );
                 }
 
-                // Check every replacement item stock
+                /*
+                 * STEP 1
+                 * Check stock for every exchange item
+                 */
                 foreach ($exchangeItems as $item) {
+
                     if (!$item->replacement_variant_id) {
-                        throw new \RuntimeException("Replacement variant is missing for return item #{$item->id}.");
+                        throw new \RuntimeException(
+                            "Replacement variant is missing for return item #{$item->id}."
+                        );
                     }
 
-                    $replacement = ProductVariant::lockForUpdate()->find($item->replacement_variant_id);
+                    $replacement = ProductVariant::lockForUpdate()
+                        ->find($item->replacement_variant_id);
 
                     if (!$replacement) {
-                        throw new \RuntimeException('Replacement product variant not found.');
+                        throw new \RuntimeException(
+                            "Replacement product variant not found for return item #{$item->id}."
+                        );
                     }
 
                     $quantity = $item->exchange_quantity ?? $item->quantity;
 
-                    if ($replacement->stock < $quantity) {
-                        throw new \RuntimeException("Replacement product (Variant #{$replacement->id}) is out of stock.");
+                    /*
+                     * Only check stock if stock has not already
+                     * been reserved.
+                     */
+                    $existingExchange = $item->exchange;
+
+                    if (
+                        !$existingExchange ||
+                        !$existingExchange->stock_reserved
+                    ) {
+                        if ($replacement->stock < $quantity) {
+                            throw new \RuntimeException(
+                                "Replacement product (Variant #{$replacement->id}) is out of stock."
+                            );
+                        }
                     }
                 }
 
-                // Create or update exchange record
-                $exchange = $return->exchange;
+                /*
+                 * STEP 2
+                 * Create/update Exchange for EACH ReturnItem
+                 */
+                foreach ($exchangeItems as $item) {
 
-                if (!$exchange) {
-                    $priceDifference = $exchangeItems->sum(function ($item) {
-                        return (float) ($item->exchange_price_difference ?? 0);
-                    });
+                    $replacement = ProductVariant::lockForUpdate()
+                        ->find($item->replacement_variant_id);
 
-                    $exchange = Exchange::create([
-                        'return_order_id' => $return->id,
-                        'return_item_id' => $return->items->first()->id,
-                        'order_id' => $return->order_id,
-                        'user_id' => $return->user_id,
-                        'status' => Exchange::STATUS_PROCESSING,
-                        'price_difference' => round($priceDifference, 2),
-                        'processing_at' => now(),
-                    ]);
-                } else {
+                    $quantity = $item->exchange_quantity ?? $item->quantity;
+
+                    /*
+                     * Calculate price difference for this item
+                     */
+                    $priceDifference = (float) (
+                        $item->exchange_price_difference ?? 0
+                    );
+
+                    /*
+                     * Get exchange for THIS return item
+                     */
+                    $exchange = Exchange::where(
+                        'return_item_id',
+                        $item->id
+                    )->first();
+
+                    /*
+                     * Create exchange if it doesn't exist
+                     */
+                    if (!$exchange) {
+
+                        $exchange = Exchange::create([
+                            'return_order_id' => $return->id,
+                            'return_item_id' => $item->id,
+                            'order_id' => $return->order_id,
+                            'user_id' => $return->user_id,
+                            'status' => Exchange::STATUS_PROCESSING,
+                            'stock_reserved' => false,
+                            'price_difference' => round(
+                                $priceDifference,
+                                2
+                            ),
+                            'processing_at' => now(),
+                        ]);
+                    }
+
+                    /*
+                     * IMPORTANT:
+                     * Do not reset shipped/received/completed
+                     * exchanges back to processing.
+                     */
+                    if (
+                        in_array($exchange->status, [
+                            Exchange::STATUS_SHIPPED,
+                            Exchange::STATUS_RECEIVED,
+                            Exchange::STATUS_COMPLETED,
+                        ], true)
+                    ) {
+                        continue;
+                    }
+
+                    /*
+                     * Update processing status
+                     */
                     $exchange->update([
                         'status' => Exchange::STATUS_PROCESSING,
-                        'processing_at' => now(),
+                        'processing_at' => $exchange->processing_at ?? now(),
+                        'price_difference' => round(
+                            $priceDifference,
+                            2
+                        ),
                     ]);
+
+                    /*
+                     * STEP 3
+                     * Reserve stock only once
+                     */
+                    if (!$exchange->stock_reserved) {
+
+                        $replacement->decrement(
+                            'stock',
+                            $quantity
+                        );
+
+                        $exchange->update([
+                            'stock_reserved' => true,
+                        ]);
+                    }
                 }
 
-                // Reserve replacement stock
-                foreach ($exchangeItems as $item) {
-                    $replacement = ProductVariant::lockForUpdate()->find($item->replacement_variant_id);
-                    $quantity = $item->exchange_quantity ?? $item->quantity;
-
-                    $replacement->decrement('stock', $quantity);
-                }
-
-                return $return;
+                return $return->fresh([
+                    'items.exchange',
+                    'items.replacementVariant.product',
+                    'user',
+                    'order',
+                ]);
             });
 
+            /*
+             * Notification
+             */
             $this->initializeNotification(
                 $return->user,
                 'Exchange Processing',
-                'Your replacement item for order #' . $return->order->order_number . ' is being prepared.',
+                'Your replacement item for order #' .
+                $return->order->order_number .
+                ' is being prepared.',
                 'return order',
                 'shopping-bag',
                 "/account/returns/{$return->id}"
@@ -194,10 +306,16 @@ class ExchangeReturnController extends Controller
 
             return response()->json([
                 'message' => 'Exchange is now processing.',
-                'data' => $return->fresh(['exchange', 'items']),
+                'data' => $return,
             ]);
+
         } catch (\Exception $e) {
-            Log::error('Exchange processing failed: ' . $e->getMessage());
+
+            Log::error('Exchange processing failed', [
+                'return_order_id' => $id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
 
             return response()->json([
                 'message' => 'Failed to process exchange.',
@@ -205,62 +323,166 @@ class ExchangeReturnController extends Controller
             ], 400);
         }
     }
-
     // Admin: Exchange Shipped
+    // public function markExchangeShipped(Request $request, $id)
+    // {
+    //     $this->ensureAdmin();
+
+    //     $request->validate([
+    //         'tracking_number' => ['required', 'string', 'max:100'],
+    //         'carrier' => ['required', 'string', 'max:100'],
+    //     ]);
+
+    //     try {
+    //         $exchange = DB::transaction(function () use ($request, $id) {
+    //             $return = ReturnOrder::with(['user', 'order', 'items.exchange'])
+    //                 ->lockForUpdate()
+    //                 ->find($id);
+
+    //             if (!$return) {
+    //                 throw new \RuntimeException('Return order not found.');
+    //             }
+
+    //             $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
+    //             if (!$hasExchange) {
+    //                 throw new \RuntimeException('This return request does not contain exchange items.');
+    //             }
+
+    //             if (!$return->exchange || $return->exchange->status !== Exchange::STATUS_PROCESSING) {
+    //                 throw new \RuntimeException('Exchange must be processing before shipment.');
+    //             }
+
+    //             $return->exchange->update([
+    //                 'status' => Exchange::STATUS_SHIPPED,
+    //                 'shipped_at' => now(),
+    //                 'tracking_number' => $request->tracking_number,
+    //                 'carrier' => $request->carrier,
+    //             ]);
+
+    //             return $return->exchange;
+    //         });
+
+    //         $return = $exchange->returnOrder->load('user', 'order');
+
+    //         $this->initializeNotification(
+    //             $return->user,
+    //             'Exchange Shipped',
+    //             'Your replacement item for order #' . $return->order->order_number . ' has been shipped.',
+    //             'return order',
+    //             'shopping-bag',
+    //             "/account/returns/{$return->id}"
+    //         );
+
+    //         return response()->json([
+    //             'message' => 'Replacement item marked as shipped.',
+    //             'data' => $exchange->fresh(),
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'message' => 'Failed to mark exchange as shipped.',
+    //             'error' => $e->getMessage(),
+    //         ], 400);
+    //     }
+    // }
+
     public function markExchangeShipped(Request $request, $id)
     {
         $this->ensureAdmin();
-
         $request->validate([
-            'tracking_number' => ['required', 'string', 'max:100'],
-            'carrier' => ['required', 'string', 'max:100'],
+            'tracking_number' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'carrier' => [
+                'required',
+                'string',
+                'max:255',
+            ],
         ]);
-
         try {
-            $exchange = DB::transaction(function () use ($request, $id) {
-                $return = ReturnOrder::with(['user', 'order', 'exchange', 'items'])
+            $return = DB::transaction(function () use ($id, $request) {
+                $return = ReturnOrder::with([
+                    'user',
+                    'order',
+                    'items.exchange',
+                ])
                     ->lockForUpdate()
                     ->find($id);
 
                 if (!$return) {
-                    throw new \RuntimeException('Return order not found.');
+                    throw new \RuntimeException(
+                        'Return order not found.'
+                    );
                 }
-
-                $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
-                if (!$hasExchange) {
-                    throw new \RuntimeException('This return request does not contain exchange items.');
+                // Get exchange items
+                $exchangeItems = $return->items->where(
+                    'return_type',
+                    ReturnItem::TYPE_EXCHANGE
+                );
+                if ($exchangeItems->isEmpty()) {
+                    throw new \RuntimeException(
+                        'No exchange items found for this return order.'
+                    );
                 }
-
-                if (!$return->exchange || $return->exchange->status !== Exchange::STATUS_PROCESSING) {
-                    throw new \RuntimeException('Exchange must be processing before shipment.');
+                // Update each exchange
+                foreach ($exchangeItems as $item) {
+                    $exchange = $item->exchange;
+                    if (!$exchange) {
+                        throw new \RuntimeException(
+                            "Exchange record not found for return item #{$item->id}."
+                        );
+                    }
+                    if ($exchange->status !== Exchange::STATUS_PROCESSING) {
+                        throw new \RuntimeException(
+                            "Exchange #{$exchange->id} is not in processing status."
+                        );
+                    }
+                    $exchange->update([
+                        'status' => Exchange::STATUS_SHIPPED,
+                        'tracking_number' => $request->tracking_number,
+                        'carrier' => $request->carrier,
+                        'shipped_at' => now(),
+                    ]);
                 }
-
-                $return->exchange->update([
-                    'status' => Exchange::STATUS_SHIPPED,
-                    'shipped_at' => now(),
-                    'tracking_number' => $request->tracking_number,
-                    'carrier' => $request->carrier,
+                return $return->fresh([
+                    'user',
+                    'order',
+                    'items.exchange',
                 ]);
-
-                return $return->exchange;
             });
-
-            $return = $exchange->returnOrder->load('user', 'order');
-
+            // Email
+            if ($return->user?->email) {
+                Mail::to($return->user->email)
+                    ->send(new ReturnShippedMail($return));
+            }
+            // Notification
             $this->initializeNotification(
                 $return->user,
                 'Exchange Shipped',
-                'Your replacement item for order #' . $return->order->order_number . ' has been shipped.',
+                'Your replacement item for order #' .
+                $return->order->order_number .
+                ' has been shipped.',
                 'return order',
-                'shopping-bag',
+                'truck',
                 "/account/returns/{$return->id}"
             );
-
             return response()->json([
-                'message' => 'Replacement item marked as shipped.',
-                'data' => $exchange->fresh(),
-            ]);
+                'message' => 'All exchange items have been marked as shipped.',
+                'data' => $return,
+            ], 200);
+
         } catch (\Exception $e) {
+
+            Log::error(
+                'Exchange shipping failed: ' .
+                $e->getMessage(),
+                [
+                    'return_order_id' => $id,
+                    'user_id' => Auth::id(),
+                ]
+            );
+
             return response()->json([
                 'message' => 'Failed to mark exchange as shipped.',
                 'error' => $e->getMessage(),
@@ -268,129 +490,308 @@ class ExchangeReturnController extends Controller
         }
     }
 
+
     // Admin: Exchange Received by Customer
+    // public function markExchangeReceived($id)
+    // {
+    //     $this->ensureAdmin();
+
+    //     try {
+    //         $exchange = DB::transaction(function () use ($id) {
+    //             $return = ReturnOrder::with(['user', 'order', 'items.exchange'])
+    //                 ->lockForUpdate()
+    //                 ->find($id);
+
+    //             if (!$return) {
+    //                 throw new \RuntimeException('Return order not found.');
+    //             }
+
+    //             $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
+    //             if (!$hasExchange) {
+    //                 throw new \RuntimeException('This return request does not contain exchange items.');
+    //             }
+
+    //             if (!$return->exchange || $return->exchange->status !== Exchange::STATUS_SHIPPED) {
+    //                 throw new \RuntimeException('Exchange must be shipped before it can be received.');
+    //             }
+
+    //             $return->exchange->update([
+    //                 'status' => Exchange::STATUS_RECEIVED,
+    //                 'received_at' => now(),
+    //             ]);
+
+    //             return $return->exchange;
+    //         });
+
+    //         $return = $exchange->returnOrder->load('user', 'order');
+
+    //         try {
+    //             if ($return->user?->email) {
+    //                 Mail::to($return->user->email)->send(new ReturnShippedMail($return->fresh(['exchange'])));
+    //             }
+    //         } catch (\Exception $e) {
+    //             Log::error('Return shipped email failed: ' . $e->getMessage());
+    //         }
+
+    //         $this->initializeNotification(
+    //             $return->user,
+    //             'Exchange Received',
+    //             'Your replacement item for order #' . $return->order->order_number . ' has been received.',
+    //             'return order',
+    //             'shopping-bag',
+    //             "/account/returns/{$return->id}"
+    //         );
+
+    //         return response()->json([
+    //             'message' => 'Exchange marked as received.',
+    //             'data' => $exchange->fresh(),
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'message' => 'Failed to mark exchange as received.',
+    //             'error' => $e->getMessage(),
+    //         ], 400);
+    //     }
+    // }
     public function markExchangeReceived($id)
     {
         $this->ensureAdmin();
 
         try {
-            $exchange = DB::transaction(function () use ($id) {
-                $return = ReturnOrder::with(['user', 'order', 'exchange', 'items'])
+
+            $return = DB::transaction(function () use ($id) {
+
+                $return = ReturnOrder::with([
+                    'user',
+                    'order',
+                    'items.exchange',
+                ])
                     ->lockForUpdate()
                     ->find($id);
 
                 if (!$return) {
-                    throw new \RuntimeException('Return order not found.');
+                    throw new \RuntimeException(
+                        'Return order not found.'
+                    );
                 }
+                // Get exchange items
+                $exchangeItems = $return->items->where(
+                    'return_type',
+                    ReturnItem::TYPE_EXCHANGE
+                );
 
-                $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
-                if (!$hasExchange) {
-                    throw new \RuntimeException('This return request does not contain exchange items.');
+                if ($exchangeItems->isEmpty()) {
+                    throw new \RuntimeException(
+                        'No exchange items found for this return order.'
+                    );
                 }
-
-                if (!$return->exchange || $return->exchange->status !== Exchange::STATUS_SHIPPED) {
-                    throw new \RuntimeException('Exchange must be shipped before it can be received.');
+                // Mark each exchange as received
+                foreach ($exchangeItems as $item) {
+                    $exchange = $item->exchange;
+                    if (!$exchange) {
+                        throw new \RuntimeException(
+                            "Exchange record not found for return item #{$item->id}."
+                        );
+                    }
+                    if ($exchange->status != Exchange::STATUS_SHIPPED) {
+                        throw new \RuntimeException(
+                            "Exchange #{$exchange->id} must be shipped before it can be received."
+                        );
+                    }
+                    $exchange->update([
+                        'status' => Exchange::STATUS_RECEIVED,
+                        'received_at' => now(),
+                    ]);
                 }
-
-                $return->exchange->update([
-                    'status' => Exchange::STATUS_RECEIVED,
-                    'received_at' => now(),
+                \Log::info('Exchange received check', [
+                    'exchange_id' => $exchange->id,
+                    'status' => $exchange->status,
+                    'status_raw' => var_export($exchange->status, true),
+                    'return_item_id' => $exchange->return_item_id,
                 ]);
-
-                return $return->exchange;
+                return $return->fresh([
+                    'user',
+                    'order',
+                    'items.exchange',
+                ]);
             });
-
-            $return = $exchange->returnOrder->load('user', 'order');
-
-            try {
-                if ($return->user?->email) {
-                    Mail::to($return->user->email)->send(new ReturnShippedMail($return->fresh(['exchange'])));
-                }
-            } catch (\Exception $e) {
-                Log::error('Return shipped email failed: ' . $e->getMessage());
+            // Email
+            if ($return->user?->email) {
+                Mail::to($return->user->email)
+                    ->send(new ReturnReceivedMail($return));
             }
-
+            // Notification
             $this->initializeNotification(
                 $return->user,
                 'Exchange Received',
-                'Your replacement item for order #' . $return->order->order_number . ' has been received.',
+                'Your replacement item for order #' .
+                $return->order->order_number .
+                ' has been received.',
                 'return order',
-                'shopping-bag',
+                'package-check',
                 "/account/returns/{$return->id}"
             );
 
             return response()->json([
-                'message' => 'Exchange marked as received.',
-                'data' => $exchange->fresh(),
-            ]);
+                'message' => 'All exchange items have been marked as received.',
+                'data' => $return,
+            ], 200);
+
         } catch (\Exception $e) {
+
+            Log::error(
+                'Exchange received failed: ' .
+                $e->getMessage(),
+                [
+                    'return_order_id' => $id,
+                    'user_id' => Auth::id(),
+                ]
+            );
+
             return response()->json([
                 'message' => 'Failed to mark exchange as received.',
                 'error' => $e->getMessage(),
             ], 400);
         }
     }
-
     // Admin: Complete Exchange
     public function completeExchange($id)
     {
         $this->ensureAdmin();
 
         try {
+
             $return = DB::transaction(function () use ($id) {
-                $return = ReturnOrder::with(['user', 'order', 'exchange', 'items'])
+
+                $return = ReturnOrder::with([
+                    'user',
+                    'order',
+                    'items.refund',
+                    'items.exchange',
+                ])
                     ->lockForUpdate()
                     ->find($id);
 
                 if (!$return) {
-                    throw new \RuntimeException('Return order not found.');
+                    throw new \RuntimeException(
+                        'Return order not found.'
+                    );
                 }
 
-                $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
-                if (!$hasExchange) {
-                    throw new \RuntimeException('This return request does not contain exchange items.');
-                }
+                // Get exchange items
+                $exchangeItems = $return->items->where(
+                    'return_type',
+                    ReturnItem::TYPE_EXCHANGE
+                );
 
-                if (!$return->exchange || !in_array($return->exchange->status, [Exchange::STATUS_SHIPPED, Exchange::STATUS_RECEIVED], true)) {
-                    throw new \RuntimeException('Replacement item must be shipped or received before completing.');
+                if ($exchangeItems->isEmpty()) {
+                    throw new \RuntimeException(
+                        'No exchange items found for this return order.'
+                    );
                 }
+                // Complete every exchange
+                foreach ($exchangeItems as $item) {
 
-                $return->exchange->update([
-                    'status' => Exchange::STATUS_COMPLETED,
+                    $exchange = $item->exchange;
+
+                    if (!$exchange) {
+                        throw new \RuntimeException(
+                            "Exchange record not found for return item #{$item->id}."
+                        );
+                    }
+                    // Customer must receive replacement first.
+
+                    if ($exchange->status !== Exchange::STATUS_RECEIVED) {
+                        throw new \RuntimeException(
+                            "Exchange #{$exchange->id} must be received before completion."
+                        );
+                    }
+
+                    $exchange->update([
+                        'status' => Exchange::STATUS_COMPLETED,
+                    ]);
+                }
+                // Check whether ALL return items are completed.
+                $allItemsCompleted = $return->items->every(
+                    function ($item) {
+
+                        if (
+                            $item->return_type ===
+                            ReturnItem::TYPE_EXCHANGE
+                        ) {
+
+                            return $item->exchange &&
+                                $item->exchange->status ===
+                                Exchange::STATUS_COMPLETED;
+                        }
+
+                        if (
+                            $item->return_type ===
+                            ReturnItem::TYPE_REFUND
+                        ) {
+
+                            return $item->refund &&
+                                $item->refund->status ===
+                                \App\Models\Refund::STATUS_COMPLETED;
+                        }
+
+                        return false;
+                    }
+                );
+                // Complete ReturnOrder only if every item is completed
+                if ($allItemsCompleted) {
+
+                    $return->update([
+                        'status' => ReturnOrder::STATUS_COMPLETED,
+                        'completed_at' => now(),
+                    ]);
+                }
+                return $return->fresh([
+                    'user',
+                    'order',
+                    'items.refund',
+                    'items.exchange',
                 ]);
-
-                $return->update([
-                    'status' => ReturnOrder::STATUS_COMPLETED,
-                    'completed_at' => now(),
-                ]);
-
-                return $return;
             });
+
+            // Notification
+            $message = $return->status ===
+                ReturnOrder::STATUS_COMPLETED
+                ? 'Your return request for order #' .
+                $return->order->order_number .
+                ' has been completed.'
+
+                : 'Your exchange for order #' .
+                $return->order->order_number .
+                ' has been completed.';
 
             $this->initializeNotification(
                 $return->user,
                 'Exchange Completed',
-                'Your exchange for order #' . $return->order->order_number . ' has been completed.',
+                $message,
                 'return order',
-                'shopping-bag',
+                'check-circle',
                 "/account/returns/{$return->id}"
             );
 
-            try {
-                if ($return->user?->email) {
-                    Mail::to($return->user->email)->send(
-                        new ReturnCompletedMail($return->fresh(['exchange']))
-                    );
-                }
-            } catch (\Exception $e) {
-                Log::error('Exchange completion email failed: ' . $e->getMessage());
-            }
-
             return response()->json([
-                'message' => 'Exchange completed successfully.',
-                'data' => $return->fresh(['exchange', 'items', 'order']),
-            ]);
+                'message' =>
+                    $return->status ===
+                    ReturnOrder::STATUS_COMPLETED
+                    ? 'Exchange completed and return order completed.'
+                    : 'Exchange completed successfully.',
+                'data' => $return,
+            ], 200);
+
         } catch (\Exception $e) {
+            Log::error(
+                'Exchange completion failed: ' .
+                $e->getMessage(),
+                [
+                    'return_order_id' => $id,
+                    'user_id' => Auth::id(),
+                ]
+            );
             return response()->json([
                 'message' => 'Failed to complete exchange.',
                 'error' => $e->getMessage(),

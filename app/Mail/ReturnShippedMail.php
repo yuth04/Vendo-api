@@ -22,7 +22,7 @@ class ReturnShippedMail extends Mailable
     }
 
     public function build(){
-        return $this->subject('Your Replacement Item Has Shipped')->view('emails.return_shipped');
+        return $this->subject('Your Replacement Item Has Shipped')->view('emails.returns.return_shipped');
     }
 
     /**

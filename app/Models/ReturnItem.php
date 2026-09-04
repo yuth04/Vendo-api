@@ -18,6 +18,7 @@ class ReturnItem extends Model
         'exchange_quantity',
         'exchange_price_difference',
     ];
+
     public const TYPE_REFUND = 'refund';
     public const TYPE_EXCHANGE = 'exchange';
 
@@ -26,7 +27,6 @@ class ReturnItem extends Model
         'exchange_quantity' => 'integer',
         'restocked' => 'boolean',
         'exchange_price_difference' => 'decimal:2',
-
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
@@ -37,12 +37,18 @@ class ReturnItem extends Model
 
     public function returnOrder()
     {
-        return $this->belongsTo(ReturnOrder::class);
+        return $this->belongsTo(
+            ReturnOrder::class,
+            'return_order_id'
+        );
     }
 
     public function orderItem()
     {
-        return $this->belongsTo(OrderItem::class);
+        return $this->belongsTo(
+            OrderItem::class,
+            'order_item_id'
+        );
     }
 
     public function replacementVariant()
@@ -52,13 +58,20 @@ class ReturnItem extends Model
             'replacement_variant_id'
         );
     }
+
     public function refund()
     {
-        return $this->hasOne(Refund::class);
+        return $this->hasOne(
+            Refund::class,
+            'return_item_id'
+        );
     }
 
     public function exchange()
     {
-        return $this->hasOne(Exchange::class);
+        return $this->hasOne(
+            Exchange::class,
+            'return_item_id'
+        );
     }
 }

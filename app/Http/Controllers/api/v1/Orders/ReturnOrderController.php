@@ -1053,12 +1053,10 @@ class ReturnOrderController extends Controller
                             'return_item_id' => $returnItem->id,
                             'payment_id' => $order->payment?->id,
                             'user_id' => Auth::id(),
-
                             'amount' => round(
                                 $refundAmount,
                                 2
                             ),
-
                             'method' => 'khqr',
                             'provider' => 'bakong',
                             'status' => Refund::STATUS_PENDING,
@@ -1091,12 +1089,11 @@ class ReturnOrderController extends Controller
                             'return_item_id' => $returnItem->id,
                             'order_id' => $order->id,
                             'user_id' => Auth::id(),
-                            'status' =>
-                                Exchange::STATUS_PROCESSING,
+                            'status' => Exchange::STATUS_PENDING,
                             'price_difference' => $difference,
                             'tracking_number' => null,
                             'carrier' => null,
-                            'processing_at' => now(),
+                            'processing_at' => null,
                             'shipped_at' => null,
                             'received_at' => null,
                             'failed_at' => null,
@@ -1369,6 +1366,7 @@ class ReturnOrderController extends Controller
                             'provider' => null,
                             'status' => Refund::STATUS_PENDING,
                             'refund_reference' => 'REF-' . strtoupper(uniqid()),
+
                         ]
                     );
                 }
@@ -1388,8 +1386,9 @@ class ReturnOrderController extends Controller
                         [
                             'order_id' => $return->order_id,
                             'user_id' => $return->user_id,
-                            'status' => Exchange::STATUS_PROCESSING,
+                            'status' => Exchange::STATUS_PENDING,
                             'price_difference' => round($priceDifference, 2),
+                            'processing_at' => null,
                         ]
                     );
                 }
@@ -1414,7 +1413,7 @@ class ReturnOrderController extends Controller
 
             return response()->json([
                 'message' => 'Return approved successfully.',
-                'data' => $return->fresh(['refund', 'exchange', 'items']),
+                'data' => $return->fresh(['items', 'items.refund', 'items.exchange']),
             ]);
         } catch (\Exception $e) {
             Log::error('Approve return failed: ' . $e->getMessage());
@@ -1473,10 +1472,18 @@ class ReturnOrderController extends Controller
     {
         $this->ensureAdmin();
 
+
         $request->validate([
             'items' => ['required', 'array', 'min:1'],
-            'items.*.return_item_id' => ['required', 'exists:return_items,id'],
-            'items.*.condition' => ['required', Rule::in(self::CONDITIONS)],
+            'items.*.return_item_id' => [
+                'required',
+                'integer',
+                'exists:return_items,id',
+            ],
+            'items.*.condition' => [
+                'required',
+                Rule::in(self::CONDITIONS),
+            ],
         ]);
 
         try {
@@ -1523,11 +1530,6 @@ class ReturnOrderController extends Controller
                     }
                 }
 
-                $return->update([
-                    'status' => ReturnOrder::STATUS_INSPECTED,
-                    'inspected_at' => now(),
-                ]);
-
                 return $return;
             });
 
@@ -1542,7 +1544,7 @@ class ReturnOrderController extends Controller
 
             return response()->json([
                 'message' => 'Return inspected successfully.',
-                'data' => $return->fresh(['items', 'refund', 'exchange']),
+                'data' => $return->fresh(['items', 'items.refund', 'items.exchange']),
             ]);
         } catch (\Exception $e) {
             Log::error('Return inspection failed: ' . $e->getMessage());
@@ -1561,7 +1563,7 @@ class ReturnOrderController extends Controller
 
         try {
             $return = DB::transaction(function () use ($id) {
-                $return = ReturnOrder::with(['refund', 'exchange', 'user', 'order'])
+                $return = ReturnOrder::with(['items.refund', 'items.exchange', 'user', 'order'])
                     ->lockForUpdate()
                     ->find($id);
 
@@ -1606,7 +1608,7 @@ class ReturnOrderController extends Controller
 
             return response()->json([
                 'message' => 'Return order marked as completed successfully.',
-                'data' => $return->fresh(['refund', 'exchange']),
+                'data' => $return->fresh(['items.refund', 'items.exchange']),
             ]);
         } catch (\Exception $e) {
             Log::error('Complete return failed: ' . $e->getMessage());

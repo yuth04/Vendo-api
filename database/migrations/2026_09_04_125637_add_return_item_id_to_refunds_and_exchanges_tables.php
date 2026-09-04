@@ -8,6 +8,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('refunds', function (Blueprint $table) {
+
             $table->foreignId('return_item_id')
                 ->nullable()
                 ->after('return_order_id')
@@ -16,6 +17,7 @@ return new class extends Migration {
         });
 
         Schema::table('exchanges', function (Blueprint $table) {
+            $table->dropUnique('exchanges_return_order_id_unique');
             $table->foreignId('return_item_id')
                 ->nullable()
                 ->after('return_order_id')
@@ -29,11 +31,14 @@ return new class extends Migration {
         Schema::table('refunds', function (Blueprint $table) {
             $table->dropForeign(['return_item_id']);
             $table->dropColumn('return_item_id');
+
         });
 
         Schema::table('exchanges', function (Blueprint $table) {
             $table->dropForeign(['return_item_id']);
             $table->dropColumn('return_item_id');
+            $table->unique('return_order_id');
+
         });
     }
 };
