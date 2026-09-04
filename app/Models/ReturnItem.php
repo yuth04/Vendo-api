@@ -52,4 +52,13 @@ class ReturnItem extends Model
             'replacement_variant_id'
         );
     }
+    public function refund()
+    {
+        return $this->hasOne(Refund::class);
+    }
+
+    public function exchange()
+    {
+        return $this->hasOne(Exchange::class);
+    }
 }

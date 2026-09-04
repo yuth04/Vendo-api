@@ -14,6 +14,7 @@ class Refund extends Model
     protected $fillable = [
         'order_id',
         'return_order_id',
+        'return_item_id',
         'payment_id',
         'user_id',
         'amount',
@@ -31,17 +32,17 @@ class Refund extends Model
     ];
 
     protected $casts = [
-        'amount'       => 'decimal:2',
+        'amount' => 'decimal:2',
         'processed_at' => 'datetime:d-m-Y g:i:s A',
-        'failed_at'    => 'datetime:d-m-Y g:i:s A',
-        'created_at'   => 'datetime:d-m-Y g:i:s A',
-        'updated_at'   => 'datetime:d-m-Y g:i:s A',
+        'failed_at' => 'datetime:d-m-Y g:i:s A',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
 
     protected $attributes = [
-        'method'   => 'khqr',
+        'method' => 'khqr',
         'provider' => 'bakong',
-        'status'   => 'pending',
+        'status' => 'pending',
     ];
 
     public const STATUS_PENDING = 'pending';
@@ -55,7 +56,7 @@ class Refund extends Model
     protected function method(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) => $value ?? 'khqr'
+            set: fn($value) => $value ?? 'khqr'
         );
     }
 
@@ -65,14 +66,14 @@ class Refund extends Model
     protected function provider(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) => $value ?? 'bakong'
+            set: fn($value) => $value ?? 'bakong'
         );
     }
 
     // Relationships
-    public function returnOrder(): BelongsTo
+    public function returnItem(): BelongsTo
     {
-        return $this->belongsTo(ReturnOrder::class);
+        return $this->belongsTo(ReturnItem::class);
     }
 
     public function order(): BelongsTo

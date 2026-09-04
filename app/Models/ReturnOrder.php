@@ -81,13 +81,5 @@ class ReturnOrder extends Model
         return $this->hasMany(ReturnImage::class);
     }
 
-    public function refund()
-    {
-        return $this->hasOne(Refund::class);
-    }
 
-    public function exchange()
-    {
-        return $this->hasOne(Exchange::class);
-    }
 }

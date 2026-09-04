@@ -158,6 +158,7 @@ class ExchangeReturnController extends Controller
 
                     $exchange = Exchange::create([
                         'return_order_id' => $return->id,
+                        'return_item_id' => $return->items->first()->id,
                         'order_id' => $return->order_id,
                         'user_id' => $return->user_id,
                         'status' => Exchange::STATUS_PROCESSING,

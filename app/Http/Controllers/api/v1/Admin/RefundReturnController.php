@@ -238,6 +238,7 @@ class RefundReturnController extends Controller
                 if (!$refund) {
                     $refund = Refund::create([
                         'return_order_id'  => $return->id,
+                        'return_item_id' => $return->items->first()->id,
                         'order_id'         => $return->order_id,
                         'user_id'          => $return->user_id,
                         'payment_id'       => $return->order->payment?->id,

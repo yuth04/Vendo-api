@@ -8,6 +8,7 @@ class Exchange extends Model
 {
     protected $fillable = [
         'return_order_id',
+        'return_item_id',
         'order_id',
         'user_id',
         'status',
@@ -39,9 +40,9 @@ class Exchange extends Model
     public const STATUS_RECEIVED = 'received';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_FAILED = 'failed';
-    public function returnOrder()
+    public function returnItem()
     {
-        return $this->belongsTo(ReturnOrder::class);
+        return $this->belongsTo(ReturnItem::class);
     }
 
     public function order()
