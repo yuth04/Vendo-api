@@ -1480,10 +1480,7 @@ class ReturnOrderController extends Controller
                 'integer',
                 'exists:return_items,id',
             ],
-            'items.*.condition' => [
-                'required',
-                Rule::in(self::CONDITIONS),
-            ],
+            'items.*.condition' => ['required', Rule::in(self::CONDITIONS),],
         ]);
 
         try {
@@ -1527,9 +1524,14 @@ class ReturnOrderController extends Controller
                         $item->update([
                             'restocked' => true,
                         ]);
-                    }
-                }
 
+                    }
+
+                }
+                $return->update([
+                    'status' => ReturnOrder::STATUS_INSPECTED,
+                    'inspected_at' => now(),
+                ]);
                 return $return;
             });
 
