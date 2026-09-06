@@ -116,17 +116,17 @@ class RefundReturnController extends Controller
 
             // Explicit array definition ensuring method & provider are NEVER null
             $refundPayload = [
-                'return_order_id'      => $return->id,
-                'order_id'             => $return->order_id,
-                'user_id'              => $return->user_id,
-                'payment_id'           => $return->order->payment?->id,
-                'amount'               => $amount,
-                'method'               => 'khqr',
-                'provider'             => 'bakong',
-                'status'               => Refund::STATUS_PENDING,
+                'return_order_id' => $return->id,
+                'order_id' => $return->order_id,
+                'user_id' => $return->user_id,
+                'payment_id' => $return->order->payment?->id,
+                'amount' => $amount,
+                'method' => 'khqr',
+                'provider' => 'bakong',
+                'status' => Refund::STATUS_PENDING,
                 'khqr_receiver_number' => $request->khqr_receiver_number,
-                'khqr_account_name'    => $request->khqr_account_name,
-                'khqr_qr_code'         => $qrCodeUrl,
+                'khqr_account_name' => $request->khqr_account_name,
+                'khqr_qr_code' => $qrCodeUrl,
             ];
 
             if (!$refund) {
@@ -237,23 +237,23 @@ class RefundReturnController extends Controller
 
                 if (!$refund) {
                     $refund = Refund::create([
-                        'return_order_id'  => $return->id,
+                        'return_order_id' => $return->id,
                         'return_item_id' => $return->items->first()->id,
-                        'order_id'         => $return->order_id,
-                        'user_id'          => $return->user_id,
-                        'payment_id'       => $return->order->payment?->id,
-                        'amount'           => $amount,
-                        'method'           => $method,
-                        'provider'         => $provider,
-                        'status'           => Refund::STATUS_PROCESSING,
+                        'order_id' => $return->order_id,
+                        'user_id' => $return->user_id,
+                        'payment_id' => $return->order->payment?->id,
+                        'amount' => $amount,
+                        'method' => $method,
+                        'provider' => $provider,
+                        'status' => Refund::STATUS_PROCESSING,
                         'refund_reference' => 'REF-' . strtoupper(Str::random(12)),
                     ]);
                 } else {
                     $refund->update([
-                        'amount'   => $amount,
-                        'method'   => $method,
+                        'amount' => $amount,
+                        'method' => $method,
                         'provider' => $provider,
-                        'status'   => Refund::STATUS_PROCESSING,
+                        'status' => Refund::STATUS_PROCESSING,
                     ]);
                 }
 
@@ -299,8 +299,8 @@ class RefundReturnController extends Controller
             $return->user->increment('wallet_balance', $amount);
 
             $refund->update([
-                'provider'     => 'internal_wallet',
-                'status'       => Refund::STATUS_COMPLETED,
+                'provider' => 'internal_wallet',
+                'status' => Refund::STATUS_COMPLETED,
                 'processed_at' => now(),
             ]);
 
@@ -310,7 +310,7 @@ class RefundReturnController extends Controller
         if ($method === 'original_payment') {
             $refund->update([
                 'provider' => $return->order->payment?->payment_method ?? 'manual',
-                'status'   => Refund::STATUS_PROCESSING,
+                'status' => Refund::STATUS_PROCESSING,
             ]);
 
             return;
@@ -319,7 +319,7 @@ class RefundReturnController extends Controller
         if ($method === 'khqr') {
             $refund->update([
                 'provider' => 'bakong',
-                'status'   => Refund::STATUS_PROCESSING,
+                'status' => Refund::STATUS_PROCESSING,
             ]);
 
             return;
@@ -328,7 +328,7 @@ class RefundReturnController extends Controller
         if ($method === 'bank_transfer') {
             $refund->update([
                 'provider' => 'bank_transfer',
-                'status'   => Refund::STATUS_PROCESSING,
+                'status' => Refund::STATUS_PROCESSING,
             ]);
 
             return;
@@ -372,12 +372,12 @@ class RefundReturnController extends Controller
                 }
 
                 $return->refund->update([
-                    'status'       => Refund::STATUS_COMPLETED,
+                    'status' => Refund::STATUS_COMPLETED,
                     'processed_at' => now(),
                 ]);
 
                 $return->update([
-                    'status'       => ReturnOrder::STATUS_COMPLETED,
+                    'status' => ReturnOrder::STATUS_COMPLETED,
                     'completed_at' => now(),
                 ]);
 
@@ -426,7 +426,7 @@ class RefundReturnController extends Controller
 
         try {
             $return = DB::transaction(function () use ($id) {
-                $return = ReturnOrder::with(['user', 'order', 'refund', 'items'])
+                $return = ReturnOrder::with(['user', 'order', 'items.refund', 'items'])
                     ->lockForUpdate()
                     ->find($id);
 
@@ -439,20 +439,20 @@ class RefundReturnController extends Controller
                     throw new \RuntimeException('This return request does not contain any refund items.');
                 }
 
-                if (!$return->refund || $return->refund->status !== Refund::STATUS_COMPLETED) {
-                    throw new \RuntimeException('Refund must be completed before closing the return.');
+                if (!$return->refund) {
+                    throw new \RuntimeException('Refund record not found.');
                 }
 
-                if ($return->status === ReturnOrder::STATUS_COMPLETED) {
-                    return $return;
+                if ($return->refund->status === Refund::STATUS_COMPLETED) {
+                    throw new \RuntimeException('This refund has already been completed.');
                 }
 
-                $return->update([
-                    'status'       => ReturnOrder::STATUS_COMPLETED,
-                    'completed_at' => now(),
+                $return->refund->update([
+                    'status' => Refund::STATUS_COMPLETED,
+                    'processed_at' => now(),
                 ]);
 
-                return $return;
+                return $return->fresh(['items.refund', 'items']);
             });
 
             try {
@@ -466,8 +466,8 @@ class RefundReturnController extends Controller
             }
 
             return response()->json([
-                'message' => 'Refund return completed successfully.',
-                'data' => $return->fresh(['refund', 'items']),
+                'message' => 'Refund completed successfully.',
+                'data' => $return->fresh(['items.refund', 'items']),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Complete refund return failed: ' . $e->getMessage());

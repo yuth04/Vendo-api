@@ -232,7 +232,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
             Route::patch('returns/receive/{id}', [ReturnOrderController::class, 'markReceived']);
             Route::patch('returns/inspect/{id}', [ReturnOrderController::class, 'inspect']);
-            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'completeReturn']);
 
             // Exchange type
             Route::post('/returns/exchange/process/{id}', [ExchangeReturnController::class, 'processExchange']);
