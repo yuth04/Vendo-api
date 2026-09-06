@@ -313,12 +313,12 @@ class ExchangeReturnController extends Controller
         $this->ensureAdmin();
         $request->validate([
             'tracking_number' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
             ],
             'carrier' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
             ],
