@@ -15,6 +15,7 @@ use App\Models\ReturnImage;
 use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
 use App\Services\RefundService;
+use App\Services\SystemLogService;
 use App\Traits\NotifiesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,7 +37,7 @@ class ReturnOrderController extends Controller
         'good',
         'damaged',
     ];
-    public function __construct(RefundService $refundService)
+    public function __construct(RefundService $refundService, protected SystemLogService $systemLogService)
     {
         $this->RefundService = $refundService;
     }
@@ -1448,68 +1449,7 @@ class ReturnOrderController extends Controller
         }
     }
     // Admin Stage 4: Mark Complete (Finalize Refund & Exchange Execution)
-    // public function markCompleted(Request $request, $id)
-    // {
-    //     $this->ensureAdmin();
 
-    //     try {
-    //         $return = DB::transaction(function () use ($id) {
-    //             $return = ReturnOrder::with(['items.refund', 'items.exchange', 'user', 'order'])
-    //                 ->lockForUpdate()
-    //                 ->find($id);
-
-    //             if (!$return) {
-    //                 throw new \RuntimeException('Return order not found.');
-    //             }
-
-    //             if ($return->status !== ReturnOrder::STATUS_INSPECTED) {
-    //                 throw new \RuntimeException('Only inspected return requests can be completed.');
-    //             }
-
-    //             if ($return->refund && $return->refund->status === Refund::STATUS_PENDING) {
-    //                 $return->refund->update([
-    //                     'status' => Refund::STATUS_COMPLETED,
-    //                     'processed_at' => now(),
-    //                 ]);
-    //             }
-
-    //             if ($return->exchange && $return->exchange->status === Exchange::STATUS_PROCESSING) {
-    //                 $return->exchange->update([
-    //                     'status' => Exchange::STATUS_RECEIVED,
-    //                     'received_at' => now(),
-    //                 ]);
-    //             }
-
-    //             $return->update([
-    //                 'status' => ReturnOrder::STATUS_COMPLETED,
-    //                 'completed_at' => now(),
-    //             ]);
-
-    //             return $return;
-    //         });
-
-    //         $this->initializeNotification(
-    //             $return->user,
-    //             'Return Completed',
-    //             'Your return process for order #' . $return->order->order_number . ' has been completed.',
-    //             'return order',
-    //             'shopping-bag',
-    //             "/account/returns/{$return->id}"
-    //         );
-
-    //         return response()->json([
-    //             'message' => 'Return order marked as completed successfully.',
-    //             'data' => $return->fresh(['items.refund', 'items.exchange']),
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Complete return failed: ' . $e->getMessage());
-
-    //         return response()->json([
-    //             'message' => 'Error completing return order.',
-    //             'error' => $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
     // Admin Stage 4: Mark Complete (Close return order once every item is done)
     public function completeReturn($id)
     {

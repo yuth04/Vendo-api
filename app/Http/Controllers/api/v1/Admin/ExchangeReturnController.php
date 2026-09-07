@@ -103,210 +103,349 @@ class ExchangeReturnController extends Controller
             ],
         ]);
     }
+
     // Admin: Process Exchange
-    public function processExchange(Request $request, $id)
-    {
-        $this->ensureAdmin();
 
-        try {
+public function processExchange(Request $request, $id)
+{
+    $this->ensureAdmin();
 
-            $return = DB::transaction(function () use ($id) {
+    try {
+        $return = DB::transaction(function () use ($id) {
+            $return = ReturnOrder::with([
+                'items.orderItem.productVariant',
+                'items.exchange',
+                'user',
+                'order',
+            ])
+                ->lockForUpdate()
+                ->find($id);
 
-                $return = ReturnOrder::with([
-                    'items.orderItem.productVariant',
-                    'items.exchange',
-                    'user',
-                    'order',
-                ])
-                    ->lockForUpdate()
-                    ->find($id);
+            if (!$return) {
+                throw new \RuntimeException('Return order not found.');
+            }
 
-                if (!$return) {
-                    throw new \RuntimeException('Return order not found.');
+            $exchangeItems = $return->items
+                ->where('return_type', ReturnItem::TYPE_EXCHANGE);
+
+            if ($exchangeItems->isEmpty()) {
+                throw new \RuntimeException('This return request does not contain any exchange items.');
+            }
+
+            if (!in_array($return->status, [ReturnOrder::STATUS_RECEIVED, ReturnOrder::STATUS_INSPECTED], true)) {
+                throw new \RuntimeException('Return item(s) must be received before exchange processing.');
+            }
+
+            $replacementVariants = [];
+
+            // STEP 1: Validate missing data, lock product variants, and check stock
+            foreach ($exchangeItems as $item) {
+                if (!$item->replacement_variant_id) {
+                    throw new \RuntimeException("Replacement variant is missing for return item #{$item->id}.");
                 }
 
-                $exchangeItems = $return->items
-                    ->where('return_type', ReturnItem::TYPE_EXCHANGE);
+                $replacement = ProductVariant::lockForUpdate()->find($item->replacement_variant_id);
 
-                if ($exchangeItems->isEmpty()) {
-                    throw new \RuntimeException(
-                        'This return request does not contain any exchange items.'
-                    );
+                if (!$replacement) {
+                    throw new \RuntimeException("Replacement product variant not found for return item #{$item->id}.");
                 }
 
-                // Return must be received or inspected
-                if (
-                    !in_array(
-                        $return->status,
-                        [
-                            ReturnOrder::STATUS_RECEIVED,
-                            ReturnOrder::STATUS_INSPECTED
-                        ],
-                        true
-                    )
-                ) {
-                    throw new \RuntimeException(
-                        'Return item(s) must be received before exchange processing.'
-                    );
-                }
+                $quantity = $item->exchange_quantity ?? $item->quantity;
+                $existingExchange = $item->exchange;
 
-                /*
-                 * STEP 1
-                 * Check stock for every exchange item
-                 */
-                foreach ($exchangeItems as $item) {
-
-                    if (!$item->replacement_variant_id) {
-                        throw new \RuntimeException(
-                            "Replacement variant is missing for return item #{$item->id}."
-                        );
-                    }
-
-                    $replacement = ProductVariant::lockForUpdate()
-                        ->find($item->replacement_variant_id);
-
-                    if (!$replacement) {
-                        throw new \RuntimeException(
-                            "Replacement product variant not found for return item #{$item->id}."
-                        );
-                    }
-
-                    $quantity = $item->exchange_quantity ?? $item->quantity;
-
-                    /*
-                     * Only check stock if stock has not already
-                     * been reserved.
-                     */
-                    $existingExchange = $item->exchange;
-
-                    if (
-                        !$existingExchange ||
-                        !$existingExchange->stock_reserved
-                    ) {
-                        if ($replacement->stock < $quantity) {
-                            throw new \RuntimeException(
-                                "Replacement product (Variant #{$replacement->id}) is out of stock."
-                            );
-                        }
+                if (!$existingExchange || !$existingExchange->stock_reserved) {
+                    if ($replacement->stock < $quantity) {
+                        throw new \RuntimeException("Replacement product (Variant #{$replacement->id}) is out of stock.");
                     }
                 }
 
-                /*
-                 * STEP 2
-                 * Create/update Exchange for EACH ReturnItem
-                 */
-                foreach ($exchangeItems as $item) {
+                // Cache loaded variant for STEP 2
+                $replacementVariants[$item->id] = $replacement;
+            }
 
-                    $replacement = ProductVariant::lockForUpdate()
-                        ->find($item->replacement_variant_id);
+            // STEP 2: Create/Update Exchange record and reserve stock
+            foreach ($exchangeItems as $item) {
+                $replacement = $replacementVariants[$item->id];
+                $quantity = $item->exchange_quantity ?? $item->quantity;
+                $priceDifference = (float) ($item->exchange_price_difference ?? 0);
 
-                    $quantity = $item->exchange_quantity ?? $item->quantity;
+                // Re-use already eager-loaded relationship
+                $exchange = $item->exchange;
 
-                    /*
-                     * Calculate price difference for this item
-                     */
-                    $priceDifference = (float) (
-                        $item->exchange_price_difference ?? 0
-                    );
-
-                    /*
-                     * Get exchange for THIS return item
-                     */
-                    $exchange = Exchange::where(
-                        'return_item_id',
-                        $item->id
-                    )->first();
-
-                    /*
-                     * Create exchange if it doesn't exist
-                     */
-                    if (!$exchange) {
-
-                        $exchange = Exchange::create([
-                            'return_order_id' => $return->id,
-                            'return_item_id' => $item->id,
-                            'order_id' => $return->order_id,
-                            'user_id' => $return->user_id,
-                            'status' => Exchange::STATUS_PROCESSING,
-                            'stock_reserved' => false,
-                            'price_difference' => round(
-                                $priceDifference,
-                                2
-                            ),
-                            'processing_at' => now(),
-                        ]);
-                    }
-                    if (
-                        in_array($exchange->status, [
-                            Exchange::STATUS_SHIPPED,
-                            Exchange::STATUS_RECEIVED,
-                            Exchange::STATUS_COMPLETED,
-                        ], true)
-                    ) {
-                        continue;
-                    }
-                    $exchange->update([
-                        'status' => Exchange::STATUS_PROCESSING,
-                        'processing_at' => $exchange->processing_at ?? now(),
-                        'price_difference' => round(
-                            $priceDifference,
-                            2
-                        ),
+                if (!$exchange) {
+                    $exchange = Exchange::create([
+                        'return_order_id' => $return->id,
+                        'return_item_id'  => $item->id,
+                        'order_id'        => $return->order_id,
+                        'user_id'         => $return->user_id,
+                        'status'          => Exchange::STATUS_PROCESSING,
+                        'stock_reserved'  => false,
+                        'price_difference'=> round($priceDifference, 2),
+                        'processing_at'   => now(),
                     ]);
-                    if (!$exchange->stock_reserved) {
-
-                        $replacement->decrement(
-                            'stock',
-                            $quantity
-                        );
-
-                        $exchange->update([
-                            'stock_reserved' => true,
-                        ]);
-                    }
                 }
 
-                return $return->fresh([
-                    'items.exchange',
-                    'items.replacementVariant.product',
-                    'user',
-                    'order',
+                if (in_array($exchange->status, [
+                    Exchange::STATUS_SHIPPED,
+                    Exchange::STATUS_RECEIVED,
+                    Exchange::STATUS_COMPLETED,
+                ], true)) {
+                    continue;
+                }
+
+                $exchange->update([
+                    'status'           => Exchange::STATUS_PROCESSING,
+                    'processing_at'    => $exchange->processing_at ?? now(),
+                    'price_difference' => round($priceDifference, 2),
                 ]);
-            });
 
-            /*
-             * Notification
-             */
-            $this->initializeNotification(
-                $return->user,
-                'Exchange Processing',
-                'Your replacement item for order #' .
-                $return->order->order_number .
-                ' is being prepared.',
-                'return order',
-                'shopping-bag',
-                "/account/returns/{$return->id}"
-            );
+                if (!$exchange->stock_reserved) {
+                    $replacement->decrement('stock', $quantity);
 
-            return response()->json([
-                'message' => 'Exchange is now processing.',
-                'data' => $return,
+                    $exchange->update([
+                        'stock_reserved' => true,
+                    ]);
+                }
+            }
+
+            return $return->fresh([
+                'items.exchange',
+                'items.replacementVariant.product',
+                'user',
+                'order',
             ]);
+        });
 
-        } catch (\Exception $e) {
+        $this->initializeNotification(
+            $return->user,
+            'Exchange Processing',
+            'Your replacement item for order #' . $return->order->order_number . ' is being prepared.',
+            'return order',
+            'shopping-bag',
+            "/account/returns/{$return->id}"
+        );
 
-            Log::error('Exchange processing failed', [
-                'return_order_id' => $id,
-                'user_id' => Auth::id(),
-                'error' => $e->getMessage(),
-            ]);
+        return response()->json([
+            'message' => 'Exchange is now processing.',
+            'data'    => $return,
+        ]);
 
-            return response()->json([
-                'message' => 'Failed to process exchange.',
-                'error' => $e->getMessage(),
-            ], 400);
-        }
+    } catch (\Exception $e) {
+        Log::error('Exchange processing failed', [
+            'return_order_id' => $id,
+            'user_id'         => Auth::id(),
+            'error'           => $e->getMessage(),
+        ]);
+
+        return response()->json([
+            'message' => 'Failed to process exchange.',
+            'error'   => $e->getMessage(),
+        ], 400);
     }
+}
+    // public function processExchange(Request $request, $id)
+    // {
+    //     $this->ensureAdmin();
+
+    //     try {
+
+    //         $return = DB::transaction(function () use ($id) {
+
+    //             $return = ReturnOrder::with([
+    //                 'items.orderItem.productVariant',
+    //                 'items.exchange',
+    //                 'user',
+    //                 'order',
+    //             ])
+    //                 ->lockForUpdate()
+    //                 ->find($id);
+
+    //             if (!$return) {
+    //                 throw new \RuntimeException('Return order not found.');
+    //             }
+
+    //             $exchangeItems = $return->items
+    //                 ->where('return_type', ReturnItem::TYPE_EXCHANGE);
+
+    //             if ($exchangeItems->isEmpty()) {
+    //                 throw new \RuntimeException(
+    //                     'This return request does not contain any exchange items.'
+    //                 );
+    //             }
+
+    //             // Return must be received or inspected
+    //             if (
+    //                 !in_array(
+    //                     $return->status,
+    //                     [
+    //                         ReturnOrder::STATUS_RECEIVED,
+    //                         ReturnOrder::STATUS_INSPECTED
+    //                     ],
+    //                     true
+    //                 )
+    //             ) {
+    //                 throw new \RuntimeException(
+    //                     'Return item(s) must be received before exchange processing.'
+    //                 );
+    //             }
+
+    //             /*
+    //              * STEP 1
+    //              * Check stock for every exchange item
+    //              */
+    //             foreach ($exchangeItems as $item) {
+
+    //                 if (!$item->replacement_variant_id) {
+    //                     throw new \RuntimeException(
+    //                         "Replacement variant is missing for return item #{$item->id}."
+    //                     );
+    //                 }
+
+    //                 $replacement = ProductVariant::lockForUpdate()
+    //                     ->find($item->replacement_variant_id);
+
+    //                 if (!$replacement) {
+    //                     throw new \RuntimeException(
+    //                         "Replacement product variant not found for return item #{$item->id}."
+    //                     );
+    //                 }
+
+    //                 $quantity = $item->exchange_quantity ?? $item->quantity;
+
+    //                 /*
+    //                  * Only check stock if stock has not already
+    //                  * been reserved.
+    //                  */
+    //                 $existingExchange = $item->exchange;
+
+    //                 if (
+    //                     !$existingExchange ||
+    //                     !$existingExchange->stock_reserved
+    //                 ) {
+    //                     if ($replacement->stock < $quantity) {
+    //                         throw new \RuntimeException(
+    //                             "Replacement product (Variant #{$replacement->id}) is out of stock."
+    //                         );
+    //                     }
+    //                 }
+    //             }
+
+    //             /*
+    //              * STEP 2
+    //              * Create/update Exchange for EACH ReturnItem
+    //              */
+    //             foreach ($exchangeItems as $item) {
+
+    //                 $replacement = ProductVariant::lockForUpdate()
+    //                     ->find($item->replacement_variant_id);
+
+    //                 $quantity = $item->exchange_quantity ?? $item->quantity;
+
+    //                 /*
+    //                  * Calculate price difference for this item
+    //                  */
+    //                 $priceDifference = (float) (
+    //                     $item->exchange_price_difference ?? 0
+    //                 );
+
+    //                 /*
+    //                  * Get exchange for THIS return item
+    //                  */
+    //                 $exchange = Exchange::where(
+    //                     'return_item_id',
+    //                     $item->id
+    //                 )->first();
+
+    //                 /*
+    //                  * Create exchange if it doesn't exist
+    //                  */
+    //                 if (!$exchange) {
+
+    //                     $exchange = Exchange::create([
+    //                         'return_order_id' => $return->id,
+    //                         'return_item_id' => $item->id,
+    //                         'order_id' => $return->order_id,
+    //                         'user_id' => $return->user_id,
+    //                         'status' => Exchange::STATUS_PROCESSING,
+    //                         'stock_reserved' => false,
+    //                         'price_difference' => round(
+    //                             $priceDifference,
+    //                             2
+    //                         ),
+    //                         'processing_at' => now(),
+    //                     ]);
+    //                 }
+    //                 if (
+    //                     in_array($exchange->status, [
+    //                         Exchange::STATUS_SHIPPED,
+    //                         Exchange::STATUS_RECEIVED,
+    //                         Exchange::STATUS_COMPLETED,
+    //                     ], true)
+    //                 ) {
+    //                     continue;
+    //                 }
+    //                 $exchange->update([
+    //                     'status' => Exchange::STATUS_PROCESSING,
+    //                     'processing_at' => $exchange->processing_at ?? now(),
+    //                     'price_difference' => round(
+    //                         $priceDifference,
+    //                         2
+    //                     ),
+    //                 ]);
+    //                 if (!$exchange->stock_reserved) {
+
+    //                     $replacement->decrement(
+    //                         'stock',
+    //                         $quantity
+    //                     );
+
+    //                     $exchange->update([
+    //                         'stock_reserved' => true,
+    //                     ]);
+    //                 }
+    //             }
+
+    //             return $return->fresh([
+    //                 'items.exchange',
+    //                 'items.replacementVariant.product',
+    //                 'user',
+    //                 'order',
+    //             ]);
+    //         });
+
+    //         /*
+    //          * Notification
+    //          */
+    //         $this->initializeNotification(
+    //             $return->user,
+    //             'Exchange Processing',
+    //             'Your replacement item for order #' .
+    //             $return->order->order_number .
+    //             ' is being prepared.',
+    //             'return order',
+    //             'shopping-bag',
+    //             "/account/returns/{$return->id}"
+    //         );
+
+    //         return response()->json([
+    //             'message' => 'Exchange is now processing.',
+    //             'data' => $return,
+    //         ]);
+
+    //     } catch (\Exception $e) {
+
+    //         Log::error('Exchange processing failed', [
+    //             'return_order_id' => $id,
+    //             'user_id' => Auth::id(),
+    //             'error' => $e->getMessage(),
+    //         ]);
+
+    //         return response()->json([
+    //             'message' => 'Failed to process exchange.',
+    //             'error' => $e->getMessage(),
+    //         ], 400);
+    //     }
+    // }
     // Admin: Exchange Shipped
     public function markExchangeShipped(Request $request, $id)
     {
