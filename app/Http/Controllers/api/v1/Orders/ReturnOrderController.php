@@ -14,6 +14,7 @@ use App\Models\Refund;
 use App\Models\ReturnImage;
 use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
+use App\Services\ExchangeService;
 use App\Services\RefundService;
 use App\Services\SystemLogService;
 use App\Traits\NotifiesUsers;
@@ -31,15 +32,21 @@ class ReturnOrderController extends Controller
     use NotifiesUsers;
 
     protected $RefundService;
+    protected $ExchangeService;
+
     private const RETURN_WINDOW_DAYS = 7;
 
     private const CONDITIONS = [
         'good',
         'damaged',
     ];
-    public function __construct(RefundService $refundService, protected SystemLogService $systemLogService)
-    {
+    public function __construct(
+        RefundService $refundService,
+        ExchangeService $exchangeService,
+        protected SystemLogService $systemLogService
+    ) {
         $this->RefundService = $refundService;
+        $this->ExchangeService = $exchangeService;
     }
     // Admin Authorization
     private function ensureAdmin(): void
@@ -139,26 +146,26 @@ class ReturnOrderController extends Controller
                     'discount' => $couponDiscount,
                 ],
 
-                'refund' => $return->refund ? [
-                    'id' => $return->refund->id,
-                    'amount' => $return->refund->amount,
-                    'method' => $return->refund->method,
-                    'provider' => $return->refund->provider,
-                    'status' => $return->refund->status,
-                    'reference' => $return->refund->refund_reference,
-                    'processed_at' => $return->refund->processed_at,
-                ] : null,
+                // 'refund' => $return->refund ? [
+                //     'id' => $return->refund->id,
+                //     'amount' => $return->refund->amount,
+                //     'method' => $return->refund->method,
+                //     'provider' => $return->refund->provider,
+                //     'status' => $return->refund->status,
+                //     'reference' => $return->refund->refund_reference,
+                //     'processed_at' => $return->refund->processed_at,
+                // ] : null,
 
-                'exchange' => $return->exchange ? [
-                    'id' => $return->exchange->id,
-                    'status' => $return->exchange->status,
-                    'price_difference' => $return->exchange->price_difference,
-                    'tracking_number' => $return->exchange->tracking_number,
-                    'carrier' => $return->exchange->carrier,
-                    'processing_at' => $return->exchange->processing_at?->format('d-m-Y g:i:s A'),
-                    'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y g:i:s A'),
-                    'received_at' => $return->exchange->received_at?->format('d-m-Y g:i:s A'),
-                ] : null,
+                // 'exchange' => $return->exchange ? [
+                //     'id' => $return->exchange->id,
+                //     'status' => $return->exchange->status,
+                //     'price_difference' => $return->exchange->price_difference,
+                //     'tracking_number' => $return->exchange->tracking_number,
+                //     'carrier' => $return->exchange->carrier,
+                //     'processing_at' => $return->exchange->processing_at?->format('d-m-Y g:i:s A'),
+                //     'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y g:i:s A'),
+                //     'received_at' => $return->exchange->received_at?->format('d-m-Y g:i:s A'),
+                // ] : null,
 
                 'created_at' => $return->created_at ? $return->created_at->format('d-m-Y h:i:s A') : null,
 
@@ -623,6 +630,542 @@ class ReturnOrderController extends Controller
         ]);
     }
     // Customer: Submit Return Request
+    // public function store(Request $request)
+    // {
+    //     $request->validate([
+    //         'order_id' => ['required', 'exists:orders,id'],
+    //         'note' => ['nullable', 'string', 'max:1000'],
+    //         'items' => ['required', 'array', 'min:1'],
+    //         'items.*.order_item_id' => [
+    //             'required',
+    //             'integer',
+    //             'distinct',
+    //             'exists:order_items,id',
+    //         ],
+    //         'items.*.return_type' => [
+    //             'required',
+    //             Rule::in([
+    //                 ReturnItem::TYPE_REFUND,
+    //                 ReturnItem::TYPE_EXCHANGE,
+    //             ]),
+    //         ],
+    //         'items.*.quantity' => [
+    //             'required',
+    //             'integer',
+    //             'min:1',
+    //         ],
+    //         'items.*.reason' => [
+    //             'required',
+    //             'string',
+    //         ],
+    //         'items.*.replacement_variant_id' => [
+    //             'nullable',
+    //             'required_if:items.*.return_type,' . ReturnItem::TYPE_EXCHANGE,
+    //             'integer',
+    //             'exists:product_variants,id',
+    //         ],
+    //         'items.*.exchange_quantity' => [
+    //             'nullable',
+    //             'integer',
+    //             'min:1',
+    //         ],
+    //         'images' => [
+    //             'nullable',
+    //             'array',
+    //             'max:6',
+    //         ],
+    //         'images.*' => [
+    //             'image',
+    //             'mimes:jpg,jpeg,png',
+    //             'max:2048',
+    //         ],
+    //     ]);
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Find Order
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $order = Order::where('id', $request->order_id)
+    //         ->where('user_id', Auth::id())
+    //         ->first();
+
+    //     if (!$order) {
+    //         return response()->json([
+    //             'message' => 'Order not found for this user.',
+    //         ], 404);
+    //     }
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Check Order Status
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     if ($order->status !== 'completed') {
+    //         return response()->json([
+    //             'message' => 'Only completed orders can be returned.',
+    //         ], 400);
+    //     }
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Check Completed Date
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     if (!$order->completed_at) {
+    //         return response()->json([
+    //             'message' => 'Order completion date not found.',
+    //         ], 400);
+    //     }
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Check Return Window
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     if (
+    //         $order->completed_at
+    //             ->copy()
+    //             ->addDays(self::RETURN_WINDOW_DAYS)
+    //             ->isPast()
+    //     ) {
+    //         return response()->json([
+    //             'message' =>
+    //                 'Return period expired (' .
+    //                 self::RETURN_WINDOW_DAYS .
+    //                 ' days only).',
+    //         ], 400);
+    //     }
+
+    //     try {
+
+    //         $return = DB::transaction(function () use ($request, $order) {
+
+    //             /*
+    //             |--------------------------------------------------------------------------
+    //             | Get Order Items
+    //             |--------------------------------------------------------------------------
+    //             */
+
+    //             $orderItemIds = collect($request->items)
+    //                 ->pluck('order_item_id')
+    //                 ->unique()
+    //                 ->values();
+
+    //             $orderItems = OrderItem::where('order_id', $order->id)
+    //                 ->whereIn('id', $orderItemIds)
+    //                 ->lockForUpdate()
+    //                 ->get()
+    //                 ->keyBy('id');
+
+    //             /*
+    //             |--------------------------------------------------------------------------
+    //             | Generate Return Number
+    //             |--------------------------------------------------------------------------
+    //             */
+
+    //             $returnNumber =
+    //                 'RET-' .
+    //                 date('Ymd') .
+    //                 '-' .
+    //                 strtoupper(Str::random(4));
+
+    //             /*
+    //             |--------------------------------------------------------------------------
+    //             | Create Return Order
+    //             |--------------------------------------------------------------------------
+    //             */
+
+    //             $return = ReturnOrder::create([
+    //                 'user_id' => Auth::id(),
+    //                 'order_id' => $order->id,
+    //                 'return_number' => $returnNumber,
+    //                 'note' => $request->note,
+    //                 'status' => ReturnOrder::STATUS_REQUESTED,
+    //             ]);
+
+    //             /*
+    //             |--------------------------------------------------------------------------
+    //             | Create Return Items
+    //             |--------------------------------------------------------------------------
+    //             */
+
+    //             foreach ($request->items as $line) {
+
+    //                 $orderItem = $orderItems->get(
+    //                     $line['order_item_id']
+    //                 );
+
+    //                 if (!$orderItem) {
+    //                     throw new \RuntimeException(
+    //                         "Order item #{$line['order_item_id']} does not belong to this order."
+    //                     );
+    //                 }
+
+    //                 /*
+    //                 |--------------------------------------------------------------------------
+    //                 | Check Already Returned Quantity
+    //                 |--------------------------------------------------------------------------
+    //                 */
+
+    //                 $alreadyReturned = ReturnItem::where(
+    //                     'order_item_id',
+    //                     $orderItem->id
+    //                 )
+    //                     ->whereHas('returnOrder', function ($query) {
+    //                         $query->whereNotIn('status', [
+    //                             ReturnOrder::STATUS_REJECTED,
+    //                             ReturnOrder::STATUS_CANCELLED,
+    //                         ]);
+    //                     })
+    //                     ->sum('quantity');
+
+    //                 $remaining =
+    //                     $orderItem->quantity -
+    //                     $alreadyReturned;
+
+    //                 if ($line['quantity'] > $remaining) {
+    //                     throw new \RuntimeException(
+    //                         "Return quantity exceeds remaining returnable quantity for item #{$orderItem->id}."
+    //                     );
+    //                 }
+
+    //                 /*
+    //                 |--------------------------------------------------------------------------
+    //                 | Return Item Data
+    //                 |--------------------------------------------------------------------------
+    //                 */
+
+    //                 $returnItemData = [
+    //                     'return_order_id' => $return->id,
+    //                     'order_item_id' => $orderItem->id,
+    //                     'quantity' => $line['quantity'],
+    //                     'return_type' => $line['return_type'],
+    //                     'reason' => $line['reason'],
+    //                     'condition' => null,
+    //                     'restocked' => false,
+    //                     'replacement_variant_id' => null,
+    //                     'exchange_quantity' => null,
+    //                     'exchange_price_difference' => null,
+    //                 ];
+
+    //                 /*
+    //                 |--------------------------------------------------------------------------
+    //                 | Exchange Information
+    //                 |--------------------------------------------------------------------------
+    //                 */
+
+    //                 $replacement = null;
+    //                 $exchangeQuantity = null;
+    //                 $difference = 0;
+
+    //                 if (
+    //                     $line['return_type'] ===
+    //                     ReturnItem::TYPE_EXCHANGE
+    //                 ) {
+
+    //                     if (empty($line['replacement_variant_id'])) {
+    //                         throw new \RuntimeException(
+    //                             'Replacement variant is required for exchange.'
+    //                         );
+    //                     }
+
+    //                     $exchangeQuantity =
+    //                         $line['exchange_quantity']
+    //                         ?? $line['quantity'];
+
+    //                     /*
+    //                     |--------------------------------------------------------------------------
+    //                     | Lock Replacement Variant
+    //                     |--------------------------------------------------------------------------
+    //                     */
+
+    //                     $replacement = ProductVariant::lockForUpdate()
+    //                         ->find(
+    //                             $line['replacement_variant_id']
+    //                         );
+
+    //                     if (!$replacement) {
+    //                         throw new \RuntimeException(
+    //                             'Replacement product variant not found.'
+    //                         );
+    //                     }
+
+    //                     /*
+    //                     |--------------------------------------------------------------------------
+    //                     | Check Replacement Stock
+    //                     |--------------------------------------------------------------------------
+    //                     */
+
+    //                     if ($replacement->stock < $exchangeQuantity) {
+    //                         throw new \RuntimeException(
+    //                             'Replacement product is out of stock.'
+    //                         );
+    //                     }
+
+    //                     /*
+    //                     |--------------------------------------------------------------------------
+    //                     | Calculate Price Difference
+    //                     |--------------------------------------------------------------------------
+    //                     */
+
+    //                     $originalAmount =
+    //                         (float) $orderItem->price *
+    //                         (int) $line['quantity'];
+
+    //                     $replacementAmount =
+    //                         (float) $replacement->price *
+    //                         (int) $exchangeQuantity;
+
+    //                     $difference =
+    //                         round(
+    //                             $replacementAmount -
+    //                             $originalAmount,
+    //                             2
+    //                         );
+
+    //                     $returnItemData[
+    //                         'replacement_variant_id'
+    //                     ] = $replacement->id;
+
+    //                     $returnItemData[
+    //                         'exchange_quantity'
+    //                     ] = $exchangeQuantity;
+
+    //                     $returnItemData[
+    //                         'exchange_price_difference'
+    //                     ] = $difference;
+    //                 }
+
+    //                 /*
+    //                 |--------------------------------------------------------------------------
+    //                 | Create Return Item
+    //                 |--------------------------------------------------------------------------
+    //                 */
+
+    //                 $returnItem = ReturnItem::create(
+    //                     $returnItemData
+    //                 );
+
+    //                 /*
+    //                 |--------------------------------------------------------------------------
+    //                 | CREATE REFUND
+    //                 |--------------------------------------------------------------------------
+    //                 */
+
+    //                 if (
+    //                     $returnItem->return_type ===
+    //                     ReturnItem::TYPE_REFUND
+    //                 ) {
+
+    //                     $refundAmount =
+    //                         (float) $orderItem->price *
+    //                         (int) $returnItem->quantity;
+
+    //                     Refund::create([
+    //                         'order_id' => $order->id,
+    //                         'return_order_id' => $return->id,
+    //                         'return_item_id' => $returnItem->id,
+    //                         'payment_id' => $order->payment?->id,
+    //                         'user_id' => Auth::id(),
+    //                         'amount' => round(
+    //                             $refundAmount,
+    //                             2
+    //                         ),
+    //                         'method' => 'khqr',
+    //                         'provider' => 'bakong',
+    //                         'status' => Refund::STATUS_PENDING,
+
+    //                         'refund_reference' => null,
+    //                         'processed_at' => null,
+    //                         'failed_at' => null,
+    //                         'failure_reason' => null,
+
+    //                         'khqr_receiver_number' => null,
+    //                         'khqr_account_name' => null,
+    //                         'khqr_qr_code' => null,
+    //                         'khqr_transaction_id' => null,
+    //                     ]);
+    //                 }
+
+    //                 /*
+    //                 |--------------------------------------------------------------------------
+    //                 | CREATE EXCHANGE
+    //                 |--------------------------------------------------------------------------
+    //                 */
+
+    //                 if (
+    //                     $returnItem->return_type ===
+    //                     ReturnItem::TYPE_EXCHANGE
+    //                 ) {
+
+    //                     Exchange::create([
+    //                         'return_order_id' => $return->id,
+    //                         'return_item_id' => $returnItem->id,
+    //                         'order_id' => $order->id,
+    //                         'user_id' => Auth::id(),
+    //                         'status' => Exchange::STATUS_PENDING,
+    //                         'price_difference' => $difference,
+    //                         'tracking_number' => null,
+    //                         'carrier' => null,
+    //                         'processing_at' => null,
+    //                         'shipped_at' => null,
+    //                         'received_at' => null,
+    //                         'failed_at' => null,
+    //                         'failure_reason' => null,
+    //                     ]);
+    //                 }
+    //             }
+
+    //             return $return;
+    //         });
+
+    //     } catch (\RuntimeException $e) {
+
+    //         return response()->json([
+    //             'message' => $e->getMessage(),
+    //         ], 400);
+    //     }
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Upload Return Images
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     if ($request->hasFile('images')) {
+
+    //         try {
+
+    //             $imageKit = new ImageKit(
+    //                 config('imagekit.public_key'),
+    //                 config('imagekit.private_key'),
+    //                 config('imagekit.url_endpoint')
+    //             );
+
+    //             foreach ($request->file('images') as $file) {
+
+    //                 $upload = $imageKit->upload([
+    //                     'file' => fopen(
+    //                         $file->getRealPath(),
+    //                         'r'
+    //                     ),
+
+    //                     'fileName' =>
+    //                         $file->getClientOriginalName(),
+
+    //                     'folder' => '/return-images',
+    //                 ]);
+
+    //                 if (isset($upload->error)) {
+
+    //                     Log::error(
+    //                         'Return image upload failed: ' .
+    //                         $upload->error->message
+    //                     );
+
+    //                     continue;
+    //                 }
+
+    //                 ReturnImage::create([
+    //                     'return_order_id' => $return->id,
+    //                     'url' => $upload->result->url,
+    //                 ]);
+
+    //                 if (!$return->image) {
+
+    //                     $return->update([
+    //                         'image' => $upload->result->url,
+    //                     ]);
+    //                 }
+    //             }
+
+    //         } catch (\Exception $e) {
+
+    //             Log::error(
+    //                 'Return image upload exception: ' .
+    //                 $e->getMessage()
+    //             );
+    //         }
+    //     }
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Load Relationships
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $return->load([
+    //         'user',
+    //         'items.orderItem.productVariant',
+    //         'items.replacementVariant',
+    //         'items.refund',
+    //         'items.exchange',
+    //     ]);
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Notification
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     $this->initializeNotification(
+    //         $return->user,
+    //         'Return Requested',
+    //         'Your return request for order #' .
+    //         $order->order_number .
+    //         ' has been submitted.',
+    //         'return order',
+    //         'shopping-bag',
+    //         "/account/returns/{$return->id}"
+    //     );
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Send Emails
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     try {
+
+    //         $adminEmail = config('mail.admin_email');
+
+    //         Mail::to($adminEmail)->send(
+    //             new AdminReturnRequestMail(
+    //                 $return->load('user', 'items')
+    //             )
+    //         );
+
+    //         Mail::to($order->user->email)->send(
+    //             new ReturnOrderRequestMail(
+    //                 $return->load('items')
+    //             )
+    //         );
+
+    //     } catch (\Exception $e) {
+
+    //         Log::error(
+    //             'Return request email failed: ' .
+    //             $e->getMessage()
+    //         );
+    //     }
+
+    //     /*
+    //     |--------------------------------------------------------------------------
+    //     | Response
+    //     |--------------------------------------------------------------------------
+    //     */
+
+    //     return response()->json([
+    //         'message' =>
+    //             'Return request submitted successfully.',
+    //         'data' => $return,
+    //     ], 200);
+    // }
+    // Customer: Submit Return Request
     public function store(Request $request)
     {
         $request->validate([
@@ -673,12 +1216,6 @@ class ReturnOrderController extends Controller
                 'max:2048',
             ],
         ]);
-        /*
-        |--------------------------------------------------------------------------
-        | Find Order
-        |--------------------------------------------------------------------------
-        */
-
         $order = Order::where('id', $request->order_id)
             ->where('user_id', Auth::id())
             ->first();
@@ -688,37 +1225,21 @@ class ReturnOrderController extends Controller
                 'message' => 'Order not found for this user.',
             ], 404);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Check Order Status
-        |--------------------------------------------------------------------------
-        */
-
+        // Check Order Status
         if ($order->status !== 'completed') {
             return response()->json([
                 'message' => 'Only completed orders can be returned.',
             ], 400);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Check Completed Date
-        |--------------------------------------------------------------------------
-        */
-
+        //  Check Completed Date
         if (!$order->completed_at) {
             return response()->json([
                 'message' => 'Order completion date not found.',
             ], 400);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Check Return Window
-        |--------------------------------------------------------------------------
-        */
-
+        // Check Return Window
         if (
             $order->completed_at
                 ->copy()
@@ -737,12 +1258,7 @@ class ReturnOrderController extends Controller
 
             $return = DB::transaction(function () use ($request, $order) {
 
-                /*
-                |--------------------------------------------------------------------------
-                | Get Order Items
-                |--------------------------------------------------------------------------
-                */
-
+                // Get Order Items
                 $orderItemIds = collect($request->items)
                     ->pluck('order_item_id')
                     ->unique()
@@ -754,24 +1270,14 @@ class ReturnOrderController extends Controller
                     ->get()
                     ->keyBy('id');
 
-                /*
-                |--------------------------------------------------------------------------
-                | Generate Return Number
-                |--------------------------------------------------------------------------
-                */
-
+                // Generate Return Number
                 $returnNumber =
                     'RET-' .
                     date('Ymd') .
                     '-' .
                     strtoupper(Str::random(4));
 
-                /*
-                |--------------------------------------------------------------------------
-                | Create Return Order
-                |--------------------------------------------------------------------------
-                */
-
+                // Create Return Order
                 $return = ReturnOrder::create([
                     'user_id' => Auth::id(),
                     'order_id' => $order->id,
@@ -780,30 +1286,18 @@ class ReturnOrderController extends Controller
                     'status' => ReturnOrder::STATUS_REQUESTED,
                 ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | Create Return Items
-                |--------------------------------------------------------------------------
-                */
-
+                // Create Return Items
                 foreach ($request->items as $line) {
 
                     $orderItem = $orderItems->get(
                         $line['order_item_id']
                     );
-
                     if (!$orderItem) {
                         throw new \RuntimeException(
                             "Order item #{$line['order_item_id']} does not belong to this order."
                         );
                     }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Check Already Returned Quantity
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // Check Already Returned Quantity
                     $alreadyReturned = ReturnItem::where(
                         'order_item_id',
                         $orderItem->id
@@ -815,7 +1309,6 @@ class ReturnOrderController extends Controller
                             ]);
                         })
                         ->sum('quantity');
-
                     $remaining =
                         $orderItem->quantity -
                         $alreadyReturned;
@@ -826,12 +1319,7 @@ class ReturnOrderController extends Controller
                         );
                     }
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Return Item Data
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // Return Item Data
                     $returnItemData = [
                         'return_order_id' => $return->id,
                         'order_item_id' => $orderItem->id,
@@ -845,12 +1333,7 @@ class ReturnOrderController extends Controller
                         'exchange_price_difference' => null,
                     ];
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Exchange Information
-                    |--------------------------------------------------------------------------
-                    */
-
+                    //  Exchange Information
                     $replacement = null;
                     $exchangeQuantity = null;
                     $difference = 0;
@@ -859,24 +1342,18 @@ class ReturnOrderController extends Controller
                         $line['return_type'] ===
                         ReturnItem::TYPE_EXCHANGE
                     ) {
-
                         if (empty($line['replacement_variant_id'])) {
                             throw new \RuntimeException(
                                 'Replacement variant is required for exchange.'
                             );
                         }
-
                         $exchangeQuantity =
                             $line['exchange_quantity']
                             ?? $line['quantity'];
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Lock Replacement Variant
-                        |--------------------------------------------------------------------------
-                        */
-
-                        $replacement = ProductVariant::lockForUpdate()
+                        // Lock Replacement Variant
+                        $replacement = ProductVariant::with('product')
+                            ->lockForUpdate()
                             ->find(
                                 $line['replacement_variant_id']
                             );
@@ -887,38 +1364,19 @@ class ReturnOrderController extends Controller
                             );
                         }
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Check Replacement Stock
-                        |--------------------------------------------------------------------------
-                        */
-
+                        // Check Replacement Stock
                         if ($replacement->stock < $exchangeQuantity) {
                             throw new \RuntimeException(
                                 'Replacement product is out of stock.'
                             );
                         }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Calculate Price Difference
-                        |--------------------------------------------------------------------------
-                        */
-
-                        $originalAmount =
-                            (float) $orderItem->price *
-                            (int) $line['quantity'];
-
-                        $replacementAmount =
-                            (float) $replacement->price *
-                            (int) $exchangeQuantity;
-
-                        $difference =
-                            round(
-                                $replacementAmount -
-                                $originalAmount,
-                                2
-                            );
+                        // Calculate Price Difference (via ExchangeService)
+                        $difference = $this->ExchangeService->calculatePriceDifference(
+                            $orderItem,
+                            $replacement,
+                            (int) $line['quantity'],
+                            (int) $exchangeQuantity
+                        );
 
                         $returnItemData[
                             'replacement_variant_id'
@@ -932,32 +1390,18 @@ class ReturnOrderController extends Controller
                             'exchange_price_difference'
                         ] = $difference;
                     }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Create Return Item
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // Create Return Item
                     $returnItem = ReturnItem::create(
                         $returnItemData
                     );
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CREATE REFUND
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // CREATE REFUND
                     if (
                         $returnItem->return_type ===
                         ReturnItem::TYPE_REFUND
                     ) {
-
                         $refundAmount =
                             (float) $orderItem->price *
                             (int) $returnItem->quantity;
-
                         Refund::create([
                             'order_id' => $order->id,
                             'return_order_id' => $return->id,
@@ -971,30 +1415,21 @@ class ReturnOrderController extends Controller
                             'method' => 'khqr',
                             'provider' => 'bakong',
                             'status' => Refund::STATUS_PENDING,
-
                             'refund_reference' => null,
                             'processed_at' => null,
                             'failed_at' => null,
                             'failure_reason' => null,
-
                             'khqr_receiver_number' => null,
                             'khqr_account_name' => null,
                             'khqr_qr_code' => null,
                             'khqr_transaction_id' => null,
                         ]);
                     }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CREATE EXCHANGE
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // CREATE EXCHANGE
                     if (
                         $returnItem->return_type ===
                         ReturnItem::TYPE_EXCHANGE
                     ) {
-
                         Exchange::create([
                             'return_order_id' => $return->id,
                             'return_item_id' => $returnItem->id,
@@ -1022,47 +1457,31 @@ class ReturnOrderController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Upload Return Images
-        |--------------------------------------------------------------------------
-        */
-
+        // Upload Return Images to ImageKit
         if ($request->hasFile('images')) {
-
             try {
-
                 $imageKit = new ImageKit(
                     config('imagekit.public_key'),
                     config('imagekit.private_key'),
                     config('imagekit.url_endpoint')
                 );
-
                 foreach ($request->file('images') as $file) {
-
                     $upload = $imageKit->upload([
                         'file' => fopen(
                             $file->getRealPath(),
                             'r'
                         ),
-
                         'fileName' =>
                             $file->getClientOriginalName(),
-
                         'folder' => '/return-images',
                     ]);
-
                     if (isset($upload->error)) {
-
                         Log::error(
                             'Return image upload failed: ' .
                             $upload->error->message
                         );
-
                         continue;
                     }
-
                     ReturnImage::create([
                         'return_order_id' => $return->id,
                         'url' => $upload->result->url,
@@ -1075,7 +1494,6 @@ class ReturnOrderController extends Controller
                         ]);
                     }
                 }
-
             } catch (\Exception $e) {
 
                 Log::error(
@@ -1084,13 +1502,7 @@ class ReturnOrderController extends Controller
                 );
             }
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Load Relationships
-        |--------------------------------------------------------------------------
-        */
-
+        // Load Relationships
         $return->load([
             'user',
             'items.orderItem.productVariant',
@@ -1099,12 +1511,7 @@ class ReturnOrderController extends Controller
             'items.exchange',
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Notification
-        |--------------------------------------------------------------------------
-        */
-
+        // Notification
         $this->initializeNotification(
             $return->user,
             'Return Requested',
@@ -1116,12 +1523,7 @@ class ReturnOrderController extends Controller
             "/account/returns/{$return->id}"
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Send Emails
-        |--------------------------------------------------------------------------
-        */
-
+        // Send Emails
         try {
 
             $adminEmail = config('mail.admin_email');
@@ -1145,12 +1547,6 @@ class ReturnOrderController extends Controller
                 $e->getMessage()
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Response
-        |--------------------------------------------------------------------------
-        */
 
         return response()->json([
             'message' =>

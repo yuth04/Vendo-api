@@ -44,6 +44,8 @@ class ReturnOrder extends Model
     protected $hidden = [
         'user_id',
         'updated_at',
+        'exchange',
+        'refund'
     ];
 
 

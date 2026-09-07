@@ -33,6 +33,8 @@ class ReturnItem extends Model
 
     protected $hidden = [
         'reason',
+        // 'exchange',
+        // 'refund'
     ];
 
     public function returnOrder()
