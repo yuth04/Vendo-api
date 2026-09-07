@@ -230,19 +230,19 @@ Route::prefix('v1')->group(function () {
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
-            Route::patch('returns/receive/{id}', [ReturnOrderController::class, 'markReceived']);
-            Route::patch('returns/inspect/{id}', [ReturnOrderController::class, 'inspect']);
+            Route::patch('/returns/receive/{id}', [ReturnOrderController::class, 'markReceived']);
+            Route::patch('/returns/inspect/{id}', [ReturnOrderController::class, 'inspect']);
             Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'completeReturn']);
 
             // Exchange type
-            Route::post('/returns/exchange/process/{id}', [ExchangeReturnController::class, 'processExchange']);
-            Route::post('/returns/exchange/shipped/{id}', [ExchangeReturnController::class, 'markExchangeShipped']);
-            Route::post('/returns/exchange/received/{id}', [ExchangeReturnController::class, 'markExchangeReceived']);
-            Route::post('/returns/exchange/complete/{id}', [ExchangeReturnController::class, 'completeExchange']);
+            Route::patch('/returns/exchange/process/{id}', [ExchangeReturnController::class, 'processExchange']);
+            Route::patch('/returns/exchange/shipped/{id}', [ExchangeReturnController::class, 'markExchangeShipped']);
+            Route::patch('/returns/exchange/received/{id}', [ExchangeReturnController::class, 'markExchangeReceived']);
+            Route::patch('/returns/exchange/complete/{id}', [ExchangeReturnController::class, 'completeExchange']);
             // Refund type
-            Route::post('/returns/refund/submit-info/{id}', [RefundReturnController::class, 'khqrInfo']);
-            Route::post('/returns/refund/process/{id}', [RefundReturnController::class, 'refund']);
-            Route::post('/returns/refund/complete/{id}', [RefundReturnController::class, 'completeRefund']);
+            Route::patch('/returns/refund/submit-info/{id}', [RefundReturnController::class, 'khqrInfo']);
+            Route::patch('/returns/refund/process/{id}', [RefundReturnController::class, 'refund']);
+            Route::patch('/returns/refund/complete/{id}', [RefundReturnController::class, 'completeRefund']);
             // Products — full CRUD
             Route::get('/products', [ProductPermissionController::class, 'index']);
             Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);

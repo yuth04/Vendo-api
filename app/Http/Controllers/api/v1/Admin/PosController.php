@@ -117,61 +117,11 @@ class PosController extends Controller
         ], 200);
 
     }
-    // Return Details
-    // public function returnDetails($id)
-    // {
 
-    //     $returnOrder = ReturnOrder::with([
-    //         'user',
-    //         'items.orderItem.product',
-    //         'order.payment',
-    //         'order.address',
-    //     ])->find($id);
-    //     if (!$returnOrder) {
-    //         return response()->json([
-    //             'message' => 'Return order not found'
-    //         ], 404);
-    //     }
-    //     return response()->json([
-    //         'message' => 'Retrieved return order details successfully',
-    //         'data' => [
-    //             'id' => $returnOrder->id,
-    //             'order_number' => $returnOrder->order->order_number,
-    //             'date' => $returnOrder->created_at->format('d-m-Y h:i:s A'),
-    //             'reason' => $returnOrder->reason,
-    //             'note' => $returnOrder->note,
-    //             'status' => $returnOrder->status ?? 'N/A',
-    //             'payment_status' => optional($returnOrder->order->payment)->status ?? 'N/A',
-    //             'payment_method' => optional($returnOrder->order->payment)->payment_method ?? 'N/A',
-    //             'shipping_fee' => $returnOrder->order->shipping_fee ?? 'N/A',
-    //             'total_price' => $returnOrder->order->total_price,
-    //             'customer' => [
-    //                 'first_name' => $returnOrder->user->first_name,
-    //                 'last_name' => $returnOrder->user->last_name,
-    //                 'email' => $returnOrder->user->email,
-    //                 'avatar' => $returnOrder->user->image,
-    //             ],
-    //             'shipping_address' => $returnOrder->order->address,
-    //             'items' => $returnOrder->items->map(function ($item) {
-    //                 return [
-    //                     'id' => $item->id,
-    //                     'product_name' => $item->orderItem->product_name,
-    //                     'price' => $item->orderItem->price,
-    //                     'quantity' => $item->quantity,
-    //                     'subtotal' => $item->orderItem->price * $item->quantity,
-    //                     'size' => $item->orderItem->size,
-    //                     'color' => $item->orderItem->color,
-    //                     'product_image' => $item->orderItem->product_image
-    //                         ?? null,
-    //                 ];
-    //             }),
-    //         ]
-    //     ]);
-    // }
     // Admin: Get Return Order Details
     public function returnDetails($id)
     {
-        
+
         $return = ReturnOrder::with([
             'user',
 
@@ -528,4 +478,64 @@ class PosController extends Controller
             ],
         ]);
     }
+
+
+
+
+
+
+
+
+
+    // Return Details
+    // public function returnDetails($id)
+    // {
+
+    //     $returnOrder = ReturnOrder::with([
+    //         'user',
+    //         'items.orderItem.product',
+    //         'order.payment',
+    //         'order.address',
+    //     ])->find($id);
+    //     if (!$returnOrder) {
+    //         return response()->json([
+    //             'message' => 'Return order not found'
+    //         ], 404);
+    //     }
+    //     return response()->json([
+    //         'message' => 'Retrieved return order details successfully',
+    //         'data' => [
+    //             'id' => $returnOrder->id,
+    //             'order_number' => $returnOrder->order->order_number,
+    //             'date' => $returnOrder->created_at->format('d-m-Y h:i:s A'),
+    //             'reason' => $returnOrder->reason,
+    //             'note' => $returnOrder->note,
+    //             'status' => $returnOrder->status ?? 'N/A',
+    //             'payment_status' => optional($returnOrder->order->payment)->status ?? 'N/A',
+    //             'payment_method' => optional($returnOrder->order->payment)->payment_method ?? 'N/A',
+    //             'shipping_fee' => $returnOrder->order->shipping_fee ?? 'N/A',
+    //             'total_price' => $returnOrder->order->total_price,
+    //             'customer' => [
+    //                 'first_name' => $returnOrder->user->first_name,
+    //                 'last_name' => $returnOrder->user->last_name,
+    //                 'email' => $returnOrder->user->email,
+    //                 'avatar' => $returnOrder->user->image,
+    //             ],
+    //             'shipping_address' => $returnOrder->order->address,
+    //             'items' => $returnOrder->items->map(function ($item) {
+    //                 return [
+    //                     'id' => $item->id,
+    //                     'product_name' => $item->orderItem->product_name,
+    //                     'price' => $item->orderItem->price,
+    //                     'quantity' => $item->quantity,
+    //                     'subtotal' => $item->orderItem->price * $item->quantity,
+    //                     'size' => $item->orderItem->size,
+    //                     'color' => $item->orderItem->color,
+    //                     'product_image' => $item->orderItem->product_image
+    //                         ?? null,
+    //                 ];
+    //             }),
+    //         ]
+    //     ]);
+    // }
 }
