@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1\Orders;
 
 use App\Events\OrderStatusUpdated;
+use App\Events\ReturnStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminReturnRequestMail;
 use App\Mail\ReturnOrderRequestMail;
@@ -1253,11 +1254,8 @@ class ReturnOrderController extends Controller
                     ' days only).',
             ], 400);
         }
-
         try {
-
             $return = DB::transaction(function () use ($request, $order) {
-
                 // Get Order Items
                 $orderItemIds = collect($request->items)
                     ->pluck('order_item_id')
@@ -1695,7 +1693,13 @@ class ReturnOrderController extends Controller
             );
 
             try {
-                broadcast(new OrderStatusUpdated($return->order_id, 'return_approved', 'unpaid', true));
+                broadcast(new ReturnStatusUpdated(
+                    $return->id,
+                    ReturnOrder::STATUS_APPROVED,
+                    'Your return request for order #' .
+                    $return->order->order_number .
+                    ' has been approved. Please ship the item(s) back.'
+                ));
             } catch (\Exception $e) {
                 Log::error('Broadcast failed: ' . $e->getMessage());
             }
@@ -1748,7 +1752,11 @@ class ReturnOrderController extends Controller
             'shopping-bag',
             "/account/returns/{$return->id}"
         );
-
+        broadcast(new ReturnStatusUpdated(
+            $return->id,
+            ReturnOrder::STATUS_RECEIVED,
+            'Your returned package has been received.'
+        ));
         return response()->json([
             'message' => 'Return order marked as received successfully.',
             'data' => $return->fresh(),
@@ -1830,7 +1838,11 @@ class ReturnOrderController extends Controller
                 'shopping-bag',
                 "/account/returns/{$return->id}"
             );
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                ReturnOrder::STATUS_INSPECTED,
+                'Your returned item has been inspected.'
+            ));
             return response()->json([
                 'message' => 'Return inspected successfully.',
                 'data' => $return->fresh(['items', 'items.refund', 'items.exchange']),
@@ -1929,7 +1941,11 @@ class ReturnOrderController extends Controller
                 'shopping-bag',
                 "/account/returns/{$return->id}"
             );
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                ReturnOrder::STATUS_COMPLETED,
+                'Your return has been completed.'
+            ));
             return response()->json([
                 'message' => 'Return order marked as completed successfully.',
                 'data' => $return->fresh(['items.refund', 'items.exchange']),
@@ -1976,7 +1992,11 @@ class ReturnOrderController extends Controller
             'shopping-bag',
             "/account/returns/{$return->id}"
         );
-
+        broadcast(new ReturnStatusUpdated(
+            $return->id,
+            ReturnOrder::STATUS_REJECTED,
+            'Your return has been rejected.'
+        ));
         return response()->json(['message' => 'Return rejected successfully.']);
     }
 }

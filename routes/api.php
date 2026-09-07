@@ -61,6 +61,10 @@ Route::prefix('v1')->group(function () {
         '/orders/{orderId}/invoice',
         [ExportController::class, 'downloadInvoice']
     );
+    Route::get(
+        '/returns/invoice/{id}',
+        [ExportController::class, 'exportReturnInvoice']
+    );
     // uptimerobot for no-sleep
     Route::get('/health', function () {
         return response()->json(['status' => 'ok']);
@@ -144,7 +148,7 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
-        Route::get('/orders/returnable-items/{orderId}',[ExchangeReturnController::class, 'getReturnableItem']);
+        Route::get('/orders/returnable-items/{orderId}', [ExchangeReturnController::class, 'getReturnableItem']);
         // Notifications
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotifyController::class, 'getAll']);
@@ -158,7 +162,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
-        
+
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);

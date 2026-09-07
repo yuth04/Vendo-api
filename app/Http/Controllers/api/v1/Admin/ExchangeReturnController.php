@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\v1\Admin;
 
+use App\Events\ReturnStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\ReturnCompletedMail;
 use App\Mail\ReturnReceivedMail;
@@ -132,8 +133,8 @@ class ExchangeReturnController extends Controller
                     throw new \RuntimeException('This return request does not contain any exchange items.');
                 }
 
-                if (!in_array($return->status, [ReturnOrder::STATUS_RECEIVED, ReturnOrder::STATUS_INSPECTED], true)) {
-                    throw new \RuntimeException('Return item(s) must be received before exchange processing.');
+                if (!in_array($return->status, [ReturnOrder::STATUS_INSPECTED], true)) {
+                    throw new \RuntimeException('Return item(s) must be inspected before exchange processing.');
                 }
 
                 $replacementVariants = [];
@@ -209,7 +210,13 @@ class ExchangeReturnController extends Controller
                         ]);
                     }
                 }
-
+                broadcast(new ReturnStatusUpdated(
+                    $return->id,
+                    Exchange::STATUS_PROCESSING,
+                    'Your replacement item for order #' .
+                    $return->order->order_number .
+                    ' is being prepared.'
+                ));
                 return $return->fresh([
                     'items.exchange',
                     'items.replacementVariant.product',
@@ -329,6 +336,13 @@ class ExchangeReturnController extends Controller
                 'truck',
                 "/account/returns/{$return->id}"
             );
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                Exchange::STATUS_SHIPPED,
+                'Your replacement item for order #' .
+                $return->order->order_number .
+                ' has been shipped.'
+            ));
             return response()->json([
                 'message' => 'All exchange items have been marked as shipped.',
                 'data' => $return,
@@ -430,7 +444,13 @@ class ExchangeReturnController extends Controller
                 'package-check',
                 "/account/returns/{$return->id}"
             );
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                Exchange::STATUS_RECEIVED,
+                'Your replacement item for order #' .
+                $return->order->order_number .
+                ' has been received.'
+            ));
             return response()->json([
                 'message' => 'All exchange items have been marked as received.',
                 'data' => $return,
@@ -652,7 +672,13 @@ class ExchangeReturnController extends Controller
                         'status' => Exchange::STATUS_COMPLETED,
                     ]);
                 }
-
+                broadcast(new ReturnStatusUpdated(
+                    $return->id,
+                    Exchange::STATUS_COMPLETED,
+                    'Your replacement item for order #' .
+                    $return->order->order_number .
+                    ' has been completed.'
+                ));
                 return $return->fresh([
                     'user',
                     'order',
