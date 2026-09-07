@@ -283,23 +283,19 @@
                         Product
                     </th>
 
-                    <th style="width: 15%;">
-                        Size
-                    </th>
-
-                    <th style="width: 15%;">
-                        Color
+                    <th style="width: 20%;">
+                        Variant
                     </th>
 
                     <th style="width: 10%;" class="text-center">
                         Qty
                     </th>
 
-                    <th style="width: 12.5%;" class="text-right">
+                    <th style="width: 15%;" class="text-right">
                         Unit Price
                     </th>
 
-                    <th style="width: 12.5%;" class="text-right">
+                    <th style="width: 20%;" class="text-right">
                         Amount
                     </th>
                 </tr>
@@ -312,39 +308,74 @@
                     @php
                         $quantity = $item->quantity ?? 1;
 
-                        $unitPrice = $item->orderItem->price ?? 0;
+                        $unitPrice =
+                            $item->orderItem->price
+                            ?? $item->orderItem->unit_price
+                            ?? 0;
 
                         $amount = $quantity * $unitPrice;
+
+                        $variant = $item->variant
+                            ?? $item->orderItem->variant
+                            ?? $item->orderItem->productVariant
+                            ?? null;
                     @endphp
 
                     <tr>
 
-                        {{-- Product --}}
                         <td>
                             {{ $item->orderItem->product_name ?? 'N/A' }}
                         </td>
 
-                        {{-- Size --}}
                         <td>
-                            {{ $item->orderItem->size ?? 'N/A' }}
+
+                            <div class="variant">
+
+                                @if($variant->size || $variant->color)
+
+                                    @if($variant->color)
+
+                                    @endif
+
+                                    @if($variant->color)
+                                        {{ $variant->color }}
+                                    @endif
+                                    /
+                                    @if($variant->size)
+                                        {{ $variant->size }}
+                                    @endif
+
+
+                                @elseif($item->variant)
+
+                                                    {{ $item->variant->name
+                                    ?? $item->variant->variant_name
+                                    ?? $item->variant->sku
+                                    ?? 'N/A'
+                                                                                                                                                                }}
+
+                                @else
+
+                                    N/A
+
+                                @endif
+
+                            </div>
+
                         </td>
 
-                        {{-- Color --}}
-                        <td>
-                            {{ $item->orderItem->color ?? 'N/A' }}
+
+                        </td></span>
                         </td>
 
-                        {{-- Quantity --}}
                         <td class="text-center">
                             {{ $quantity }}
                         </td>
 
-                        {{-- Unit Price --}}
                         <td class="text-right">
                             ${{ number_format($unitPrice, 2) }}
                         </td>
 
-                        {{-- Amount --}}
                         <td class="text-right">
                             ${{ number_format($amount, 2) }}
                         </td>
@@ -469,7 +500,7 @@
                             ?? $item->variant->variant_name
                             ?? $item->variant->sku
                             ?? 'N/A'
-                                                                                                }}
+                                                                                                            }}
 
                             <br>
 
@@ -478,7 +509,7 @@
                             ?? $item->replacementVariant->variant_name
                             ?? $item->replacementVariant->sku
                             ?? 'N/A'
-                                                                                                }}
+                                                                                                            }}
 
                         </div>
 
@@ -566,7 +597,15 @@
 
             Thank you for shopping with VENDO STORE.
 
-  
+            <br>
+
+            This document is a return transaction record.
+
+            <br><br>
+
+            Generated on
+            {{ now()->format('d M Y H:i') }}
+
         </div>
 
     </div>

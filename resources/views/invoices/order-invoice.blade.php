@@ -1,4 +1,3 @@
-```blade
 <!DOCTYPE html>
 <html lang="en">
 
@@ -226,7 +225,7 @@
             margin-top: 25px;
         }
 
-        .bottom-table > tbody > tr > td {
+        .bottom-table>tbody>tr>td {
             vertical-align: top;
             width: 50%;
         }
@@ -293,603 +292,299 @@
 
 <body>
 
-<div class="invoice">
+    <div class="invoice">
 
-    {{-- =====================================================
-         HEADER
-    ====================================================== --}}
+        {{-- ================= HEADER ================= --}}
+        <div class="header">
+            <table class="header-table">
+                <tr>
+                    {{-- STORE --}}
+                    <td>
+                        <div class="store-name">
+                            VENDO STORE
+                        </div>
+                        <div class="store-subtitle">
+                            Premium Marketplace
+                        </div>
+                        <div class="store-info">
+                            Phnom Penh, Cambodia<br>
+                            support@vendo.com<br>
+                            +855 XX XXX XXX
+                        </div>
+                    </td>
 
-    <div class="header">
+                    {{-- INVOICE --}}
+                    <td>
+                        <div class="invoice-title">
+                            INVOICE
+                        </div>
+                        <div class="invoice-number">
+                            Invoice No:
+                            <strong>{{ $order->order_number }}</strong>
+                            <br>
 
-        <table class="header-table">
+                            Date:
+                            <strong>{{ optional($order->created_at)->format('d M Y') }}</strong>
+                            <br>
 
+                            Status:
+                            @php
+                                $statusClass = match ($order->status) {
+                                    'paid' => 'badge-paid',
+                                    'pending' => 'badge-pending',
+                                    'cancelled' => 'badge-cancelled',
+                                    'confirmed' => 'badge-confirmed',
+                                    'shipping' => 'badge-shipping',
+                                    'delivered' => 'badge-delivered',
+                                    'completed' => 'badge-completed',
+                                    'returned' => 'badge-returned',
+                                    default => 'badge-default',
+                                };
+                            @endphp
+                            <span class="badge {{ $statusClass }}">
+                                {{ ucfirst($order->status ?? 'Pending') }}
+                            </span>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="divider"></div>
+
+        {{-- ================= CUSTOMER / ORDER INFORMATION ================= --}}
+        <table class="info-table">
             <tr>
-
-                {{-- STORE --}}
+                {{-- CUSTOMER --}}
                 <td>
-
-                    <div class="store-name">
-                        VENDO STORE
+                    <div class="info-title">
+                        Customer Information
                     </div>
-
-                    <div class="store-subtitle">
-                        Premium Marketplace
+                    <div class="info-line">
+                        <strong>
+                            {{ $order->user->first_name ?? '' }}
+                            {{ $order->user->last_name ?? '' }}
+                        </strong>
+                        <br>
+                        <span class="label">Email:</span>
+                        {{ $order->user->email ?? 'N/A' }}
+                        <br>
+                        <span class="label">Contact:</span>
+                        {{ $order->contact ?? 'N/A' }}
                     </div>
-
-                    <div class="store-info">
-                        Phnom Penh, Cambodia<br>
-                        support@vendo.com<br>
-                        +855 XX XXX XXX
-                    </div>
-
                 </td>
 
-
-                {{-- INVOICE --}}
+                {{-- ORDER --}}
                 <td>
-
-                    <div class="invoice-title">
-                        INVOICE
+                    <div class="info-title">
+                        Order Information
                     </div>
-
-                    <div class="invoice-number">
-
-                        Invoice No:
-                        <strong>
-                            {{ $order->order_number }}
-                        </strong>
-
+                    <div class="info-line">
+                        <span class="label">Order No:</span>
+                        {{ $order->order_number }}
                         <br>
-
-                        Date:
-                        <strong>
-                            {{ optional($order->created_at)->format('d M Y') }}
-                        </strong>
-
+                        <span class="label">Payment:</span>
+                        {{ ucfirst(optional($order->payment)->payment_method ?? 'N/A') }}
                         <br>
-
-                        Status:
-
-                        @php
-                            $statusClass = match ($order->status) {
-                                'paid' => 'badge-paid',
-                                'pending' => 'badge-pending',
-                                'cancelled' => 'badge-cancelled',
-                                'confirmed' => 'badge-confirmed',
-                                'shipping' => 'badge-shipping',
-                                'delivered' => 'badge-delivered',
-                                'completed' => 'badge-completed',
-                                'returned' => 'badge-returned',
-                                default => 'badge-default',
-                            };
-                        @endphp
-
-                        <span class="badge {{ $statusClass }}">
-                            {{ ucfirst($order->status) }}
-                        </span>
-
+                        <span class="label">Payment Status:</span>
+                        {{ ucfirst(optional($order->payment)->status ?? 'Pending') }}
                     </div>
-
                 </td>
-
             </tr>
-
         </table>
 
-    </div>
-
-
-    <div class="divider"></div>
-
-
-    {{-- =====================================================
-         CUSTOMER / ORDER INFORMATION
-    ====================================================== --}}
-
-    <table class="info-table">
-
-        <tr>
-
-            {{-- CUSTOMER --}}
-            <td>
-
-                <div class="info-title">
-                    Customer Information
-                </div>
-
-                <div class="info-line">
-
-                    <strong>
-                        {{ $order->user->first_name ?? '' }}
-                        {{ $order->user->last_name ?? '' }}
-                    </strong>
-
-                    <br>
-
-                    <span class="label">
-                        Email:
-                    </span>
-
-                    {{ $order->user->email ?? 'N/A' }}
-
-                    <br>
-
-                    <span class="label">
-                        Contact:
-                    </span>
-
-                    {{ $order->contact ?? 'N/A' }}
-
-                </div>
-
-            </td>
-
-
-            {{-- ORDER --}}
-            <td>
-
-                <div class="info-title">
-                    Order Information
-                </div>
-
-                <div class="info-line">
-
-                    <span class="label">
-                        Order No:
-                    </span>
-
-                    {{ $order->order_number }}
-
-                    <br>
-
-                    <span class="label">
-                        Payment:
-                    </span>
-
-                    {{ ucfirst(
-    optional($order->payment)->payment_method
-    ?? 'N/A'
-) }}
-
-                    <br>
-
-                    <span class="label">
-                        Payment Status:
-                    </span>
-
-                    {{ ucfirst(
-    optional($order->payment)->status
-    ?? 'Pending'
-) }}
-
-                </div>
-
-            </td>
-
-        </tr>
-
-    </table>
-
-
-    {{-- =====================================================
-         BILLING / SHIPPING ADDRESS
-    ====================================================== --}}
-
-    @if($order->address)
-
-        <div class="info-title">
-            Shipping Address
-        </div>
-
-        <div class="info-line" style="margin-bottom: 25px;">
-
-            {{ $order->address->address_line ?? '' }}<br>
-
-            {{ $order->address->city ?? '' }},
-            {{ $order->address->province ?? '' }}
-
-            @if($order->address->postal_code)
-                {{ $order->address->postal_code }}
-            @endif
-
-            <br>
-
-            Phone:
-            {{ $order->address->phone ?? 'N/A' }}
-
-        </div>
-
-    @endif
-
-
-    {{-- =====================================================
-         ORDER ITEMS
-    ====================================================== --}}
-
-    <div class="section-title">
-        Order Items
-    </div>
-
-    <table class="items-table">
-
-        <thead>
-
-            <tr>
-
-                <th style="width: 6%;">
-                    #
-                </th>
-
-                <th style="width: 34%;">
-                    Product
-                </th>
-
-                <th style="width: 20%;">
-                    Variant
-                </th>
-
-                <th style="width: 10%;" class="text-center">
-                    Qty
-                </th>
-
-                <th style="width: 15%;" class="text-right">
-                    Unit Price
-                </th>
-
-                <th style="width: 15%;" class="text-right">
-                    Amount
-                </th>
-
-            </tr>
-
-        </thead>
-
-
-        <tbody>
-
-            @foreach($order->items as $index => $item)
-
-                            <tr>
-
-                                <td class="text-center">
-
-                                    {{ str_pad(
-                    $index + 1,
-                    2,
-                    '0',
-                    STR_PAD_LEFT
-                ) }}
-
-                                </td>
-
-
-                                {{-- PRODUCT --}}
-                                <td>
-
-                                    <div class="product-name">
-
-                                        {{ $item->product_name ?? 'N/A' }}
-
-                                    </div>
-
-                                </td>
-
-
-                                {{-- VARIANT --}}
-                                <td>
-
-                                    <div class="variant">
-
-                                        @if($item->size || $item->color)
-
-                                            @if($item->size)
-                                                Size: {{ $item->size }}
-                                            @endif
-
-                                            @if($item->size && $item->color)
-                                                <br>
-                                            @endif
-
-                                            @if($item->color)
-                                                Color: {{ $item->color }}
-                                            @endif
-
-                                        @elseif($item->variant)
-
-                                                                {{ $item->variant->name
-                                            ?? $item->variant->variant_name
-                                            ?? $item->variant->sku
-                                            ?? 'N/A'
-                                                                }}
-
-                                        @else
-
-                                            N/A
-
-                                        @endif
-
-                                    </div>
-
-                                </td>
-
-
-                                {{-- QUANTITY --}}
-                                <td class="text-center">
-
-                                    {{ $item->quantity }}
-
-                                </td>
-
-
-                                {{-- UNIT PRICE --}}
-                                <td class="text-right">
-
-                                    ${{ number_format(
-                    $item->price,
-                    2
-                ) }}
-
-                                </td>
-
-
-                                {{-- TOTAL --}}
-                                <td class="text-right">
-
-                                    <strong>
-
-                                        ${{ number_format(
-                    $item->price * $item->quantity,
-                    2
-                ) }}
-
-                                    </strong>
-
-                                </td>
-
-                            </tr>
-
-            @endforeach
-
-        </tbody>
-
-    </table>
-
-
-    {{-- =====================================================
-         NOTES + TOTALS
-    ====================================================== --}}
-
-    <table class="bottom-table">
-
-        <tr>
-
-            {{-- NOTES --}}
-            <td class="notes-box">
-
-                <div class="info-title">
-                    Notes
-                </div>
-
-                <div class="notes">
-
-                    @if($order->note)
-
-                        {{ $order->note }}
-
-                    @else
-
-                        Thank you for your purchase.
-
-                        For any questions regarding this invoice,
-                        please contact support@vendo.com.
-
-                    @endif
-
-                </div>
-
-            </td>
-
-
-            {{-- TOTALS --}}
-            <td>
-
-                <table class="totals-table">
-
-                    {{-- SUBTOTAL --}}
-                    <tr>
-
-                        <td>
-                            Subtotal
-                        </td>
-
-                        <td class="text-right">
-
-                            ${{ number_format(
-    $order->sub_total_price ?? 0,
-    2
-) }}
-
-                        </td>
-
-                    </tr>
-
-
-                    {{-- DISCOUNT --}}
-                    @if(($order->discount_amount ?? 0) > 0)
-
-                                            <tr>
-
-                                                <td>
-                                                    Discount
-                                                </td>
-
-                                                <td class="text-right discount">
-
-                                                    −${{ number_format(
-                            $order->discount_amount,
-                            2
-                        ) }}
-
-                                                </td>
-
-                                            </tr>
-
-                    @endif
-
-
-                    {{-- COUPON --}}
-                    @if(($order->coupon_discount ?? 0) > 0)
-
-                                            <tr>
-
-                                                <td>
-
-                                                    Coupon
-
-                                                    @if($order->coupon_code)
-
-                                                        <span style="font-size:10px;color:#999;">
-                                                            ({{ $order->coupon_code }})
-                                                        </span>
-
-                                                    @endif
-
-                                                </td>
-
-                                                <td class="text-right discount">
-
-                                                    −${{ number_format(
-                            $order->coupon_discount,
-                            2
-                        ) }}
-
-                                                </td>
-
-                                            </tr>
-
-                    @endif
-
-
-                    {{-- SHIPPING --}}
-                    <tr>
-
-                        <td>
-                            Shipping
-                        </td>
-
-                        <td class="text-right">
-
-                            ${{ number_format(
-    $order->shipping_fee ?? 0,
-    2
-) }}
-
-                        </td>
-
-                    </tr>
-
-
-                    {{-- TOTAL --}}
-                    <tr class="total">
-
-                        <td>
-                            GRAND TOTAL
-                        </td>
-
-                        <td class="text-right">
-
-                            ${{ number_format(
-    $order->total_price,
-    2
-) }}
-
-                        </td>
-
-                    </tr>
-
-                </table>
-
-            </td>
-
-        </tr>
-
-    </table>
-
-
-    {{-- =====================================================
-         PAYMENT INFORMATION
-    ====================================================== --}}
-
-    <div class="payment-box">
-
-        <div class="payment-title">
-            Payment Information
-        </div>
-
-        <div class="payment-line">
-
-            <span class="label">
-                Payment Method:
-            </span>
-
-            {{ ucfirst(
-    optional($order->payment)->payment_method
-    ?? 'N/A'
-) }}
-
-            <br>
-
-
-            <span class="label">
-                Payment Status:
-            </span>
-
-            {{ ucfirst(
-    optional($order->payment)->status
-    ?? 'Pending'
-) }}
-
-            @if($order->payment_transaction_id)
-
+        {{-- ================= SHIPPING ADDRESS ================= --}}
+        @if($order->address)
+            <div class="info-title">
+                Shipping Address
+            </div>
+            <div class="info-line" style="margin-bottom: 25px;">
+                {{ $order->address->address_line ?? '' }}<br>
+                {{ $order->address->city ?? '' }},
+                {{ $order->address->province ?? '' }}
+                @if($order->address->postal_code)
+                    {{ $order->address->postal_code }}
+                @endif
                 <br>
+                Phone: {{ $order->address->phone ?? 'N/A' }}
+            </div>
+        @endif
 
-                <span class="label">
-                    Transaction ID:
-                </span>
+        {{-- ================= ORDER ITEMS ================= --}}
+        <div class="section-title">
+            Order Items
+        </div>
 
-                {{ $order->payment_transaction_id }}
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 6%;">#</th>
+                    <th style="width: 34%;">Product</th>
+                    <th style="width: 20%;">Variant</th>
+                    <th style="width: 10%;" class="text-center">Qty</th>
+                    <th style="width: 15%;" class="text-right">Unit Price</th>
+                    <th style="width: 15%;" class="text-right">Amount</th>
+                </tr>
+            </thead>
 
-            @endif
+            <tbody>
+                @foreach($order->items as $index => $item)
+                    <tr>
+                        <td class="text-center">
+                            {{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}
+                        </td>
+
+                        {{-- PRODUCT --}}
+                        <td>
+                            <div class="product-name">
+                                {{ $item->product_name ?? 'N/A' }}
+                            </div>
+                        </td>
+
+                        {{-- VARIANT --}}
+                        <td>
+                            <div class="variant">
+                                @if($item->size || $item->color)
+                                    @if($item->size && $item->color) @endif
+                                    @if($item->color)
+                                        Color: {{ $item->color }}
+                                    @endif
+                                    /
+                                    @if($item->size)
+                                        Size: {{ $item->size }}
+                                    @endif
+
+                                @elseif($item->variant)
+                                    {{ $item->variant->name ?? $item->variant->variant_name ?? $item->variant->sku ?? 'N/A' }}
+                                @else
+                                    N/A
+                                @endif
+                            </div>
+                        </td>
+
+                        {{-- QUANTITY --}}
+                        <td class="text-center">
+                            {{ $item->quantity }}
+                        </td>
+
+                        {{-- UNIT PRICE --}}
+                        <td class="text-right">
+                            ${{ number_format($item->variant->product->price, 2) }}
+                        </td>
+
+                        {{-- TOTAL --}}
+                        <td class="text-right">
+                            <strong>
+                                ${{ number_format($item->variant->product->price * $item->quantity, 2) }}
+                            </strong>
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        {{-- ================= NOTES + TOTALS ================= --}}
+        <table class="bottom-table">
+            <tr>
+                {{-- NOTES --}}
+                <td class="notes-box">
+                    <div class="info-title">
+                        Notes
+                    </div>
+                    <div class="notes">
+                        @if($order->note)
+                            {{ $order->note }}
+                        @else
+                            Thank you for your purchase. For any questions regarding this invoice, please contact
+                            support@vendo.com.
+                        @endif
+                    </div>
+                </td>
+
+                {{-- TOTALS --}}
+                <td>
+                    <table class="totals-table">
+                        {{-- SUBTOTAL --}}
+                        <tr>
+                            <td>Subtotal</td>
+                            <td class="text-right">
+                                ${{ number_format($order->original_price ?? 0, 2) }}
+                            </td>
+                        </tr>
+
+                        {{-- DISCOUNT --}}
+                        @if(($order->discount_amount ?? 0) > 0)
+                            <tr>
+                                <td>Discount</td>
+                                <td class="text-right discount">
+                                    −${{ number_format($order->discount_amount, 2) }}
+                                </td>
+                            </tr>
+                        @endif
+
+                        {{-- COUPON --}}
+                        @if(($order->coupon_discount ?? 0) > 0)
+                            <tr>
+                                <td>
+                                    Coupon
+                                    @if($order->coupon_code)
+                                        <span style="font-size:10px;color:#999;">({{ $order->coupon_code }})</span>
+                                    @endif
+                                </td>
+                                <td class="text-right discount">
+                                    −${{ number_format($order->coupon_discount, 2) }}
+                                </td>
+                            </tr>
+                        @endif
+
+                        {{-- SHIPPING --}}
+                        <tr>
+                            <td>Shipping</td>
+                            <td class="text-right">
+                                ${{ number_format($order->shipping_fee ?? 0, 2) }}
+                            </td>
+                        </tr>
+
+                        {{-- GRAND TOTAL --}}
+                        <tr class="total">
+                            <td>GRAND TOTAL</td>
+                            <td class="text-right">
+                                ${{ number_format($order->total_price, 2) }}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+
+        {{-- ================= PAYMENT INFORMATION ================= --}}
+        <div class="payment-box">
+            <div class="payment-title">
+                Payment Information
+            </div>
+            <div class="payment-line">
+                <span class="label">Payment Method:</span>
+                {{ ucfirst(optional($order->payment)->payment_method ?? 'N/A') }}
+                <br>
+                <span class="label">Payment Status:</span>
+                {{ ucfirst(optional($order->payment)->status ?? 'Pending') }}
+
+                @if($order->payment_transaction_id)
+                    <br>
+                    <span class="label">Transaction ID:</span>
+                    {{ $order->payment_transaction_id }}
+                @endif
+            </div>
+        </div>
+
+        {{-- ================= FOOTER ================= --}}
+        <div class="footer">
+            <strong>Thank you for shopping with VENDO STORE.</strong>
 
         </div>
 
     </div>
-
-
-    {{-- =====================================================
-         FOOTER
-    ====================================================== --}}
-
-    <div class="footer">
-
-        <strong>
-            Thank you for shopping with VENDO STORE.
-        </strong>
-
-        <br>
-
-        This document is an official order transaction record.
-
-        <br><br>
-
-        Generated on
-        {{ now()->format('d M Y · h:i A') }}
-
-    </div>
-
-</div>
 
 </body>
 
 </html>
-```
