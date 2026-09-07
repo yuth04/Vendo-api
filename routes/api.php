@@ -3,13 +3,12 @@
 
 
 use App\Http\Controllers\api\v1\Admin\CouponController;
+use App\Http\Controllers\api\v1\Admin\ExchangeReturnController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
-use App\Http\Controllers\api\v1\admin\PayWayController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
-use App\Http\Controllers\api\v1\Admin\StoreSettingController;
+use App\Http\Controllers\api\v1\Admin\RefundReturnController;
 use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
-use App\Http\Controllers\api\v1\BakongCallbackController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
 use App\Http\Controllers\api\v1\Admin\PosController;
@@ -18,18 +17,17 @@ use App\Http\Controllers\api\v1\Auth\AuthController;
 use App\Http\Controllers\api\v1\BrandController;
 use App\Http\Controllers\api\v1\Export\ExportController;
 use App\Http\Controllers\api\v1\Marketing\CarouselController;
-use App\Http\Controllers\api\v1\Customer\CartController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
 use App\Http\Controllers\api\v1\NotifyController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
+use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ParentCategoryController;
-use App\Http\Controllers\api\v1\Orders\PaymentController;
+use App\Http\Controllers\api\v1\Payment\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
-use App\Http\Controllers\api\v1\Orders\ReturnOrderController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
@@ -142,14 +140,11 @@ Route::prefix('v1')->group(function () {
 
         // Provinces
         Route::get('/provinces', [AddressController::class, 'provinces']);
-        // Footer
-        Route::get('/footers', [StoreSettingController::class, 'index']);
-        Route::get('/footers/{id}', [StoreSettingController::class, 'show']);
-
     });
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
+        Route::get('/orders/returnable-items/{orderId}',[ExchangeReturnController::class, 'getReturnableItem']);
         // Notifications
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotifyController::class, 'getAll']);
@@ -163,11 +158,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
+        
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
         Route::get('/return-orders/{id}', [ReturnOrderController::class, 'show']);
-        Route::delete('/return-orders/{id}', [ReturnOrderController::class, 'destroy']);
+        Route::patch('/return-orders/cancel/{id}', [ReturnOrderController::class, 'cancel']);
 
         // Auth
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -187,10 +183,11 @@ Route::prefix('v1')->group(function () {
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
         // Bakong Payment
-        Route::post('/payment/khqr/generate', [PaymentController::class, 'generate']);
-        Route::get('/payment/khqr/status', [PaymentController::class, 'checkStatus']);
-        // Bakong callback
-        Route::post('/payments/bakong/callback', [BakongCallbackController::class, 'handle']);
+        // Route::post('/payments/khqr/generate', [PaymentController::class, 'generate']);
+        Route::post('/payments/khqr/regenerate', [OrderController::class, 'regenerateKhqr']);
+        Route::get('/payments/khqr/status', [PaymentController::class, 'checkStatus']);
+        // Route::post('/payments/bakong/callback', [PaymentController::class, 'handle']);
+
         // Wishlists
         Route::prefix('wishlists')->group(function () {
             Route::get('/', [WishlistController::class, 'index']);
@@ -228,12 +225,24 @@ Route::prefix('v1')->group(function () {
             Route::patch('/orders/complete/{id}', [UpdateStatusController::class, 'markAsCompleted']);
 
             // Return Orders — full management
+
             Route::get('/returns', [PosController::class, 'returnHistory']);
             Route::get('/return-details/{id}', [PosController::class, 'returnDetails']);
             Route::patch('/returns/approve/{id}', [ReturnOrderController::class, 'approve']);
             Route::patch('/returns/reject/{id}', [ReturnOrderController::class, 'reject']);
-            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'complete']);
+            Route::patch('/returns/receive/{id}', [ReturnOrderController::class, 'markReceived']);
+            Route::patch('/returns/inspect/{id}', [ReturnOrderController::class, 'inspect']);
+            Route::patch('/returns/complete/{id}', [ReturnOrderController::class, 'completeReturn']);
 
+            // Exchange type
+            Route::patch('/returns/exchange/process/{id}', [ExchangeReturnController::class, 'processExchange']);
+            Route::patch('/returns/exchange/shipped/{id}', [ExchangeReturnController::class, 'markExchangeShipped']);
+            Route::patch('/returns/exchange/received/{id}', [ExchangeReturnController::class, 'markExchangeReceived']);
+            Route::patch('/returns/exchange/complete/{id}', [ExchangeReturnController::class, 'completeExchange']);
+            // Refund type
+            Route::patch('/returns/refund/submit-info/{id}', [RefundReturnController::class, 'khqrInfo']);
+            Route::patch('/returns/refund/process/{id}', [RefundReturnController::class, 'refund']);
+            Route::patch('/returns/refund/complete/{id}', [RefundReturnController::class, 'completeRefund']);
             // Products — full CRUD
             Route::get('/products', [ProductPermissionController::class, 'index']);
             Route::get('/products/{id}', [ProductPermissionController::class, 'productId']);
@@ -343,21 +352,16 @@ Route::prefix('v1')->group(function () {
             Route::delete('/users/{id}', [UserController::class, 'destroy']);
 
             // Settings
-            Route::put('/settings/change-name', [SettingController::class, 'changeName']);
-            Route::put('/settings/change-password', [SettingController::class, 'changePassword']);
-            Route::post('/settings/change-avatar', [SettingController::class, 'changeProfileImage']);
-
+            Route::prefix('settings')->group(function () {
+                Route::get('/', [SettingController::class, 'index']);
+                Route::post('/', [SettingController::class, 'update']);
+                Route::put('/change-name', [SettingController::class, 'changeName']);
+                Route::put('/change-password', [SettingController::class, 'changePassword']);
+                Route::post('/change-avatar', [SettingController::class, 'changeProfileImage']);
+            });
             // SUPER ADMIN ONLY — danger zone
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
-            });
-            Route::prefix('footers')->group(function () {
-                Route::get('/', [StoreSettingController::class, 'getAll']);
-                Route::get('/{id}', [StoreSettingController::class, 'getById']);
-                Route::post('/', [StoreSettingController::class, 'store']);
-                Route::put('/bulk-update', [StoreSettingController::class, 'bulkUpdate']); // ← must be before /{id}
-                Route::put('/{id}', [StoreSettingController::class, 'update']);
-                Route::delete('/{id}', [StoreSettingController::class, 'destroy']);
             });
         });
     });

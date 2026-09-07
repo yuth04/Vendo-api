@@ -11,11 +11,13 @@ use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\ProductVariant;
+use App\Models\User;
 use App\Services\BakongService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -25,36 +27,86 @@ class OrderController extends Controller
     private function calculateShipping(?string $province): float
     {
         if (!$province) {
-            return 0; 
+            return 1.5;
         }
 
         $province = strtolower(trim($province));
 
         if (in_array($province, ['phnom penh', 'ភ្នំពេញ', 'pp'])) {
-            return 0;
+            return 1.5;
         }
 
-        return 0;
+        return 2;
     }
-    // create notification
-    private function initializeNotification($user, $order)
+
+    private function resolveOrderAddress($user, Request $request)
     {
-        return Notification::create([
+        // if ($request->filled('address_id')) {
+        //     return Address::where('id', $request->address_id)
+        //         ->where('user_id', $user->id)
+        //         ->first();
+        // }
+        if ($request->filled('address_id')) {
+            $address = Address::where('id', $request->address_id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$address) {
+                throw new \InvalidArgumentException("Selected address was not found or does not belong to your account.");
+            }
+
+            return $address;
+        }
+        return Address::create([
             'user_id' => $user->id,
-            'title' => 'Order placed successfully',
-            'message' => "Your order #{$order->id} is waiting for payment.",
-            'icon' => 'shopping-bag',
-            'url' => "/account/orders/{$order->id}"
+            'first_name' => $request->first_name,
+            'last_name' => $request->last_name,
+            'address_line' => $request->address_line,
+            'city' => $request->city,
+            'province' => $request->province,
+            'phone' => $request->phone,
         ]);
     }
-    // Checkout
+    private function prepareCheckoutResponse(Order $order, Payment $payment, ?array $khqrData = null, User $user)
+    {
+        // Base response structure for all payment types
+        $response = [
+            'message' => 'Order placed successfully',
+            'order' => [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'total_price' => $order->total_price,
+                'payment_method' => $payment->payment_method,
+            ]
+        ];
+        if ($payment->payment_method === "Cash on Delivery") {
+            $order->load(['items.variant.product', 'user', 'address', 'payment']);
+            try {
+                Mail::to($user->email)->send(new OrderPlaced($order));
+                Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($order));
+            } catch (\Throwable $e) {
+                Log::error('Order confirmation email failed to queue', [
+                    'order_id' => $order->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            return $response;
+        }
+
+        if ($khqrData) {
+            $response['khqr'] = $khqrData;
+        }
+
+        return $response;
+    }
     public function checkout(Request $request)
     {
         if (!Auth::check()) {
-            return response()->json(['message' => 'login required'], 400);
+            return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
         $request->validate([
+            'order_id' => 'nullable|exists:orders,id',
             'address_id' => 'nullable|exists:addresses,id',
             'first_name' => 'required_without:address_id|string|max:255',
             'last_name' => 'nullable|string|max:255',
@@ -73,6 +125,42 @@ class OrderController extends Controller
         $user = Auth::user();
 
         try {
+            // start
+            if ($request->filled('order_id')) {
+                $order = Order::where('id', $request->order_id)
+                    ->where('user_id', $user->id)
+                    ->first();
+
+                if (!$order) {
+                    return response()->json(['message' => 'Order not found.'], 404);
+                }
+
+                if (in_array($order->status, ['confirmed', 'paid', 'completed'])) {
+                    return response()->json(['message' => 'This order has already been paid.'], 400);
+                }
+
+                if (in_array($order->status, ['cancelled', 'expired'])) {
+                    $order->update(['status' => 'pending']);
+                }
+
+                $payment = Payment::where('order_id', $order->id)
+                    ->where('payment_method', $request->payment_method)
+                    ->latest()
+                    ->first();
+
+                $khqrData = null;
+                if ($request->payment_method === 'KHQR') {
+                    $bakongService = new BakongService();
+                    $khqrData = $bakongService->generateKhqrPayment($order);
+                }
+
+                return response()->json(
+                    $this->prepareCheckoutResponse($order, $payment, $khqrData, $user),
+                    200
+                );
+            }
+            // end
+            // Create new order
             $orderModel = null;
 
             $result = DB::transaction(function () use ($user, $request, &$orderModel) {
@@ -168,11 +256,9 @@ class OrderController extends Controller
                     $bakongService = new BakongService();
                     $khqrData = $bakongService->generateKhqrPayment($order);
                 }
-                $this->initializeNotification($user, $order);
-
                 $orderModel = $order;
 
-                return $this->prepareCheckoutResponse($order, $payment, $khqrData);
+                return $this->prepareCheckoutResponse($order, $payment, $khqrData, $user);
             });
             return response()->json($result, 201);
 
@@ -183,120 +269,7 @@ class OrderController extends Controller
             ], 500);
         }
     }
-    // testing
-    public function checkout1(Request $request)
-    {
-        if (!Auth::check()) {
-            return response()->json(['message' => 'login required'], 400);
-        }
-        $request->validate([
-            'address_id' => 'nullable|exists:addresses,id',
-            'first_name' => 'required_without:address_id|string|max:255',
-            'last_name' => 'nullable|string|max:255',
-            'address_line' => 'required_without:address_id|string|max:500',
-            'city' => 'required_without:address_id|string|max:255',
-            'province' => 'required_without:address_id|string|max:255',
-            'phone' => 'required_without:address_id|string|max:20',
-            'coupon_code' => 'nullable|string',
-            'note' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.product_variant_id' => 'required|exists:product_variants,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
-        $user = Auth::user();
-        try {
-            $order = DB::transaction(function () use ($user, $request) {
-                // address
-                $address = $this->resolveOrderAddress($user, $request);
-                // create order
-                $order = $this->initializeOrder($user, $address);
-                if ($request->has('note')) {
-                    $order->update(['note' => $request->note]);
-                }
-                // process items
-                $totals = $this->processOrderItems($order, $request->items);
-                $originalTotal = $totals['original_total'];
-                $subtotal = $totals['final_total'];
-                // shipping
-                $shipping = (float) $this->calculateShipping($address->province);
-                // coupon
-                $couponDiscount = 0;
-                $couponCode = null;
-                $couponInput = $request->filled('coupon_code') ? $request->coupon_code : cache()->get('coupon_' . $user->id);
-                if ($couponInput) {
-                    $coupon = Coupon::where('code', $couponInput)->first();
-                    if (!$coupon) {
-                        throw new \Exception("Invalid coupon code");
-                    }
-                    // check expired
-                    if ($coupon->start_date && now()->gt($coupon->end_date)) {
-                        throw new \Exception("Coupon expired");
-                    }
-                    if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
-                        throw new \Exception("Coupon usage limit reached");
-                    }
 
-                    $couponDiscount = min($coupon->calculateDiscount($subtotal), $subtotal);
-                    $couponCode = $coupon->code;
-                    // clear cache
-                    cache()->forget('coupon_' . $user->id);
-                }
-                // total calculation
-                $totalAmount = max(0, round(($subtotal - $couponDiscount) + $shipping, 2));
-                // update order
-                $order->update([
-                    'original_price' => round($originalTotal, 2),
-                    'sub_total_price' => round($subtotal, 2),
-                    'total_price' => $totalAmount,
-                    'shipping_fee' => $shipping,
-                    'coupon_code' => $couponCode,
-                    'coupon_discount' => $couponDiscount,
-                    'status' => 'pending',
-                ]);
-                return $order;
-            });
-            $this->initializeNotification($user, $order);
-            $orderModel = $order;
-            if ($orderModel) {
-                $orderModel->load(['items.variant.product', 'user', 'address', 'payment']);
-
-                Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($orderModel));
-                Mail::to($user->email)->send(new OrderPlaced($orderModel));
-            }
-            return response()->json([
-                'message' => 'Order placed successfully',
-                'order' => [
-                    'order_id' => $order->id,
-                    'order_number' => $order->order_number,
-                    'total_price' => $order->total_price,
-                    // 'status' => $order->status,
-                ]
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'checkout failed',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-    private function resolveOrderAddress($user, Request $request)
-    {
-        if ($request->filled('address_id')) {
-            return Address::where('id', $request->address_id)
-                ->where('user_id', $user->id)
-                ->first();
-        }
-
-        return Address::create([
-            'user_id' => $user->id,
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'address_line' => $request->address_line,
-            'city' => $request->city,
-            'province' => $request->province,
-            'phone' => $request->phone,
-        ]);
-    }
     private function initializeOrder($user, $address)
     {
         return Order::create([
@@ -364,32 +337,7 @@ class OrderController extends Controller
             'final_total' => $finalTotal
         ];
     }
-    private function prepareCheckoutResponse(Order $order, Payment $payment, ?array $khqrData = null)
-    {
-        // Base response structure for all payment types
-        $response = [
-            'message' => 'Order placed successfully',
-            'order' => [
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'total_price' => $order->total_price,
-                'payment_method' => $payment->payment_method,
-            ]
-        ];
-        if ($payment->payment_method === "Cash on Delivery") {
-            $order->load(['items.variant.product', 'user', 'address', 'payment']);
-            Mail::to(config('mail.admin_email'))->send(new AdminOrderPlaced($order));
-            Mail::to($order->user->email)->send(new OrderPlaced($order));
 
-            return $response;
-        }
-
-        if ($khqrData) {
-            $response['khqr'] = $khqrData;
-        }
-
-        return $response;
-    }
     //Apply Coupon 
     public function apply(Request $request)
     {
@@ -479,7 +427,7 @@ class OrderController extends Controller
     public function myOrders()
     {
         $user = Auth::user();
-        $orders = $user->orders()->with(['items.variant.product', 'payment', 'address'])->latest()->get();
+        $orders = $user->orders()->with(['items.variant.product', 'payment', 'address'])->where('created_at', '>=', now()->subMonths(3))->latest()->get();
 
         return response()->json([
             'message' => $orders->isEmpty() ? 'No orders found' : 'Orders retrieved successfully',
@@ -532,18 +480,18 @@ class OrderController extends Controller
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'status' => $order->status,
+            // 'original_price' => round($originalSubtotal, 2),
+            'original_price' => number_format((float) $originalSubtotal, 2, '.', ''),
+            'product_discount' => number_format((float) $productDiscount, 2, '.', ''),
+            'sub_total_price' => number_format((float) $finalSubtotal, 2, '.', ''),
+            'coupon_discount' => number_format((float) $couponDiscount, 2, '.', ''),
+            'shipping_fee' => number_format((float) $shipping, 2, '.', ''),
+            'total_price' => number_format((float) $totalPayment, 2, '.', ''),
+            // 'total_price' => round($totalPayment, 2),
 
-            'original_price' => round($originalSubtotal, 2),
-            'product_discount' => round($productDiscount, 2),
-            'sub_total_price' => round($finalSubtotal, 2),
 
-            'coupon_discount' => round($couponDiscount, 2),
+            'save' => number_format((float) $productDiscount + $couponDiscount, 2, '.', ''),
 
-            'shipping_fee' => $shipping,
-            'total_price' => round($totalPayment, 2),
-
-
-            'save' => round($productDiscount + $couponDiscount, 2),
 
             'coupon' => [
                 'code' => $order->coupon_code,
@@ -576,14 +524,14 @@ class OrderController extends Controller
                 return [
                     'id' => $item->id,
                     'quantity' => $item->quantity,
-                    'save' => round(max(0, $originalPrice - $finalPrice), 2),
-                    'subtotal' => round($finalPrice * $item->quantity, 2),
+                    'save' => number_format((float) max(0, $originalPrice - $finalPrice), 2, '.', ''),
+                    'subtotal' => number_format((float) ($finalPrice * $item->quantity), 2, '.', ''),
                     'variant' => [
                         'id' => $item->product_variant_id,
                         'size' => $item->size,
                         'color' => $item->color,
                         'price' => $originalPrice,
-                        'discount_price' => round($item->price, 2) ?? 0,
+                        'discount_price' => number_format((float) $item->price, 2, '.', '') ?? 0,
                         'product' => [
                             'id' => $item->variant->product->id ?? null,
                             'name' => $item->product_name,
@@ -654,11 +602,6 @@ class OrderController extends Controller
         if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
         }
-
-        // if ($order->status !== 'pending') {
-        //     return response()->json(['message' => 'Only pending orders can be deleted'], 400);
-        // }
-
         DB::transaction(function () use ($order) {
             $order->items()->delete();
             $order->payment()?->delete();
@@ -666,6 +609,43 @@ class OrderController extends Controller
         });
 
         return response()->json(['message' => 'Order deleted successfully', 'order_id' => $orderId]);
+    }
+    public function regenerateKhqr(Request $request)
+    {
+        $request->validate([
+            'order_id' => 'required|integer|exists:orders,id',
+        ]);
+
+        $user = Auth::user();
+
+        $order = Order::where('id', $request->order_id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found.'], 404);
+        }
+
+        if (in_array($order->status, ['confirmed', 'paid', 'completed'])) {
+            return response()->json(['message' => 'This order has already been paid.'], 400);
+        }
+
+        try {
+            $bakongService = new BakongService();
+            $khqrData = $bakongService->generateKhqrPayment($order);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'KHQR Code regenerated successfully',
+                'order_id' => $order->id,
+                'khqr' => $khqrData,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to generate KHQR code.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
     public function downloadReceipt(Request $request, Order $order)
     {
@@ -683,6 +663,238 @@ class OrderController extends Controller
 
         return $pdf->download('Vendo-Receipt-' . $order->order_number . '.pdf');
     }
+    // Checkout
+    // public function checkout(Request $request)
+    // {
+    //     if (!Auth::check()) {
+    //         return response()->json(['message' => 'Unauthenticated.'], 401);
+    //     }
 
+    //     $request->validate([
+    //         'order_id' => 'nullable|exists:orders,id',
+    //         'address_id' => 'nullable|exists:addresses,id',
+    //         'first_name' => 'required_without:address_id|string|max:255',
+    //         'last_name' => 'nullable|string|max:255',
+    //         'address_line' => 'required_without:address_id|string|max:500',
+    //         'city' => 'required_without:address_id|string|max:255',
+    //         'province' => 'required_without:address_id|string|max:255',
+    //         'phone' => 'required_without:address_id|string|max:20',
+    //         'coupon_code' => 'nullable|string',
+    //         'payment_method' => 'required|in:Cash on Delivery,KHQR,ABA,Bakong,Credit Card',
+    //         'note' => 'nullable|string',
+    //         'items' => 'required|array|min:1',
+    //         'items.*.product_variant_id' => 'required|exists:product_variants,id',
+    //         'items.*.quantity' => 'required|integer|min:1',
+    //     ]);
+
+    //     $user = Auth::user();
+
+    //     try {
+    //         // ── 1. RETRY EXISTING ORDER FLOW ─────────────────────────────────
+    //         if ($request->filled('order_id')) {
+    //             $order = Order::with('address')
+    //                 ->where('id', $request->order_id)
+    //                 ->where('user_id', $user->id)
+    //                 ->first();
+
+    //             if (!$order) {
+    //                 return response()->json(['message' => 'Order not found.'], 404);
+    //             }
+
+    //             if (in_array($order->status, ['confirmed', 'paid', 'completed'])) {
+    //                 return response()->json(['message' => 'This order has already been paid.'], 400);
+    //             }
+
+    //             // COD Province Validation for Existing Order
+    //             $province = $order->address ? $order->address->province : null;
+    //             if ($request->payment_method === 'Cash on Delivery' && strtolower(trim($province ?? '')) !== 'Phnom Penh') {
+    //                 return response()->json(['message' => 'Cash on Delivery is only available for Phnom Penh addresses.'], 400);
+    //             }
+
+    //             if (in_array($order->status, ['cancelled', 'expired'])) {
+    //                 $order->update(['status' => 'pending']);
+    //             }
+
+    //             $payment = Payment::where('order_id', $order->id)
+    //                 ->where('payment_method', $request->payment_method)
+    //                 ->latest()
+    //                 ->first();
+
+    //             if (!$payment) {
+    //                 $payment = Payment::create([
+    //                     'order_id' => $order->id,
+    //                     'payment_method' => $request->payment_method,
+    //                     'amount' => $order->total_price,
+    //                     'status' => 'unpaid',
+    //                     'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
+    //                     'paid_at' => null,
+    //                 ]);
+    //             }
+
+    //             $khqrData = null;
+    //             if ($request->payment_method === 'KHQR') {
+    //                 $bakongService = new BakongService();
+    //                 $khqrData = $bakongService->generateKhqrPayment($order);
+    //             }
+
+    //             return response()->json(
+    //                 $this->prepareCheckoutResponse($order, $payment, $khqrData, $user),
+    //                 200
+    //             );
+    //         }
+
+    //         // ── 2. CREATE NEW ORDER (Atomic Database Transaction) ────────────
+    //         $checkoutResult = DB::transaction(function () use ($user, $request) {
+
+    //             $address = $this->resolveOrderAddress($user, $request);
+    //             // Restrict COD from province
+    //             if ($request->payment_method === 'Cash on Delivery' && strtolower(trim($address->province)) !== 'Phnom Penh') {
+    //                 throw new \InvalidArgumentException('Cash on Delivery is only available for Phnom Penh addresses.');
+    //             }
+    //             // Process Line Items & Inventory Lock
+    //             $itemsData = [];
+    //             $originalTotal = 0;
+    //             $finalTotal = 0;
+    //             $totalDiscount = 0;
+
+    //             foreach ($request->items as $item) {
+    //                 $variant = ProductVariant::with('product')
+    //                     ->where('id', $item['product_variant_id'])
+    //                     ->lockForUpdate()
+    //                     ->firstOrFail();
+
+    //                 if ($variant->stock < $item['quantity']) {
+    //                     throw new \InvalidArgumentException("Insufficient stock for {$variant->product->name}.");
+    //                 }
+
+    //                 $product = $variant->product;
+    //                 $originalPrice = (float) $product->price;
+    //                 $finalPrice = (float) $product->getFinalPrice();
+    //                 $qty = (int) $item['quantity'];
+
+    //                 $originalLine = $originalPrice * $qty;
+    //                 $finalLine = $finalPrice * $qty;
+
+    //                 $originalTotal += $originalLine;
+    //                 $finalTotal += $finalLine;
+    //                 $totalDiscount += max(0, $originalLine - $finalLine);
+
+    //                 // Decrement stock directly inside locked block
+    //                 $variant->decrement('stock', $qty);
+
+    //                 $itemsData[] = [
+    //                     'product_variant_id' => $variant->id,
+    //                     'product_name' => $product->name ?? $product->productName,
+    //                     'product_image' => $product->image,
+    //                     'price' => $finalPrice,
+    //                     'quantity' => $qty,
+    //                     'size' => $variant->size,
+    //                     'color' => $variant->color,
+    //                     'created_at' => now(),
+    //                     'updated_at' => now(),
+    //                 ];
+    //             }
+
+    //             // Shipping Calculation
+    //             $shipping = (float) $this->calculateShipping($address->province);
+
+    //             // Coupon Calculation with Row Locking
+    //             $couponDiscount = 0;
+    //             $couponCode = null;
+    //             $couponInput = $request->filled('coupon_code')
+    //                 ? $request->coupon_code
+    //                 : cache()->get('coupon_' . $user->id);
+
+    //             if ($couponInput) {
+    //                 $coupon = Coupon::where('code', $couponInput)->lockForUpdate()->first();
+
+    //                 if (!$coupon) {
+    //                     throw new \InvalidArgumentException("Invalid coupon code.");
+    //                 }
+    //                 if ($coupon->start_date && now()->lt($coupon->start_date)) {
+    //                     throw new \InvalidArgumentException("Coupon is not active yet.");
+    //                 }
+    //                 if ($coupon->end_date && now()->gt($coupon->end_date)) {
+    //                     throw new \InvalidArgumentException("Coupon has expired.");
+    //                 }
+    //                 if ($coupon->usage_limit && $coupon->used >= $coupon->usage_limit) {
+    //                     throw new \InvalidArgumentException("Coupon usage limit reached.");
+    //                 }
+    //                 if ($coupon->min_amount && $finalTotal < $coupon->min_amount) {
+    //                     throw new \InvalidArgumentException("Minimum order amount not reached for this coupon.");
+    //                 }
+
+    //                 $couponDiscount = min($coupon->calculateDiscount($finalTotal), $finalTotal);
+    //                 $coupon->increment('used');
+    //                 $couponCode = $coupon->code;
+
+    //                 cache()->forget('coupon_' . $user->id);
+    //             }
+
+    //             $totalAmount = max(0, round(($finalTotal - $couponDiscount) + $shipping, 2));
+
+    //             // Create Order in a Single Database Insert
+    //             $order = Order::create([
+    //                 'user_id' => $user->id,
+    //                 'address_id' => $address->id,
+    //                 'order_number' => 'ODR-' . strtoupper(Str::random(10)),
+    //                 'status' => 'pending',
+    //                 'note' => $request->note,
+    //                 'original_price' => round($originalTotal, 2),
+    //                 'sub_total_price' => round($finalTotal, 2),
+    //                 'total_price' => $totalAmount,
+    //                 'shipping_fee' => $shipping,
+    //                 'discount_amount' => round($totalDiscount, 2),
+    //                 'coupon_code' => $couponCode,
+    //                 'coupon_discount' => $couponDiscount,
+    //             ]);
+
+    //             // Bulk insert line items
+    //             $order->items()->createMany($itemsData);
+
+    //             // Create Payment Record
+    //             $payment = Payment::create([
+    //                 'order_id' => $order->id,
+    //                 'payment_method' => $request->payment_method,
+    //                 'amount' => $totalAmount,
+    //                 'status' => 'unpaid',
+    //                 'payment_reference' => 'REF-' . time() . strtoupper(Str::random(4)),
+    //                 'paid_at' => null,
+    //             ]);
+
+    //             return ['order' => $order, 'payment' => $payment];
+    //         });
+
+    //         // ── 3. EXTERNAL SERVICES (Executed Outside DB Transaction) ──────
+    //         $order = $checkoutResult['order'];
+    //         $payment = $checkoutResult['payment'];
+
+    //         $khqrData = null;
+    //         if ($request->payment_method === 'KHQR') {
+    //             $bakongService = new BakongService();
+    //             $khqrData = $bakongService->generateKhqrPayment($order);
+    //         }
+
+    //         return response()->json(
+    //             $this->prepareCheckoutResponse($order, $payment, $khqrData, $user),
+    //             201
+    //         );
+
+    //     } catch (\InvalidArgumentException $e) {
+    //         // Business logic/validation failures return 400 Bad Request
+    //         return response()->json([
+    //             'message' => $e->getMessage()
+    //         ], 400);
+
+    //     } catch (\Throwable $e) {
+    //         // Unexpected server bugs return 500
+    //         Log::error('Checkout processing error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+    //         return response()->json([
+    //             'message' => 'Checkout failed.',
+    //             'error' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred.'
+    //         ], 500);
+    //     }
+    // }
 
 }

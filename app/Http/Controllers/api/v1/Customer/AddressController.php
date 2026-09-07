@@ -7,6 +7,7 @@ use App\Models\Address;
 use Auth;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
@@ -90,28 +91,45 @@ class AddressController extends Controller
         $address = Address::where('id', $id)
             ->where('user_id', $user->id)
             ->first();
-        if ($request->is_default) {
-            Address::where('user_id', $user->id)
-                ->update(['is_default' => false]);
-        }
+
         if (!$address) {
             return response()->json([
                 'message' => 'Address not found'
             ], 404);
         }
-        $address->update([
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'address_line' => $request->address_line,
-            'city' => $request->city,
-            'province' => $request->province,
-            'postal_code' => $request->postal_code,
-            'phone' => $request->phone,
-            'is_default' => $request->is_default ?? false
-        ]);
+
+
+        $isDefault = $request->has('is_default')
+            ? $request->boolean('is_default')
+            : $address->is_default;
+
+
+        if ($address->is_default && !$request->boolean('is_default') && !$request->has('is_default')) {
+            $isDefault = true;
+        }
+
+        DB::transaction(function () use ($user, $address, $request, $isDefault) {
+            if ($isDefault) {
+                Address::where('user_id', $user->id)
+                    ->where('id', '!=', $address->id)
+                    ->update(['is_default' => false]);
+            }
+
+            $address->update([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'address_line' => $request->address_line,
+                'city' => $request->city,
+                'province' => $request->province,
+                'postal_code' => $request->postal_code,
+                'phone' => $request->phone,
+                'is_default' => $isDefault,
+            ]);
+        });
+
         return response()->json([
             'message' => 'Address updated successfully',
-            'address' => $address
+            'address' => $address->fresh()
         ]);
     }
     // delete

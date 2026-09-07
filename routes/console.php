@@ -8,3 +8,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 Schedule::command('discounts:check-expired')
     ->everyMinute();
+Schedule::command('payments:expire-khqr')
+    ->everyMinute();

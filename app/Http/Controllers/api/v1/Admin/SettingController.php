@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use ImageKit\ImageKit;
@@ -35,7 +36,7 @@ class SettingController extends Controller
     // Change Password
     public function changePassword(Request $request)
     {
-    if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
             return response()->json([
                 'message' => 'Only super-admin and admin can access this endpoint',
             ], 403);
@@ -60,7 +61,7 @@ class SettingController extends Controller
     // change profile picture
     public function changeProfileImage(Request $request)
     {
-    if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
+        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
             return response()->json([
                 'message' => 'Only super-admin and admin can access this endpoint',
             ], 403);
@@ -114,5 +115,69 @@ class SettingController extends Controller
                 'message' => 'Failed to upload image: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+
+    // Setting Service
+    public function __construct(protected SettingService $setting)
+    {
+
+    }
+    public function index()
+    {
+        return response()->json([
+            'store_name' => $this->setting->get('store_name'),
+            'store_logo' => $this->setting->get('store_logo'),
+            'favicon' => $this->setting->get('favicon'),
+            'store_description' => $this->setting->get('store_description'),
+            'support_email' => $this->setting->get('support_email'),
+            'phone_number' => $this->setting->get('phone_number'),
+            'address' => $this->setting->get('address'),
+            'timezone' => $this->setting->get('timezone'),
+            'language' => $this->setting->get('language'),
+            'currency' => $this->setting->get('currency'),
+        ]);
+    }
+    public function update(Request $request)
+    {
+        $validated = $request->validate([
+            'store_name' => 'required|string|max:255',
+            'store_description' => 'nullable|string',
+            'support_email' => 'required|email',
+            'phone_number' => 'required|string|max:30',
+            'address' => 'required|string',
+            'timezone' => 'required|string',
+            'language' => 'required|string',
+            'currency' => 'required|in:USD,KHR',
+            'store_logo' => 'nullable|image|max:2048',
+            'favicon' => 'nullable|image|max:1024',
+        ]);
+
+        foreach ([
+            'store_name',
+            'store_description',
+            'support_email',
+            'phone_number',
+            'address',
+            'timezone',
+            'language',
+            'currency'
+        ] as $field) {
+            $this->setting->set($field, $validated[$field]);
+        }
+
+        if ($request->hasFile('store_logo')) {
+            $path = $request->file('store_logo')->store('settings', 'public');
+            $this->setting->set('store_logo', $path);
+        }
+
+        if ($request->hasFile('favicon')) {
+            $path = $request->file('favicon')->store('settings', 'public');
+            $this->setting->set('favicon', $path);
+        }
+
+        return response()->json([
+            'message' => 'Settings updated successfully.'
+        ]);
     }
 }

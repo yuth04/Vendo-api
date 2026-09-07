@@ -23,6 +23,7 @@ use App\Traits\NotifiesUsers;
 class ProductController extends Controller
 {
     use NotifiesUsers;
+    private const SIMILARITY_THRESHOLD = 0.25;
     public function index(Request $request)
     {
 
@@ -278,7 +279,7 @@ class ProductController extends Controller
                 $product->discount_id
             );
             if ($discount && $discount->is_active) {
-             if ($discount->type === 'percent') {
+                if ($discount->type === 'percent') {
 
                     $discountPrice =
                         $product->price -
@@ -286,7 +287,8 @@ class ProductController extends Controller
                 } else {
                     $discountPrice = $product->price - $discount->amount;
                 }
-                $product->update(['discount_price' => max(0, round($discountPrice, 2))
+                $product->update([
+                    'discount_price' => max(0, round($discountPrice, 2))
                 ]);
             } else {
                 // Discount inactive/expired
@@ -414,110 +416,7 @@ class ProductController extends Controller
             'data' => $topProducts
         ]);
     }
-    // Top saled products
-    // public function topSales()
-    // {
-    //     try {
 
-    //         $products = DB::table('order_items')
-
-    //             ->join(
-    //                 'product_variants',
-    //                 'order_items.product_variant_id',
-    //                 '=',
-    //                 'product_variants.id'
-    //             )
-
-    //             ->join(
-    //                 'products',
-    //                 'product_variants.product_id',
-    //                 '=',
-    //                 'products.id'
-    //             )
-
-    //             ->join(
-    //                 'orders',
-    //                 'order_items.order_id',
-    //                 '=',
-    //                 'orders.id'
-    //             )
-
-    //             ->join(
-    //                 'payments',
-    //                 'orders.id',
-    //                 '=',
-    //                 'payments.order_id'
-    //             )
-
-    //             ->leftJoin(
-    //                 'categories',
-    //                 'products.category_id',
-    //                 '=',
-    //                 'categories.id'
-    //             )
-
-    //             ->where('payments.status', 'paid')
-
-    //             ->select(
-    //                 'products.id',
-    //                 'products.productName',
-    //                 'products.slug',
-    //                 'products.image',
-    //                 'products.price',
-    //                 'categories.name as category_name',
-
-    //                 DB::raw('SUM(order_items.quantity) as total_sales')
-    //             )
-
-    //             ->groupBy(
-    //                 'products.id',
-    //                 'products.productName',
-    //                 'products.slug',
-    //                 'products.image',
-    //                 'products.price',
-    //                 'categories.name'
-    //             )
-
-    //             ->orderByDesc('total_sales')
-
-    //             ->take(8)
-
-    //             ->get()
-
-    //             ->map(function ($product) {
-
-    //                 return [
-    //                     'id' => $product->id,
-
-    //                     'productName' => $product->productName,
-
-    //                     'slug' => $product->slug,
-
-    //                     'image' => $product->image ?? null,
-
-    //                     'price' => number_format($product->price, 2),
-
-    //                     'category' => $product->category_name,
-
-    //                     'total_sales' => (int) $product->total_sales,
-    //                 ];
-    //             });
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Top sale products retrieved successfully',
-    //             'products' => $products,
-    //         ]);
-
-    //     } catch (\Exception $e) {
-
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Failed to retrieve top sale products',
-    //             'error' => $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
     public function topSales()
     {
         try {
@@ -528,6 +427,7 @@ class ProductController extends Controller
                 ->join('payments', 'orders.id', '=', 'payments.order_id')
                 ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
                 ->where('payments.status', 'paid')
+                ->where('products.status', 'active')
                 ->where('orders.created_at', '>=', now()->subMonths(3))
                 ->select(
                     'products.id',
@@ -579,9 +479,10 @@ class ProductController extends Controller
         try {
 
             $products = DB::table('products')
+                ->where('products.status', 'active')
                 ->leftJoin('brands', 'products.brand_id', '=', 'brands.id')
                 ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
-                ->where('products.created_at', '>=', Carbon::now()->subMonth())
+                ->where('products.created_at', '>=', Carbon::now()->subMonths(3))
                 ->select(
                     'products.id',
                     'products.productName',

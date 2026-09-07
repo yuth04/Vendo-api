@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\api\v1\Marketing;
 
+use App\Events\DiscountCreated;
+use App\Events\DiscountDeleted;
+use App\Events\DiscountUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\Discount;
@@ -14,9 +17,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 use App\Traits\NotifiesUsers;
+
 class DiscountController extends Controller
 {
     use NotifiesUsers;
+
     private function authorizeAdminOrStaff(): void
     {
         if (!in_array(auth()->user()->role, ['super-admin', 'admin'])) {
@@ -24,7 +29,7 @@ class DiscountController extends Controller
         }
     }
 
-    private function calculateDiscountPrice($price, $discount)
+    private function calculateDiscountPrice($price, Discount $discount): float
     {
         $price = (float) $price;
         $amount = (float) $discount->amount;
@@ -35,11 +40,35 @@ class DiscountController extends Controller
 
         return max(0, round($discountPrice, 2));
     }
+
+
+    private function syncProductPrices(Discount $discount): void
+    {
+        $isCurrentlyActive = $discount->is_active
+            && (!$discount->start_date || $discount->start_date->isPast())
+            && (!$discount->end_date || $discount->end_date->isFuture());
+
+        foreach ($discount->products as $product) {
+            $product->update([
+                'discount_price' => $isCurrentlyActive
+                    ? $this->calculateDiscountPrice($product->price, $discount)
+                    : 0,
+            ]);
+        }
+    }
+
     public function index(Request $request)
     {
+        $now = now();
 
         $discounts = Discount::with(['products', 'coupon'])
             ->where('is_active', true)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('start_date')->orWhere('start_date', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('end_date')->orWhere('end_date', '>=', $now);
+            })
             ->orderBy('id', 'asc')
             ->get();
 
@@ -50,22 +79,22 @@ class DiscountController extends Controller
             'discount' => $discounts,
         ]);
     }
+
     // Get all discounts regardless of active status
     public function getAll(Request $request)
     {
-
         $discounts = Discount::with(['products', 'coupon'])
             ->orderBy('id', 'asc')
             ->get();
 
         return response()->json([
             'message' => $discounts->isEmpty()
-                ? 'No active discounts found'
-                : 'Active discounts retrieved successfully',
+                ? 'No discounts found'
+                : 'All discounts retrieved successfully',
             'discount' => $discounts,
         ]);
     }
-    // show
+
     public function show($id)
     {
         $discount = Discount::with('products')->find($id);
@@ -75,7 +104,7 @@ class DiscountController extends Controller
         }
 
         $discount->products->transform(function ($product) use ($discount) {
-            // ✅ Only apply discount price if the discount is active
+            // Only apply discount price if the discount is active
             $product->discount_price = $discount->is_active
                 ? $this->calculateDiscountPrice($product->price, $discount)
                 : 0;
@@ -87,16 +116,14 @@ class DiscountController extends Controller
             'data' => $discount
         ]);
     }
+
     // Create a new discount
     public function store(Request $request)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can create discounts'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
+
         $validated = $request->validate([
-            'name' => 'nullable|string|max:255',
+            'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:255',
             'amount' => 'required|numeric|min:0',
             'type' => 'required|in:percent,fixed',
@@ -105,14 +132,15 @@ class DiscountController extends Controller
             'banner_image' => 'nullable|image|max:5120',
             'is_active' => 'nullable|boolean'
         ]);
-        $slug = Str::slug($request->name);
+
+        $slug = Str::slug($validated['name']);
         $count = Discount::where('slug', 'like', "{$slug}%")->count();
         $slug = $count ? "{$slug}-{$count}" : $slug;
+
         $imageUrl = null;
         $imageFileId = null;
 
         if ($request->hasFile('banner_image')) {
-
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -139,39 +167,49 @@ class DiscountController extends Controller
         $discount = Discount::create([
             'name' => $validated['name'],
             'slug' => $slug,
-            'description' => $validated['description'],
+            'description' => $validated['description'] ?? null,
             'amount' => $validated['amount'],
             'type' => $validated['type'],
-            'start_date' => $validated['start_date'],
-            'end_date' => $validated['end_date'],
+            'start_date' => $validated['start_date'] ?? null,
+            'end_date' => $validated['end_date'] ?? null,
             'banner_image' => $imageUrl,
             'image_file_id' => $imageFileId,
             'is_active' => $validated['is_active'] ?? false,
-
         ]);
-        // NOTIFICATION
-        $amount = $discount->type === 'percent'
-            ? $discount->amount . '% off'
-            : '$' . number_format($discount->amount, 2) . ' off';
 
-        $message = 'Get ' . $amount . ' on selected products';
+        $discount->load(['products', 'coupon']);
 
-        if ($discount->end_date) {
-            $message .= '. Expires ' . $discount->end_date->format('M d, Y');
+
+        event(new DiscountCreated($discount));
+
+
+        if ($discount->is_active) {
+            $amountStr = $discount->type === 'percent'
+                ? $discount->amount . '% off'
+                : '$' . number_format($discount->amount, 2) . ' off';
+
+            $message = 'Get ' . $amountStr . ' on selected products';
+
+            if ($discount->end_date) {
+                $message .= '. Expires ' . $discount->end_date->format('M d, Y');
+            }
+
+            $message .= '.';
+            $this->notifyAllUsers('New Promotion!', $message, 'promotion', 'discount', '/promotions');
         }
 
-        $message .= '.';
-        $this->notifyAllUsers('New Promotion!', $message, 'promotion', 'discount', '/promotions');
         return response()->json([
             'message' => 'Discount created successfully',
             'data' => $discount
         ], 201);
     }
+
     // Update an existing discount
     public function update(Request $request, $id)
     {
         $this->authorizeAdminOrStaff();
-        $discount = Discount::find($id);
+
+        $discount = Discount::with('products')->find($id);
 
         if (!$discount) {
             return response()->json([
@@ -191,7 +229,6 @@ class DiscountController extends Controller
         ]);
 
         if ($request->filled('name')) {
-
             $slug = Str::slug($request->name);
 
             $count = Discount::where('slug', 'like', "{$slug}%")
@@ -201,9 +238,8 @@ class DiscountController extends Controller
             $validated['slug'] = $count ? "{$slug}-{$count}" : $slug;
         }
 
-        // upload image if exists
+        // Upload image to ImageKit if provided
         if ($request->hasFile('banner_image')) {
-
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -222,10 +258,12 @@ class DiscountController extends Controller
                     'error' => $upload->error->message,
                 ], 400);
             }
+
             if ($discount->image_file_id) {
                 try {
                     $imageKit->deleteFile($discount->image_file_id);
                 } catch (\Exception $e) {
+
                 }
             }
 
@@ -234,74 +272,56 @@ class DiscountController extends Controller
         }
 
         return DB::transaction(function () use ($discount, $validated) {
-
             $discount->update($validated);
-            $discount->refresh();
-            if (isset($validated['is_active']) && $validated['is_active'] == false) {
-                foreach ($discount->products as $product) {
-                    $product->update(['discount_price' => 0]);
-                }
-            } else {
-                // Recalculate discount prices normally when active
-                foreach ($discount->products as $product) {
-                    $price = (float) $product->price;
-                    $amount = (float) $discount->amount;
+            $discount->refresh()->load('products');
 
-                    $discountPrice = $discount->type === 'percent'
-                        ? $price - ($price * $amount / 100)
-                        : $price - $amount;
+            $this->syncProductPrices($discount);
 
-                    $product->update([
-                        'discount_price' => max(0, round($discountPrice, 2))
-                    ]);
-                }
-            }
-            // foreach ($discount->products as $product) {
+            $discount->load(['products', 'coupon']);
 
-            //     $price = (float) $product->price;
-            //     $amount = (float) $discount->amount;
-
-            //     $discountPrice = $discount->type === 'percent'
-            //         ? $price - ($price * $amount / 100)
-            //         : $price - $amount;
-
-            //     $product->update([
-            //         'discount_price' => max(0, round($discountPrice, 2))
-            //     ]);
-            // }
+            event(new DiscountUpdated('updated', $discount));
 
             return response()->json([
                 'message' => 'Discount and products updated successfully',
-                'data' => $discount->load('products')
+                'data' => $discount
             ]);
         });
     }
+
     // Delete a discount
-    public function destroy($id)
+    public function destroy($discountId)
     {
         $this->authorizeAdminOrStaff();
-        $discount = Discount::find($id);
+
+        $discount = Discount::with('products')->find($discountId);
 
         if (!$discount) {
             return response()->json(['message' => 'Not found'], 404);
         }
-        foreach ($discount->products as $product) {
-            $product->update(['discount_price' => 0]);
-        }
-        $discount->delete();
+
+        DB::transaction(function () use ($discount) {
+            foreach ($discount->products as $product) {
+                $product->update(['discount_price' => 0]);
+            }
+
+
+            $discount->products()->detach();
+
+            $discount->delete();
+        });
+
+        event(new DiscountDeleted((int) $discountId));
 
         return response()->json([
             'message' => 'Discount deleted successfully'
         ]);
     }
+
     // Add products to a discount
     public function addProducts(Request $request)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can add products to discounts'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
+
         $validated = $request->validate([
             'discount_id' => 'required|exists:discounts,id',
             'product_ids' => 'required|array',
@@ -310,75 +330,53 @@ class DiscountController extends Controller
 
         $discount = Discount::with('products')->findOrFail($validated['discount_id']);
 
-        // attach products
         $discount->products()->syncWithoutDetaching($validated['product_ids']);
+        $discount->refresh()->load('products');
 
-        // reload products after attach
-        $discount->load('products');
-
-        foreach ($discount->products as $product) {
-
-            $price = (float) $product->price;
-            $amount = (float) $discount->amount;
-
-            $discountPrice = $discount->type === 'percent'
-                ? $price - ($price * $amount / 100)
-                : $price - $amount;
-
-            $product->update([
-                'discount_price' => max(0, round($discountPrice, 2))
-            ]);
-        }
+        $this->syncProductPrices($discount);
 
         return response()->json([
             'message' => 'Products added to discount successfully',
             'discount' => $discount->load('products')
         ]);
     }
+
     // Remove a product from a discount
     public function removeProduct(Request $request, $discountId)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can remove products from discounts'
-            ], 403);
+        $this->authorizeAdminOrStaff();
+
+        $discount = Discount::find($discountId);
+
+        if (!$discount) {
+            return response()->json(['message' => 'Discount not found'], 404);
         }
 
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
         ]);
 
-        // Find the product that belongs to this specific discount
-        $product = Product::where('id', $validated['product_id'])
-            ->where('discount_id', $discountId)
-            ->first();
-
-        if (!$product) {
+        if (!$discount->products()->where('products.id', $validated['product_id'])->exists()) {
             return response()->json([
                 'message' => 'Product not found or not associated with this discount.'
             ], 404);
         }
 
-        // Reset the discount fields
-        $product->update([
-            'discount_id' => null,
-            'discount_price' => 0 // Or keep original price depending on your logic
-        ]);
+        $discount->products()->detach($validated['product_id']);
+
+        Product::where('id', $validated['product_id'])->update(['discount_price' => 0]);
 
         return response()->json([
-            'message' => "Product {$product->id} removed from discount successfully."
+            'message' => "Product {$validated['product_id']} removed from discount successfully."
         ]);
     }
+
+
     public function removeProductId($productId)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can remove products from discounts'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
 
-        $discountItem = DiscountItem::where('product_id', $productId)
-            ->first();
+        $discountItem = DiscountItem::where('product_id', $productId)->first();
 
         if (!$discountItem) {
             return response()->json([
@@ -386,11 +384,13 @@ class DiscountController extends Controller
             ], 404);
         }
 
-        $discountItem->delete();
+        DB::transaction(function () use ($discountItem, $productId) {
+            $discountItem->delete();
+            Product::where('id', $productId)->update(['discount_price' => 0]);
+        });
 
         return response()->json([
             'message' => 'Product removed from discount successfully'
         ]);
     }
-
 }

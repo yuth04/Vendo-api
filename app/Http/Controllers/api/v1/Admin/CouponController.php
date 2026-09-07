@@ -6,13 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\Notification;
 use App\Models\User;
-use Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use ImageKit\ImageKit;
 use App\Traits\NotifiesUsers;
+
 class CouponController extends Controller
 {
     use NotifiesUsers;
+
     private function authorizeAdminOrStaff(): void
     {
         if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
@@ -23,34 +26,43 @@ class CouponController extends Controller
     public function index()
     {
         $coupons = Coupon::latest()->get();
+
         if ($coupons->isEmpty()) {
             return response()->json([
-                'message' => "Coupon is empty",
+                'message' => 'Coupon is empty',
+                'data' => [],
             ]);
         }
+
         return response()->json([
-            'message' => "Retrieved coupon successfully",
-            'date' => $coupons
+            'message' => 'Retrieved coupon successfully',
+            'data' => $coupons
         ]);
     }
+
     public function getById($id)
     {
-        $coupons = Coupon::find($id);
-        if (!$coupons) {
+        $coupon = Coupon::find($id);
+
+        if (!$coupon) {
             return response()->json([
-                'message' => "Coupon not found",
-            ]);
+                'message' => 'Coupon not found',
+            ], 404);
         }
+
         return response()->json([
-            'message' => "Retrieved coupon successfully",
-            'date' => $coupons
+            'message' => 'Retrieved coupon successfully',
+            'data' => $coupon
         ]);
     }
+
     public function store(Request $request)
     {
         $this->authorizeAdminOrStaff();
 
-        $request->validate([
+        $request->merge(['code' => strtoupper((string) $request->code)]);
+
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:coupons,code',
             'type' => 'required|in:fixed,percent',
@@ -94,63 +106,90 @@ class CouponController extends Controller
             $imageFileId = $upload->result->fileId;
         }
 
-        // CREATE COUPON
-        $coupon = Coupon::create([
-            'name' => $request->name,
-            'code' => strtoupper($request->code),
-            'type' => $request->type,
-            'value' => $request->value,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'used' => 0,
-            'min_amount' => $request->min_amount,
-            'max_discount' => $request->max_discount,
-            'usage_limit' => $request->usage_limit,
-            'description' => $request->description,
-            'image' => $imageUrl,
-            'image_file_id' => $imageFileId,
-            'status' => $request->status,
-            'discount_id' => $request->discount_id,
-        ]);
+        try {
+            $coupon = DB::transaction(function () use ($validated, $imageUrl, $imageFileId) {
+                return Coupon::create([
+                    'name' => $validated['name'],
+                    'code' => $validated['code'],
+                    'type' => $validated['type'],
+                    'value' => $validated['value'],
+                    'start_date' => $validated['start_date'] ?? null,
+                    'end_date' => $validated['end_date'] ?? null,
+                    'used' => 0,
+                    'min_amount' => $validated['min_amount'] ?? null,
+                    'max_discount' => $validated['max_discount'] ?? null,
+                    'usage_limit' => $validated['usage_limit'] ?? null,
+                    'description' => $validated['description'] ?? null,
+                    'image' => $imageUrl,
+                    'image_file_id' => $imageFileId,
+                    'status' => $validated['status'],
+                    'discount_id' => $validated['discount_id'] ?? null,
+                ]);
+            });
+        } catch (\Exception $e) {
 
-        // NOTIFICATION
-        $discount = $coupon->type === 'percent'
-            ? $coupon->value . '% off'
-            : '$' . number_format($coupon->value, 2) . ' off';
+            if ($imageFileId) {
+                try {
+                    (new ImageKit(
+                        config('imagekit.public_key'),
+                        config('imagekit.private_key'),
+                        config('imagekit.url_endpoint')
+                    ))->deleteFile($imageFileId);
+                } catch (\Exception $cleanupException) {
+                    Log::error('Failed to clean up orphaned coupon image: ' . $cleanupException->getMessage());
+                }
+            }
 
-        $message = 'Use code "' . $coupon->code . '" to get ' . $discount;
+            Log::error('Coupon creation failed: ' . $e->getMessage());
 
-        if ($coupon->min_amount) {
-            $message .= ' on orders over $' . number_format($coupon->min_amount, 2);
+            return response()->json([
+                'message' => 'Failed to create coupon',
+                'error' => $e->getMessage(),
+            ], 500);
         }
 
-        if ($coupon->end_date) {
-            $message .= '. Expires ' . $coupon->end_date->format('M d, Y');
+
+        if ($coupon->status === 'active') {
+            $discountStr = $coupon->type === 'percent'
+                ? $coupon->value . '% off'
+                : '$' . number_format($coupon->value, 2) . ' off';
+
+            $message = 'Use code "' . $coupon->code . '" to get ' . $discountStr;
+
+            if ($coupon->min_amount) {
+                $message .= ' on orders over $' . number_format($coupon->min_amount, 2);
+            }
+
+            if ($coupon->end_date) {
+                $message .= '. Expires ' . $coupon->end_date->format('M d, Y');
+            }
+
+            $message .= '.';
+
+            $this->notifyAllUsers('Special Offer Just for You!', $message, 'coupon', 'tag', '/coupons');
         }
-
-        $message .= '.';
-
-        $this->notifyAllUsers('Special Offer Just for You!', $message, 'coupon', 'tag', '/coupons');
 
         return response()->json([
             'message' => 'Coupon created successfully',
             'coupon' => $coupon,
         ], 201);
     }
+
     public function update(Request $request, $id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can update coupons'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
+
         $coupon = Coupon::find($id);
+
         if (!$coupon) {
             return response()->json([
                 'message' => 'Coupon not found'
-            ]);
+            ], 404);
         }
-        $request->validate([
+
+        $request->merge(['code' => strtoupper((string) $request->code)]);
+
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:coupons,code,' . $coupon->id,
             'type' => 'required|in:fixed,percent',
@@ -165,10 +204,12 @@ class CouponController extends Controller
             'status' => 'required|string',
             'discount_id' => 'nullable|exists:discounts,id'
         ]);
+
         $imageUrl = $coupon->image;
         $imageFileId = $coupon->image_file_id;
-        if ($request->hasFile('image')) {
+        $oldImageFileId = $coupon->image_file_id;
 
+        if ($request->hasFile('image')) {
             $imageKit = new ImageKit(
                 config('imagekit.public_key'),
                 config('imagekit.private_key'),
@@ -187,50 +228,70 @@ class CouponController extends Controller
                     'error' => $upload->error->message,
                 ], 400);
             }
-            if ($coupon->image_file_id) {
-                $imageKit->deleteFile($coupon->image_file_id);
-            }
+
             $imageUrl = $upload->result->url;
             $imageFileId = $upload->result->fileId;
         }
-        $coupon->update([
-            'name' => $request->name,
-            'code' => strtoupper($request->code),
-            'type' => $request->type,
-            'value' => $request->value,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
-            'min_amount' => $request->min_amount,
-            'max_discount' => $request->max_discount,
-            'usage_limit' => $request->usage_limit,
-            'description' => $request->description,
-            'image' => $imageUrl,
-            'image_file_id' => $imageFileId,
-            'status' => $request->status,
-            'discount_id' => $request->discount_id
-        ]);
+
+        try {
+            DB::transaction(function () use ($coupon, $validated, $imageUrl, $imageFileId) {
+                $coupon->update([
+                    'name' => $validated['name'],
+                    'code' => $validated['code'],
+                    'type' => $validated['type'],
+                    'value' => $validated['value'],
+                    'start_date' => $validated['start_date'] ?? null,
+                    'end_date' => $validated['end_date'] ?? null,
+                    'min_amount' => $validated['min_amount'] ?? null,
+                    'max_discount' => $validated['max_discount'] ?? null,
+                    'usage_limit' => $validated['usage_limit'] ?? null,
+                    'description' => $validated['description'] ?? null,
+                    'image' => $imageUrl,
+                    'image_file_id' => $imageFileId,
+                    'status' => $validated['status'],
+                    'discount_id' => $validated['discount_id'] ?? null,
+                ]);
+            });
+        } catch (\Exception $e) {
+            Log::error('Coupon update failed: ' . $e->getMessage());
+
+            return response()->json([
+                'message' => 'Failed to update coupon',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+
+        if ($request->hasFile('image') && $oldImageFileId) {
+            try {
+                (new ImageKit(
+                    config('imagekit.public_key'),
+                    config('imagekit.private_key'),
+                    config('imagekit.url_endpoint')
+                ))->deleteFile($oldImageFileId);
+            } catch (\Exception $e) {
+                Log::error('Failed to delete old coupon image: ' . $e->getMessage());
+            }
+        }
 
         return response()->json([
-            'message' => 'Coupon created successfully',
+            'message' => 'Coupon updated successfully',
             'coupon' => $coupon
         ]);
-
     }
+
     // Delete
     public function destroy($id)
     {
-        if (auth()->user()->role !== 'super-admin' && auth()->user()->role !== 'admin') {
-            return response()->json([
-                'message' => 'Only super-admin and admin can delete coupons'
-            ], 403);
-        }
+        $this->authorizeAdminOrStaff();
 
         $coupon = Coupon::find($id);
+
         if (!$coupon) {
             return response()->json([
                 'message' => 'Coupon not found'
-            ]);
+            ], 404);
         }
+
         if ($coupon->image_file_id) {
             try {
                 $imageKit = new ImageKit(
@@ -240,18 +301,16 @@ class CouponController extends Controller
                 );
 
                 $imageKit->deleteFile($coupon->image_file_id);
-
             } catch (\Exception $e) {
-                return response()->json([
-                    'message' => 'Failed to delete image from ImageKit',
-                    'error' => $e->getMessage()
-                ], 500);
+
+                Log::error('Failed to delete image from ImageKit for coupon #' . $coupon->id . ': ' . $e->getMessage());
             }
         }
+
         $coupon->delete();
+
         return response()->json([
             'message' => 'Coupon deleted successfully'
         ], 200);
     }
-
 }

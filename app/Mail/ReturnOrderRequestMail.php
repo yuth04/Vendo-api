@@ -21,8 +21,9 @@ class ReturnOrderRequestMail extends Mailable
         $this->returnOrder = $returnOrder;
     }
 
-    public function build(){
-        return $this->subject('New Return Order Request')->view('emails.return_order_request');
+    public function build()
+    {
+        return $this->subject('New Return Order Request')->view('Mail.return.return_shipped');
     }
 
     /**

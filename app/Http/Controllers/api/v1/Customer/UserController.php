@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\api\v1\Customer;
+use App\Events\UserDeactivated;
 use Illuminate\Validation\Rule;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -160,9 +161,11 @@ class UserController extends Controller
                 ], 500);
             }
         }
-
+        $wasActive = $user->status !== 'inactive';
         $user->update($data);
-
+        if ($wasActive && $user->status === 'inactive') {
+            event(new UserDeactivated($user->id));
+        }
         return response()->json([
             'message' => 'Updated user successfully',
             'user' => $user->fresh()

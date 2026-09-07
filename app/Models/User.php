@@ -45,7 +45,7 @@ class User extends Authenticatable
         'created_at' => 'datetime:d-m-Y g:i:s A',
         'updated_at' => 'datetime:d-m-Y g:i:s A',
         'email_verified_at' => 'datetime:d-m-Y g:i:s A',
-        'last_login_at'=> 'datetime:d-m-Y g:i:s A',
+        'last_login_at' => 'datetime:d-m-Y g:i:s A',
         'created_by' => 'array',
         'updated_by' => 'array',
     ];
@@ -93,6 +93,26 @@ class User extends Authenticatable
     {
         return $this->hasMany(Notification::class);
     }
+    // RACA
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+    public function hasRole(string $slug): bool
+    {
+        return $this->role?->slug === $slug;
+    }
+    public function hasPermission(string $permissionSlug): bool
+    {
+        return $this->role?->permissions->contains('slug', $permissionSlug) ?? false;
+    }
+
+
+
+
+
+
+
     // public function creator()
     // {
     //     return $this->belongsTo(User::class, 'created_by');
