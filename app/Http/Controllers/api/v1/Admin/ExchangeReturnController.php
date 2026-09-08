@@ -42,7 +42,7 @@ class ExchangeReturnController extends Controller
 
         $item = OrderItem::with([
             'order',
-            'productVariant.product.variants',
+            'variant.product.variants.images',
         ])
             ->where('id', $orderItemId)
             ->whereHas('order', function ($query) use ($user) {
@@ -56,7 +56,8 @@ class ExchangeReturnController extends Controller
             ], 404);
         }
 
-        $purchasedVariant = $item->productVariant;
+        // Variant originally purchased
+        $purchasedVariant = $item->variant;
 
         if (!$purchasedVariant) {
             return response()->json([
@@ -66,7 +67,15 @@ class ExchangeReturnController extends Controller
 
         $product = $purchasedVariant->product;
 
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found.'
+            ], 404);
+        }
+
+        // Available variants for exchange
         $replacementVariants = $product->variants
+            ->where('id', '!=', $purchasedVariant->id)
             ->where('stock', '>', 0)
             ->map(function ($variant) {
                 return [
@@ -74,7 +83,7 @@ class ExchangeReturnController extends Controller
                     'size' => $variant->size,
                     'color' => $variant->color,
                     'stock' => $variant->stock,
-                    'image' => $variant->images()->first()?->image ?? null,
+                    'image' => $variant->images->first()?->image,
                 ];
             })
             ->values();
@@ -91,15 +100,13 @@ class ExchangeReturnController extends Controller
                     'name' => $product->productName,
                 ],
 
-                // Variant customer originally purchased
                 'purchased_variant' => [
                     'id' => $purchasedVariant->id,
                     'size' => $purchasedVariant->size,
                     'color' => $purchasedVariant->color,
-
+                    'image' => $purchasedVariant->images->first()?->image,
                 ],
 
-                // Variants customer can select for exchange
                 'replacement_variants' => $replacementVariants,
             ],
         ]);
