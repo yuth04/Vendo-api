@@ -28,6 +28,7 @@ use App\Http\Controllers\api\v1\Payment\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
+use App\Http\Controllers\api\v1\Reports\ReportController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
@@ -331,8 +332,8 @@ Route::prefix('v1')->group(function () {
             Route::delete('/reviews-reply/{id}', [ReviewController::class, 'delete']);
 
             // Reports
-            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
-            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+            Route::get('/sale-reports', [ReportController::class, 'salesReport']);
+            Route::get('/product-reports', [ReportController::class, 'productsReport']);
 
             // Dashboard
             Route::prefix('dashboard')->group(function () {
