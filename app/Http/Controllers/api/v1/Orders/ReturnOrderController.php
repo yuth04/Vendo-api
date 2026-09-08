@@ -66,7 +66,7 @@ class ReturnOrderController extends Controller
         $this->ensureAdmin();
 
         $query = ReturnOrder::with([
-            'items.orderItem.productVariant.product',
+            'items.orderItem.variant.product',
             'items.replacementVariant.product',
             'user',
             'order.payment',
@@ -97,7 +97,7 @@ class ReturnOrderController extends Controller
         $returns = ReturnOrder::with([
             'order.items.variant.product',
             'order.payment',
-            'items.orderItem.productVariant.product',
+            'items.orderItem.variant.product',
             'items.replacementVariant.product',
             'user',
             'items.refund',
