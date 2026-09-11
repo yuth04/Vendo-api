@@ -920,6 +920,13 @@ class ReturnOrderController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
+        $this->systemLogService->log(
+            action: 'return_requested',
+            module: 'return_order',
+            description: "Return request #{$return->return_number} submitted for order #{$order->order_number}.",
+            entity: $return,
+            newValues: $return->only(['id', 'order_id', 'return_number', 'status', 'note']),
+        );
         // Upload Return Images to ImageKit
         if ($request->hasFile('images')) {
             try {
@@ -1036,7 +1043,7 @@ class ReturnOrderController extends Controller
                 'message' => 'Only requested returns can be cancelled.'
             ], 400);
         }
-
+        $previousStatus = $return->status;
         DB::transaction(function () use ($return) {
 
             // Cancel related refunds
@@ -1061,7 +1068,14 @@ class ReturnOrderController extends Controller
                 'status' => ReturnOrder::STATUS_CANCELLED,
             ]);
         });
-
+        $this->systemLogService->log(
+            action: 'return_cancelled',
+            module: 'return_order',
+            description: "Return #{$return->return_number} was cancelled by customer.",
+            entity: $return,
+            oldValues: ['status' => $previousStatus],
+            newValues: ['status' => $return->status],
+        );
         return response()->json([
             'message' => 'Return request cancelled successfully.'
         ]);
@@ -1095,7 +1109,7 @@ class ReturnOrderController extends Controller
 
                 $hasRefund = $return->items->contains('return_type', ReturnItem::TYPE_REFUND);
                 $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
-
+                $previousStatus = $return->status;
                 $return->update([
                     'status' => ReturnOrder::STATUS_APPROVED,
                     'approved_at' => now(),
@@ -1145,6 +1159,14 @@ class ReturnOrderController extends Controller
                     );
                 }
 
+                $this->systemLogService->log(
+                    action: 'return_approved',
+                    module: 'return_order',
+                    description: "Return #{$return->return_number} was approved.",
+                    entity: $return,
+                    oldValues: ['status' => $previousStatus],
+                    newValues: ['status' => $return->status, 'has_refund' => $hasRefund, 'has_exchange' => $hasExchange],
+                );
                 return $return;
             });
 
@@ -1201,14 +1223,25 @@ class ReturnOrderController extends Controller
         if ($return->status !== ReturnOrder::STATUS_APPROVED) {
             return response()->json(['message' => 'Only approved return requests can be marked as received.'], 400);
         }
-
+        $previousStatus = $return->status;
         $return->update([
             'status' => ReturnOrder::STATUS_RECEIVED,
             'received_at' => now(),
             'tracking_number' => $request->tracking_number ?? $return->tracking_number,
             'carrier' => $request->carrier ?? $return->carrier,
         ]);
-
+        $this->systemLogService->log(
+            action: 'return_received',
+            module: 'return_order',
+            description: "Return #{$return->return_number} marked as received at warehouse.",
+            entity: $return,
+            oldValues: ['status' => $previousStatus],
+            newValues: [
+                'status' => $return->status,
+                'tracking_number' => $return->tracking_number,
+                'carrier' => $return->carrier,
+            ],
+        );
         $this->initializeNotification(
             $return->user,
             'Package Received',
@@ -1301,10 +1334,20 @@ class ReturnOrderController extends Controller
                     }
 
                 }
+                $previousStatus = $return->status;
                 $return->update([
                     'status' => ReturnOrder::STATUS_INSPECTED,
                     'inspected_at' => now(),
                 ]);
+                $this->systemLogService->log(
+                    action: 'return_inspected',
+                    module: 'return_order',
+                    description: "Return #{$return->return_number} was inspected.",
+                    entity: $return,
+                    oldValues: ['status' => $previousStatus],
+                    newValues: ['status' => $return->status, 'items' => $inspectionSummary],
+                );
+
                 return $return;
             });
 
@@ -1400,11 +1443,19 @@ class ReturnOrderController extends Controller
                 if (!empty($pendingItems)) {
                     throw new \RuntimeException(implode(' ', $pendingItems));
                 }
-
+                $previousStatus = $return->status;
                 $return->update([
                     'status' => ReturnOrder::STATUS_COMPLETED,
                     'completed_at' => now(),
                 ]);
+                $this->systemLogService->log(
+                    action: 'return_completed',
+                    module: 'return_order',
+                    description: "Return #{$return->return_number} was completed.",
+                    entity: $return,
+                    oldValues: ['status' => $previousStatus],
+                    newValues: ['status' => $return->status],
+                );
 
                 return $return;
             });
@@ -1453,13 +1504,23 @@ class ReturnOrderController extends Controller
         if ($return->status !== ReturnOrder::STATUS_REQUESTED) {
             return response()->json(['message' => 'Only requested returns can be rejected.'], 400);
         }
-
+        $previousStatus = $return->status;
         $return->update([
             'status' => ReturnOrder::STATUS_REJECTED,
             'rejected_at' => now(),
             'admin_note' => $request->admin_note,
         ]);
-
+        $this->systemLogService->log(
+            action: 'return_rejected',
+            module: 'return_order',
+            description: "Return #{$return->return_number} was rejected by admin.",
+            entity: $return,
+            oldValues: ['status' => $previousStatus],
+            newValues: [
+                'status' => $return->status,
+                'admin_note' => $return->admin_note,
+            ],
+        );
         $this->initializeNotification(
             $return->user,
             'Return Rejected',

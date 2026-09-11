@@ -13,6 +13,7 @@ use App\Models\OrderItem;
 use App\Models\ProductVariant;
 use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
+use App\Services\SystemLogService;
 use App\Traits\NotifiesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +24,10 @@ use Illuminate\Support\Facades\Mail;
 class ExchangeReturnController extends Controller
 {
     use NotifiesUsers;
-
+    public function __construct(
+        protected SystemLogService $systemLogService
+    ) {
+    }
     // Admin Authorization
     private function ensureAdmin(): void
     {
@@ -216,7 +220,19 @@ class ExchangeReturnController extends Controller
                             'stock_reserved' => true,
                         ]);
                     }
+                    $reservationLog[$item->id] = [
+                        'exchange_id' => $exchange->id,
+                        'replacement_variant_id' => $replacement->id,
+                        'quantity' => $quantity,
+                    ];
                 }
+                $this->systemLogService->log(
+                    action: 'exchange_processing',
+                    module: 'return_order',
+                    description: "Exchange processing started for return #{$return->return_number}.",
+                    entity: $return,
+                    newValues: ['items' => $reservationLog],
+                );
                 broadcast(new ReturnStatusUpdated(
                     $return->id,
                     Exchange::STATUS_PROCESSING,
@@ -320,7 +336,19 @@ class ExchangeReturnController extends Controller
                         'carrier' => $request->carrier,
                         'shipped_at' => now(),
                     ]);
+                    $shippedIds[] = $exchange->id;
                 }
+                $this->systemLogService->log(
+                    action: 'exchange_shipped',
+                    module: 'return_order',
+                    description: "Exchange(s) shipped for return #{$return->return_number}.",
+                    entity: $return,
+                    newValues: [
+                        'exchange_ids' => $shippedIds,
+                        'tracking_number' => $request->tracking_number,
+                        'carrier' => $request->carrier,
+                    ],
+                );
                 return $return->fresh([
                     'user',
                     'order',
@@ -405,6 +433,7 @@ class ExchangeReturnController extends Controller
                         'No exchange items found for this return order.'
                     );
                 }
+                $receivedIds = [];
                 // Mark each exchange as received
                 foreach ($exchangeItems as $item) {
                     $exchange = $item->exchange;
@@ -422,13 +451,22 @@ class ExchangeReturnController extends Controller
                         'status' => Exchange::STATUS_RECEIVED,
                         'received_at' => now(),
                     ]);
+                    $receivedIds[] = $exchange->id;
                 }
+                $this->systemLogService->log(
+                    action: 'exchange_received',
+                    module: 'return_order',
+                    description: "Exchange(s) marked as received for return #{$return->return_number}.",
+                    entity: $return,
+                    newValues: ['exchange_ids' => $receivedIds],
+                );
                 \Log::info('Exchange received check', [
                     'exchange_id' => $exchange->id,
                     'status' => $exchange->status,
                     'status_raw' => var_export($exchange->status, true),
                     'return_item_id' => $exchange->return_item_id,
                 ]);
+
                 return $return->fresh([
                     'user',
                     'order',
@@ -481,147 +519,7 @@ class ExchangeReturnController extends Controller
         }
     }
     // Admin: Complete Exchange
-    // public function completeExchange($id)
-    // {
-    //     $this->ensureAdmin();
 
-    //     try {
-
-    //         $return = DB::transaction(function () use ($id) {
-
-    //             $return = ReturnOrder::with([
-    //                 'user',
-    //                 'order',
-    //                 'items.refund',
-    //                 'items.exchange',
-    //             ])
-    //                 ->lockForUpdate()
-    //                 ->find($id);
-
-    //             if (!$return) {
-    //                 throw new \RuntimeException(
-    //                     'Return order not found.'
-    //                 );
-    //             }
-
-    //             // Get exchange items
-    //             $exchangeItems = $return->items->where(
-    //                 'return_type',
-    //                 ReturnItem::TYPE_EXCHANGE
-    //             );
-
-    //             if ($exchangeItems->isEmpty()) {
-    //                 throw new \RuntimeException(
-    //                     'No exchange items found for this return order.'
-    //                 );
-    //             }
-    //             // Complete every exchange
-    //             foreach ($exchangeItems as $item) {
-
-    //                 $exchange = $item->exchange;
-
-    //                 if (!$exchange) {
-    //                     throw new \RuntimeException(
-    //                         "Exchange record not found for return item #{$item->id}."
-    //                     );
-    //                 }
-    //                 // Customer must receive replacement first.
-
-    //                 if ($exchange->status !== Exchange::STATUS_RECEIVED) {
-    //                     throw new \RuntimeException(
-    //                         "Exchange #{$exchange->id} must be received before completion."
-    //                     );
-    //                 }
-
-    //                 $exchange->update([
-    //                     'status' => Exchange::STATUS_COMPLETED,
-    //                 ]);
-    //             }
-    //             // Check whether ALL return items are completed.
-    //             $allItemsCompleted = $return->items->every(
-    //                 function ($item) {
-
-    //                     if (
-    //                         $item->return_type ===
-    //                         ReturnItem::TYPE_EXCHANGE
-    //                     ) {
-
-    //                         return $item->exchange &&
-    //                             $item->exchange->status ===
-    //                             Exchange::STATUS_COMPLETED;
-    //                     }
-
-    //                     if (
-    //                         $item->return_type ===
-    //                         ReturnItem::TYPE_REFUND
-    //                     ) {
-
-    //                         return $item->refund &&
-    //                             $item->refund->status ===
-    //                             \App\Models\Refund::STATUS_COMPLETED;
-    //                     }
-
-    //                     return false;
-    //                 }
-    //             );
-    //             // Complete ReturnOrder only if every item is completed
-    //             if ($allItemsCompleted) {
-    //                 $return->update([
-    //                     'status' => ReturnOrder::STATUS_COMPLETED,
-    //                     'completed_at' => now(),
-    //                 ]);
-    //             }
-    //             return $return->fresh([
-    //                 'user',
-    //                 'order',
-    //                 'items.refund',
-    //                 'items.exchange',
-    //             ]);
-    //         });
-
-    //         // Notification
-    //         $message = $return->status ===
-    //             ReturnOrder::STATUS_COMPLETED
-    //             ? 'Your return request for order #' .
-    //             $return->order->order_number .
-    //             ' has been completed.'
-
-    //             : 'Your exchange for order #' .
-    //             $return->order->order_number .
-    //             ' has been completed.';
-
-    //         $this->initializeNotification(
-    //             $return->user,
-    //             'Exchange Completed',
-    //             $message,
-    //             'return order',
-    //             'check-circle',
-    //             "/account/returns/{$return->id}"
-    //         );
-    //         return response()->json([
-    //             'message' =>
-    //                 $return->status ===
-    //                 ReturnOrder::STATUS_COMPLETED
-    //                 ? 'Exchange completed and return order completed.'
-    //                 : 'Exchange completed successfully.',
-    //             'data' => $return,
-    //         ], 200);
-
-    //     } catch (\Exception $e) {
-    //         Log::error(
-    //             'Exchange completion failed: ' .
-    //             $e->getMessage(),
-    //             [
-    //                 'return_order_id' => $id,
-    //                 'user_id' => Auth::id(),
-    //             ]
-    //         );
-    //         return response()->json([
-    //             'message' => 'Failed to complete exchange.',
-    //             'error' => $e->getMessage(),
-    //         ], 400);
-    //     }
-    // }
     public function completeExchange($id)
     {
         $this->ensureAdmin();
@@ -656,7 +554,8 @@ class ExchangeReturnController extends Controller
                         'No exchange items found for this return order.'
                     );
                 }
-
+                // Complete every exchange
+                $completedIds = [];
                 // Complete every exchange
                 foreach ($exchangeItems as $item) {
 
@@ -678,7 +577,15 @@ class ExchangeReturnController extends Controller
                     $exchange->update([
                         'status' => Exchange::STATUS_COMPLETED,
                     ]);
+                    $completedIds[] = $exchange->id;
                 }
+                $this->systemLogService->log(
+                    action: 'exchange_completed',
+                    module: 'return_order',
+                    description: "Exchange(s) completed for return #{$return->return_number}.",
+                    entity: $return,
+                    newValues: ['exchange_ids' => $completedIds],
+                );
                 broadcast(new ReturnStatusUpdated(
                     $return->id,
                     Exchange::STATUS_COMPLETED,

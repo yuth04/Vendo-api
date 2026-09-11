@@ -20,8 +20,6 @@ class SystemLogService
             'action' => $action,
             'module' => $module,
             'description' => $description,
-            // 'entity_id'=>$entity?->id,
-            // 'entity_type'=>$entity?->getMorphClass(),
             'entity_id' => $entity?->getKey(),
             'entity_type' => $entity ? get_class($entity) : null,
             'old_values' => $oldValues,

@@ -23,10 +23,16 @@ class SystemLog extends Model
     protected $casts = [
         'old_values' => 'array',
         'new_values' => 'array',
+        'created_at' => 'datetime:d-m-Y g:i:s A',
+        'updated_at' => 'datetime:d-m-Y g:i:s A',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+    public function entity()
+    {
+        return $this->morphTo();
     }
 }

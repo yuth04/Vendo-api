@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\api\v1\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Services\SystemLogService;
 use Illuminate\Http\Request;
 use ImageKit\ImageKit;
 
 class ProfileController extends Controller
 {
+    public function __construct(protected SystemLogService $systemLogServicer)
+    {
+
+    }
     public function getProfileImage(Request $request)
     {
         $user = $request->user();
@@ -31,11 +36,28 @@ class ProfileController extends Controller
             'last_name' => 'required|string|max:255',
         ]);
         $user = auth()->user();
-
+        $oldValues = [
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+        ];
         $user->update([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
         ]);
+        $newValues = [
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+        ];
+
+        // Audit Log: Update Profile Name
+        $this->systemLogServicer->log(
+            action: 'update_name',
+            module: 'Profile',
+            description: "User {$user->email} updated their name.",
+            entity: $user,
+            oldValues: $oldValues,
+            newValues: $newValues
+        );
         return response()->json([
             'message' => 'Name updated successfully',
             'data' => $user,
@@ -77,12 +99,28 @@ class ProfileController extends Controller
                 'fileName' => $file->getClientOriginalName(),
                 'folder' => '/avatars',
             ]);
-
+            $oldValues = [
+                'image' => $user->image,
+                'image_file_id' => $user->image_file_id,
+            ];
             $user->update([
                 'image' => $upload->result->url,
                 'image_file_id' => $upload->result->fileId,
             ]);
+            $newValues = [
+                'image' => $user->image,
+                'image_file_id' => $user->image_file_id,
+            ];
 
+            // Audit Log: Upload Profile Image
+            $this->systemLogServicer->log(
+                action: 'upload_avatar',
+                module: 'Profile',
+                description: "User {$user->email} updated their profile image.",
+                entity: $user,
+                oldValues: $oldValues,
+                newValues: $newValues
+            );
             return response()->json([
                 'message' => 'Avatar updated successfully',
                 'image' => $user->image,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\v1\Customer;
 use App\Events\UserDeactivated;
+use App\Services\SystemLogService;
 use Illuminate\Validation\Rule;
 use App\Http\Controllers\Controller;
 use App\Models\User;
@@ -12,6 +13,10 @@ use NotificationChannels\WebPush\PushSubscription;
 
 class UserController extends Controller
 {
+    public function __construct(protected SystemLogService $systemLogService)
+    {
+
+    }
     // user's order history
     public function userOrder()
     {
@@ -108,7 +113,7 @@ class UserController extends Controller
             'status' => 'nullable|string|in:active,inactive',
             'image' => 'nullable|image|max:5120',
         ]);
-
+        $oldValues = $user->only(['first_name', 'last_name', 'email', 'role', 'status', 'image']);
         $data = $request->only([
             'first_name',
             'last_name',
@@ -166,6 +171,17 @@ class UserController extends Controller
         if ($wasActive && $user->status === 'inactive') {
             event(new UserDeactivated($user->id));
         }
+        $newValues = $user->fresh()->only(['first_name', 'last_name', 'email', 'role', 'status', 'image']);
+
+        // Record Audit Log
+        $this->systemLogService->log(
+            action: 'UPDATE_USER',
+            module: 'User Management',
+            description: "User details updated for {$user->email} by " . Auth::user()->email,
+            entity: $user,
+            oldValues: $oldValues,
+            newValues: $newValues
+        );
         return response()->json([
             'message' => 'Updated user successfully',
             'user' => $user->fresh()
@@ -296,6 +312,7 @@ class UserController extends Controller
     // delete user
     public function destroy($id)
     {
+        $authUser = auth()->user();
         if (auth()->user()->role !== 'super-admin') {
             return response()->json([
                 'message' => 'Only super-admin can access this endpoint',
@@ -312,7 +329,17 @@ class UserController extends Controller
                 'message' => 'Only super-admin can access this endpoint',
             ], 403);
         }
+        $oldValues = $user->toArray();
         $user->delete();
+        // System Log Tracking
+        $this->systemLogService->log(
+            action: 'DELETE_USER',
+            module: 'User Management',
+            description: "Deleted user {$user->email} (ID: {$user->id}) by {$authUser->email}",
+            entity: $user,
+            oldValues: $oldValues,
+            newValues: null
+        );
         return response()->json([
             'message' => 'User deleted successfully',
             'user' => $user
@@ -371,7 +398,7 @@ class UserController extends Controller
                 'message' => "This user is already {$user->role}."
             ], 200);
         }
-
+        $oldRole = $user->role;
         $user->update([
             'role' => $request->role,
             'updated_by' => [
@@ -383,7 +410,15 @@ class UserController extends Controller
                 'updated_at' => now()->format('d-m-Y g:i:s A'),
             ],
         ]);
-
+        // Record Audit Log
+        $this->systemLogService->log(
+            action: 'UPDATE_ROLE',
+            module: 'User Management',
+            description: "Updated role for {$user->email} from '{$oldRole}' to '{$request->role}' by {$authUser->email}",
+            entity: $user,
+            oldValues: ['role' => $oldRole],
+            newValues: ['role' => $request->role]
+        );
         return response()->json([
             'message' => 'Updated role successfully.',
             'user' => $user->fresh()

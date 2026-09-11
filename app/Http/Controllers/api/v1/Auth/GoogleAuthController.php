@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\api\v1\Auth;
 
 use App\Mail\GoogleWelcomeMail;
+use App\Services\SystemLogService;
 use Auth;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -15,7 +16,10 @@ class GoogleAuthController extends Controller
 {
 
 
+    public function __construct(protected SystemLogService $systemLogService)
+    {
 
+    }
     //  Redirect to Google
     public function redirectGoogle()
     {
@@ -64,6 +68,15 @@ class GoogleAuthController extends Controller
                         'created_at' => now()
                     ],
                 ]);
+                // Audit Log: Google Registration
+                $this->systemLogService->log(
+                    action: 'google_register',
+                    module: 'Auth',
+                    description: "User registered via Google OAuth: {$user->email}",
+                    entity: $user,
+                    oldValues: null,
+                    newValues: $user->toArray()
+                );
                 // Mail::to($user->email)->send(new GoogleWelcomeMail($user));
             } else {
                 if (!$user->google_id) {
@@ -75,6 +88,13 @@ class GoogleAuthController extends Controller
                         'last_login_at' => now()
                     ]);
                 }
+                // Audit Log: Google Login
+                $this->systemLogService->log(
+                    action: 'google_login',
+                    module: 'Auth',
+                    description: "User logged in via Google OAuth: {$user->email}",
+                    entity: $user
+                );
             }
 
             // Delete old tokens

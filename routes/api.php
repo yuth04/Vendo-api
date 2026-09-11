@@ -8,6 +8,7 @@ use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Admin\RefundReturnController;
+use App\Http\Controllers\api\v1\Admin\SystemLogController;
 use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
@@ -188,8 +189,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
         // Bakong Payment
-        // Route::post('/payments/khqr/generate', [PaymentController::class, 'generate']);
-        Route::post('/payments/khqr/regenerate', [OrderController::class, 'regenerateKhqr']);
+        // Route::post('/payments/khqr/regenerate', [OrderController::class, 'regenerateKhqr']);
         Route::get('/payments/khqr/status', [PaymentController::class, 'checkStatus']);
         // Route::post('/payments/bakong/callback', [PaymentController::class, 'handle']);
 
@@ -367,6 +367,14 @@ Route::prefix('v1')->group(function () {
             // SUPER ADMIN ONLY — danger zone
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
+            });
+            // System Log Routes
+            Route::prefix('system-logs')->group(function () {
+                Route::get('/', [SystemLogController::class, 'index']);             
+                Route::get('/stats', [SystemLogController::class, 'statistics']);  
+                Route::get('/{id}', [SystemLogController::class, 'show']);          
+                Route::delete('/clear', [SystemLogController::class, 'clear']);      
+                Route::delete('/{id}', [SystemLogController::class, 'destroy']);     
             });
         });
     });

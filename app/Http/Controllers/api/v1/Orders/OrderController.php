@@ -15,6 +15,7 @@ use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
 use App\Models\User;
 use App\Services\BakongService;
+use App\Services\SystemLogService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,7 +26,10 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
+    public function __construct(protected SystemLogService $systemLogService)
+    {
 
+    }
     private function calculateShipping(?string $province): float
     {
         if (!$province) {
@@ -262,6 +266,14 @@ class OrderController extends Controller
 
                 return $this->prepareCheckoutResponse($order, $payment, $khqrData, $user);
             });
+            // system log
+            $this->systemLogService->log(
+                action: 'created',
+                module: 'Order',
+                description: "Order {$orderModel->order_number} was created",
+                entity: $orderModel,
+                oldValues: null
+            );
             return response()->json($result, 201);
 
         } catch (\Exception $e) {
@@ -565,7 +577,10 @@ class OrderController extends Controller
                 'message' => 'Paid orders cannot be canceled'
             ], 400);
         }
-
+        $oldValues = [
+            'order_status' => $order->status,
+            'payment_status' => $order->payment?->status,
+        ];
         DB::transaction(function () use ($order) {
 
             foreach ($order->items as $item) {
@@ -586,7 +601,19 @@ class OrderController extends Controller
                 'status' => 'cancelled'
             ]);
         });
-
+        $newValues = [
+            'status' => $order->status,
+            'payment_status' => $order->payment?->status,
+        ];
+        // system log
+        $this->systemLogService->log(
+            action: 'cancelled',
+            module: 'Order',
+            description: "Order {$order->order_number} was cancelled",
+            entity: $order,
+            oldValues: $oldValues,
+            newValues: $newValues
+        );
         return response()->json([
             'message' => 'Order cancelled successfully',
             'order' => $this->formatOrder($order->fresh())
@@ -602,12 +629,27 @@ class OrderController extends Controller
         if (!$order) {
             return response()->json(['message' => 'Order not found'], 404);
         }
+        // Save information before deletion
+        $oldValues = [
+            'order_number' => $order->order_number,
+            'status' => $order->status,
+            'total_price' => $order->total_price,
+            'payment_method' => $order->payment?->payment_method,
+            'payment_status' => $order->payment?->status,
+        ];
         DB::transaction(function () use ($order) {
             $order->items()->delete();
             $order->payment()?->delete();
             $order->delete();
         });
-
+        // Log AFTER successful deletion
+        $this->systemLogService->log(
+            action: 'deleted',
+            module: 'Order',
+            description: "Order {$oldValues['order_number']} was deleted",
+            entity: $order,
+            oldValues: $oldValues
+        );
         return response()->json(['message' => 'Order deleted successfully', 'order_id' => $orderId]);
     }
     public function regenerateKhqr(Request $request)

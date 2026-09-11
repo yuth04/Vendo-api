@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Services\SystemLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use ImageKit\ImageKit;
@@ -14,7 +15,7 @@ class ProductVariantController extends Controller
 {
     protected $imageKit;
 
-    public function __construct()
+    public function __construct(protected SystemLogService $systemLogService)
     {
         $this->imageKit = new ImageKit(
             config('imagekit.public_key'),
@@ -95,15 +96,25 @@ class ProductVariantController extends Controller
                         throw new \Exception($upload->error->message);
                     }
 
-                    $variant->images()->create([
+                    $newImg = $variant->images()->create([
                         'image' => $upload->result->url,
                         'image_file_id' => $upload->result->fileId ?? null,
                         'position' => $index,
                         'is_primary' => $index === 0
                     ]);
+
+                    $uploadedImages[] = $newImg->toArray();
                 }
             }
-
+            $newValues = array_merge($variant->toArray(), ['images' => $uploadedImages]);
+            $this->systemLogService->log(
+                action: 'create',
+                module: 'ProductVariant',
+                description: "Created product variant: {$variant->sku}",
+                entity: $variant,
+                oldValues: null,
+                newValues: $newValues
+            );
             DB::commit();
 
             return response()->json([
@@ -120,7 +131,6 @@ class ProductVariantController extends Controller
             ], 500);
         }
     }
-
     // update
     public function update(Request $request, $id)
     {
@@ -148,7 +158,8 @@ class ProductVariantController extends Controller
                 'images' => 'sometimes|nullable|array|min:1|max:4',
                 'images.*' => 'image|mimes:jpg,jpeg,png|max:5120',
             ]);
-
+            // Capture state before update for logging
+            $oldValues = $variant->load('images')->toArray();
             $variant->update(array_filter([
                 'product_id' => $validated['product_id'] ?? null,
                 'sku' => $validated['sku'] ?? null,
@@ -193,7 +204,16 @@ class ProductVariantController extends Controller
                     ]);
                 }
             }
-
+            // Capture new state and log
+            $updatedVariant = $variant->fresh('images');
+            $this->systemLogService->log(
+                action: 'update',
+                module: 'ProductVariant',
+                description: "Updated product variant: {$updatedVariant->sku}",
+                entity: $updatedVariant,
+                oldValues: $oldValues,
+                newValues: $updatedVariant->toArray()
+            );
             DB::commit();
 
             return response()->json([
@@ -229,6 +249,7 @@ class ProductVariantController extends Controller
         DB::beginTransaction();
 
         try {
+            $oldValues = $variant->toArray();
             // ✅ Delete all images (ImageKit + DB)
             foreach ($variant->images as $image) {
 
@@ -238,7 +259,15 @@ class ProductVariantController extends Controller
 
                 $image->delete();
             }
-
+            // Record log prior to deleting primary record
+            $this->systemLogService->log(
+                action: 'delete',
+                module: 'ProductVariant',
+                description: "Deleted product variant: {$variant->sku}",
+                entity: $variant,
+                oldValues: $oldValues,
+                newValues: null
+            );
             // ✅ Delete variant
             $variant->delete();
 
