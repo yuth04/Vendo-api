@@ -76,4 +76,11 @@ class ReturnItem extends Model
             'return_item_id'
         );
     }
+    public function returnItems()
+    {
+        return $this->hasMany(
+            ReturnItem::class,
+            'order_item_id'
+        );
+    }
 }
