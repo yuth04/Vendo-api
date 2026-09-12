@@ -20,16 +20,17 @@ class SystemLogService
             'action' => $action,
             'module' => $module,
             'description' => $description,
+
             'entity_id' => $entity?->getKey(),
-            'entity_type' => $entity ? get_class($entity) : null,
+            'entity_type' => $entity
+                ? get_class($entity)
+                : null,
+
             'old_values' => $oldValues,
             'new_values' => $newValues,
+
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
+            'user_agent' => request()->userAgent(),
         ]);
     }
-    // public function __construct()
-    // {
-
-    // }
 }

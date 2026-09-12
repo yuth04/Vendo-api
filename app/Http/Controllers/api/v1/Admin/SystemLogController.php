@@ -66,7 +66,7 @@ class SystemLogController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $log = SystemLog::with('user:id,first_name,last_name,email')->find($id);
+        $log = SystemLog::with('user:id,first_name,last_name,email,image,role')->find($id);
 
         if (!$log) {
             return response()->json(['message' => 'System log record not found'], 404);

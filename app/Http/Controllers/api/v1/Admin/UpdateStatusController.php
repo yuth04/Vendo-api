@@ -10,13 +10,15 @@ use App\Mail\OrderShippedMail;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\ProductVariant;
+use App\Services\InventoryMovementService;
 use App\Services\SystemLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 class UpdateStatusController extends Controller
 {
-    public function __construct(protected SystemLogService $systemLogService)
+    public function __construct(protected SystemLogService $systemLogService, private InventoryMovementService $inventoryMovementService)
     {
 
     }

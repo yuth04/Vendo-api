@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\api\v1\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
+use App\Models\InventoryBatch;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\ReturnOrder;
 use App\Models\User;
+use App\Notifications\InventoryAlertNotification;
 use App\Notifications\LowStockNotification;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -16,6 +18,7 @@ use Notification;
 use Illuminate\Http\JsonResponse;
 class DashboardController extends Controller
 {
+
     public function dashboard(Request $request): JsonResponse
     {
         // 1. Resolve Date Ranges (Current & Previous Periods)
@@ -51,10 +54,11 @@ class DashboardController extends Controller
 
         $formattedTrend = $this->getRevenueTrend($start, $end);
         $hours = $this->getOrderDistributionByHour($start, $end);
-        $lowStockProducts = ProductVariant::where('stock', '<=', 5)->get();
-        $totalBrands = $this->getActiveBrandsCount($start, $end);
+        // $lowStockProducts = ProductVariant::where('stock', '<=', 5)->get();
+        $totalBrands = Brand::count();
         $profitMargin = $totalRevenue > 0 ? 100 : 0;
-
+        // Inventory Alerts
+        $inventoryAlerts = $this->getInventoryAlerts();
         // 6. Return Structured JSON Response
         return response()->json([
             'message' => 'Welcome to the Dashboard API',
@@ -97,17 +101,10 @@ class DashboardController extends Controller
                 ],
                 'top_sold_products' => $this->getTopSoldProducts($start, $end),
                 'order_carts' => $chartData,
-                'inventory_alerts' => $lowStockProducts->map(function ($variant) {
-                    return [
-                        'variant_id' => $variant->id,
-                        'product_id' => $variant->product_id,
-                        'product_name' => $variant->product->productName,
-                        'size' => $variant->size,
-                        'color' => $variant->color,
-                        'stock' => $variant->stock,
-                    ];
-                }),
+
+                'inventory_alerts' => $inventoryAlerts,
                 'recent_orders' => Order::latest()->take(5)->get()->map(function ($order) {
+
                     return [
                         'id' => $order->id,
                         'order_number' => $order->order_number,
@@ -121,6 +118,156 @@ class DashboardController extends Controller
                 })->values(),
             ],
         ]);
+    }
+
+    // Inventory Alerts
+    private function formatLowStockAlert($variant): array
+    {
+        return [
+            'id' => $variant->id,
+            'variant_id' => $variant->id,
+            'product_id' => $variant->product_id,
+            'product_name' => $variant->product->productName,
+            'size' => $variant->size,
+            'color' => $variant->color,
+            'stock' => $variant->stock,
+            'alert_type' => 'low_stock',
+        ];
+    }
+    // 
+    private function formatOutOfStockAlert($variant): array
+    {
+        return [
+            'id' => $variant->id,
+            'variant_id' => $variant->id,
+            'product_id' => $variant->product_id,
+            'product_name' => $variant->product->productName,
+            'size' => $variant->size,
+            'color' => $variant->color,
+            'stock' => 0,
+            'alert_type' => 'out_of_stock',
+        ];
+    }
+    // 
+    private function formatInventoryBatchAlert(
+        InventoryBatch $batch,
+        string $alertType
+    ): array {
+        $variant = $batch->productVariant;
+
+        return [
+            'id' => $batch->id,
+            'batch_id' => $batch->id,
+            'variant_id' => $batch->product_variant_id,
+            'product_id' => $variant->product_id,
+            'product_name' => $variant->product->productName,
+            'size' => $variant->size,
+            'color' => $variant->color,
+
+            // Keep "stock" so your existing frontend can use item.stock
+            'stock' => $batch->remaining_quantity,
+
+            'quantity' => $batch->quantity,
+            'remaining_quantity' => $batch->remaining_quantity,
+
+            'stock_in_date' => $batch->stock_in_date->format('d M Y g:i:s A'),
+
+            'age_in_months' => $batch->age_in_months,
+
+            'stock_age_status' => $alertType,
+
+            'alert_type' => $alertType,
+        ];
+    }
+    private function getInventoryAlerts()
+    {
+        $alerts = collect();
+
+        // Low stock: 1 - 5
+        $lowStock = ProductVariant::with('product')
+            ->where('stock', '>', 0)
+            ->where('stock', '<=', 5)
+            ->get();
+
+        foreach ($lowStock as $variant) {
+            $alerts->push(
+                $this->formatLowStockAlert($variant)
+            );
+        }
+
+        // Out of stock: 0
+        $outOfStock = ProductVariant::with('product')
+            ->where('stock', 0)
+            ->get();
+
+        foreach ($outOfStock as $variant) {
+            $alerts->push(
+                $this->formatOutOfStockAlert($variant)
+            );
+        }
+
+        // Aging stock: 6 - 8 months
+        $agingStock = InventoryBatch::with('productVariant.product')
+            ->where('remaining_quantity', '>', 0)
+            ->where(
+                'stock_in_date',
+                '<=',
+                now()->subMonths(6)
+            )
+            ->where(
+                'stock_in_date',
+                '>',
+                now()->subMonths(9)
+            )
+            ->orderBy('stock_in_date', 'asc')
+            ->get();
+
+        foreach ($agingStock as $batch) {
+            $alerts->push(
+                $this->formatInventoryBatchAlert($batch, 'slow_moving')
+            );
+        }
+
+        // Old stock: 9 - 11 months
+        $oldStock = InventoryBatch::with('productVariant.product')
+            ->where('remaining_quantity', '>', 0)
+            ->where(
+                'stock_in_date',
+                '<=',
+                now()->subMonths(9)
+            )
+            ->where(
+                'stock_in_date',
+                '>',
+                now()->subMonths(12)
+            )
+            ->orderBy('stock_in_date', 'asc')
+            ->get();
+
+        foreach ($oldStock as $batch) {
+            $alerts->push(
+                $this->formatInventoryBatchAlert($batch, 'old_stock')
+            );
+        }
+
+        // Dead stock: 12+ months
+        $deadStock = InventoryBatch::with('productVariant.product')
+            ->where('remaining_quantity', '>', 0)
+            ->where(
+                'stock_in_date',
+                '<=',
+                now()->subMonths(12)
+            )
+            ->orderBy('stock_in_date', 'asc')
+            ->get();
+
+        foreach ($deadStock as $batch) {
+            $alerts->push(
+                $this->formatInventoryBatchAlert($batch, 'dead_stock')
+            );
+        }
+
+        return $alerts->values();
     }
     private function calculatePercentageChange($previous, $current): string
     {
@@ -268,19 +415,19 @@ class DashboardController extends Controller
             ->get();
     }
     // Add this helper function at the bottom of your controller
-private function getActiveBrandsCount(Carbon $start, Carbon $end): int
-{
-    return DB::table('order_items')
-        ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
-        ->join('products', 'product_variants.product_id', '=', 'products.id')
-        ->join('orders', 'order_items.order_id', '=', 'orders.id')
-        ->join('payments', 'orders.id', '=', 'payments.order_id')
-        ->where('payments.status', 'paid')
-        ->whereBetween('orders.created_at', [$start, $end])
-        ->whereNotNull('products.brand_id')
-        ->distinct('products.brand_id')
-        ->count('products.brand_id');
-}
+    private function getActiveBrandsCount(Carbon $start, Carbon $end): int
+    {
+        return DB::table('order_items')
+            ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
+            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->join('payments', 'orders.id', '=', 'payments.order_id')
+            ->where('payments.status', 'paid')
+            ->whereBetween('orders.created_at', [$start, $end])
+            ->whereNotNull('products.brand_id')
+            ->distinct('products.brand_id')
+            ->count('products.brand_id');
+    }
     public function orderStat()
     {
         return response()->json([
@@ -396,21 +543,136 @@ private function getActiveBrandsCount(Carbon $start, Carbon $end): int
         ]);
     }
     // stock alert 
-    public function stockAlert()
-    {
-        $products = Product::whereHas('variants', function ($query) {
-            $query->where('stock', '<=', 5);
-        })->get();
-        $admins = User::where('role', 'admin')->get();
+    // public function stockAlert()
+    // {
+    //     $products = Product::whereHas('variants', function ($query) {
+    //         $query->where('stock', '<=', 5);
+    //     })->get();
+    //     $admins = User::where('role', 'admin')->get();
 
-        foreach ($products as $product) {
-            Notification::send($admins, new LowStockNotification($product));
-        }
+    //     foreach ($products as $product) {
+    //         Notification::send($admins, new LowStockNotification($product));
+    //     }
+    //     return response()->json([
+    //         'message' => 'Low Stock Alert',
+    //         'data' => $products
+    //     ]);
+    // }
+
+
+    public function stockAlerts()
+    {
+        // Low stock: 1 - 5
+        $lowStockProducts = Product::with([
+            'variants' => function ($query) {
+                $query->where('stock', '>', 0)
+                    ->where('stock', '<=', 5);
+            }
+        ])
+            ->whereHas('variants', function ($query) {
+                $query->where('stock', '>', 0)
+                    ->where('stock', '<=', 5);
+            })
+            ->get();
+
+        // Out of stock: 0
+        $outOfStockProducts = Product::with([
+            'variants' => function ($query) {
+                $query->where('stock', 0);
+            }
+        ])
+            ->whereHas('variants', function ($query) {
+                $query->where('stock', 0);
+            })
+            ->get();
+
+        // Aging: 6 - 8 months
+        $agingStock = InventoryBatch::with([
+            'productVariant.product'
+        ])
+            ->where('remaining_quantity', '>', 0)
+            ->where('stock_in_date', '<=', now()->subMonths(6))
+            ->where('stock_in_date', '>', now()->subMonths(9))
+            ->orderBy('stock_in_date', 'asc')
+            ->get()
+            ->map(function ($batch) {
+                return [
+                    'id' => $batch->id,
+                    'product_variant_id' => $batch->product_variant_id,
+                    'quantity' => $batch->quantity,
+                    'remaining_quantity' => $batch->remaining_quantity,
+                    'unit_cost' => $batch->unit_cost,
+                    'stock_in_date' => $batch->stock_in_date,
+                    'age_in_months' => $batch->age_in_months,
+                    'stock_age_status' => $batch->stock_age_status,
+                    'product_variant' => $batch->productVariant,
+                ];
+            });
+
+        // Old stock: 9 - 11 months
+        $oldStock = InventoryBatch::with([
+            'productVariant.product'
+        ])
+            ->where('remaining_quantity', '>', 0)
+            ->where('stock_in_date', '<=', now()->subMonths(9))
+            ->where('stock_in_date', '>', now()->subMonths(12))
+            ->orderBy('stock_in_date', 'asc')
+            ->get()
+            ->map(function ($batch) {
+                return [
+                    'id' => $batch->id,
+                    'product_variant_id' => $batch->product_variant_id,
+                    'quantity' => $batch->quantity,
+                    'remaining_quantity' => $batch->remaining_quantity,
+                    'unit_cost' => $batch->unit_cost,
+                    'stock_in_date' => $batch->stock_in_date,
+                    'age_in_months' => $batch->age_in_months,
+                    'stock_age_status' => $batch->stock_age_status,
+                    'product_variant' => $batch->productVariant,
+                ];
+            });
+
+        // Dead stock: 12+ months
+        $deadStock = InventoryBatch::with([
+            'productVariant.product'
+        ])
+            ->where('remaining_quantity', '>', 0)
+            ->where('stock_in_date', '<=', now()->subMonths(12))
+            ->orderBy('stock_in_date', 'asc')
+            ->get()
+            ->map(function ($batch) {
+                return [
+                    'id' => $batch->id,
+                    'product_variant_id' => $batch->product_variant_id,
+                    'quantity' => $batch->quantity,
+                    'remaining_quantity' => $batch->remaining_quantity,
+                    'unit_cost' => $batch->unit_cost,
+                    'stock_in_date' => $batch->stock_in_date,
+                    'age_in_months' => $batch->age_in_months,
+                    'stock_age_status' => $batch->stock_age_status,
+                    'product_variant' => $batch->productVariant,
+                ];
+            });
+
         return response()->json([
-            'message' => 'Low Stock Alert',
-            'data' => $products
+            'message' => 'Stock alerts retrieved successfully.',
+
+            'data' => [
+                'low_stock' => $lowStockProducts,
+                'out_of_stock' => $outOfStockProducts,
+
+                'aging_stock' => $agingStock,
+                'old_stock' => $oldStock,
+                'dead_stock' => $deadStock,
+            ],
         ]);
     }
+
+
+
+
+
+
     //     public function dashboard(Request $request)
 //     {
 //         $filter = $request->get('filter', 'today');

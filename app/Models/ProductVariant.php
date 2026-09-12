@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductVariant extends Model
 {
@@ -31,5 +32,11 @@ class ProductVariant extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
-
+    public function inventoryBatches(): HasMany
+    {
+        return $this->hasMany(
+            InventoryBatch::class,
+            'product_variant_id'
+        );
+    }
 }

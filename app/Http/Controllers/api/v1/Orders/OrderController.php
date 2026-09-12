@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers\Api\v1\Orders;
-use App\Exports\OrderHistoryExport;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminOrderPlaced;
 use App\Mail\OrderPlaced;
@@ -15,6 +14,8 @@ use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
 use App\Models\User;
 use App\Services\BakongService;
+use App\Services\InventoryMovementService;
+use App\Services\InventoryService;
 use App\Services\SystemLogService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
-    public function __construct(protected SystemLogService $systemLogService)
+    public function __construct(protected SystemLogService $systemLogService, private InventoryService $inventoryService)
     {
 
     }
@@ -341,7 +342,7 @@ class OrderController extends Controller
                 'color' => $variant->color,
             ]);
         }
-
+ 
         $order->update([
             'discount_amount' => round($totalDiscount, 2)
         ]);

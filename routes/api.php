@@ -4,6 +4,7 @@
 
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\ExchangeReturnController;
+use App\Http\Controllers\api\v1\admin\InventoryController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
@@ -341,8 +342,16 @@ Route::prefix('v1')->group(function () {
                 Route::get('/stats', [DashboardController::class, 'stats']);
                 Route::get('/order-stats', [DashboardController::class, 'orderStat']);
                 Route::get('/most-sold-products', [DashboardController::class, 'mostSoldProducts']);
+                // Stock Management
                 Route::get('/stocks', [DashboardController::class, 'stock']);
-                Route::get('/stock-alert', [DashboardController::class, 'stockAlert']);
+                Route::get('/stock-alert', [DashboardController::class, 'stockAlerts']);
+                // Aging / old / dead stock 
+                Route::get('/aging-stock', [InventoryController::class, 'slowMovingStock']);
+                // View one batch 
+                Route::get('/batches/{id}', [InventoryController::class, 'show']);
+                // Summary
+                Route::get('/inventory/summary', [InventoryController::class, 'inventorySummary']);
+
             });
 
             // Users — management
@@ -370,12 +379,13 @@ Route::prefix('v1')->group(function () {
             });
             // System Log Routes
             Route::prefix('system-logs')->group(function () {
-                Route::get('/', [SystemLogController::class, 'index']);             
-                Route::get('/stats', [SystemLogController::class, 'statistics']);  
-                Route::get('/{id}', [SystemLogController::class, 'show']);          
-                Route::delete('/clear', [SystemLogController::class, 'clear']);      
-                Route::delete('/{id}', [SystemLogController::class, 'destroy']);     
+                Route::get('/', [SystemLogController::class, 'index']);
+                Route::get('/stats', [SystemLogController::class, 'statistics']);
+                Route::get('/{id}', [SystemLogController::class, 'show']);
+                Route::delete('/clear', [SystemLogController::class, 'clear']);
+                Route::delete('/{id}', [SystemLogController::class, 'destroy']);
             });
+
         });
     });
 
