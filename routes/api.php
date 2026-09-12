@@ -4,7 +4,7 @@
 
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\ExchangeReturnController;
-use App\Http\Controllers\api\v1\admin\InventoryController;
+use App\Http\Controllers\api\v1\Admin\InventoryController;
 use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
