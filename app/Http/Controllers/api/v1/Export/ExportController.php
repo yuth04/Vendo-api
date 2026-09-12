@@ -440,7 +440,7 @@ class ExportController extends Controller
 
         return $pdf->download('staff-report.pdf');
     }
-    // user invoice
+    // order invoice
     public function downloadInvoice($orderId)
     {
         $order = Order::with([
@@ -458,5 +458,29 @@ class ExportController extends Controller
         return $pdf->download(
             'invoice-' . $order->order_number . '.pdf'
         );
+    }
+    // return invoice
+    public function exportReturnInvoice($id)
+    {
+        $return = ReturnOrder::with([
+            'user',
+            'order',
+            'items.orderItem',
+            'items.orderItem.variant',
+            'items.replacementVariant',
+        ])->find($id);
+
+        if (!$return) {
+            return response()->json(['message' => 'Return order not found'], 404);
+        }
+
+        // Load view and pass data
+        $pdf = Pdf::loadView('invoices.return-invoice', compact('return'));
+
+        // Set paper size & orientation if needed (e.g., 'a4', 'portrait')
+        $pdf->setPaper('a4', 'portrait');
+
+        // Download the PDF file directly
+        return $pdf->download("return-invoice-{$return->id}.pdf");
     }
 }

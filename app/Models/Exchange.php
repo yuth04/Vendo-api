@@ -37,7 +37,7 @@ class Exchange extends Model
     {
         return $date->format('d-m-Y g:i:s A');
     }
-
+ 
     public const STATUS_PENDING = 'pending';
     public const STATUS_PROCESSING = 'processing';
     public const STATUS_SHIPPED = 'shipped';

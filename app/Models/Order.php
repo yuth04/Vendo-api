@@ -87,4 +87,11 @@ class Order extends Model
             'syntax' => Carbon::DIFF_RELATIVE_TO_NOW,
         ]);
     }
+    public function returnItems()
+    {
+        return $this->hasMany(
+            ReturnItem::class,
+            'order_item_id'
+        );
+    }
 }

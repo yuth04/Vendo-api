@@ -3,18 +3,22 @@
 namespace App\Http\Controllers\api\v1\Orders;
 
 use App\Events\OrderStatusUpdated;
+use App\Events\ReturnStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\AdminReturnRequestMail;
 use App\Mail\ReturnOrderRequestMail;
 use App\Models\Exchange;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\ProductDamage;
 use App\Models\ProductVariant;
 use App\Models\Refund;
 use App\Models\ReturnImage;
 use App\Models\ReturnItem;
 use App\Models\ReturnOrder;
+use App\Services\ExchangeService;
 use App\Services\RefundService;
+use App\Services\SystemLogService;
 use App\Traits\NotifiesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,15 +34,21 @@ class ReturnOrderController extends Controller
     use NotifiesUsers;
 
     protected $RefundService;
+    protected $ExchangeService;
+
     private const RETURN_WINDOW_DAYS = 7;
 
     private const CONDITIONS = [
         'good',
         'damaged',
     ];
-    public function __construct(RefundService $refundService)
-    {
+    public function __construct(
+        RefundService $refundService,
+        ExchangeService $exchangeService,
+        protected SystemLogService $systemLogService
+    ) {
         $this->RefundService = $refundService;
+        $this->ExchangeService = $exchangeService;
     }
     // Admin Authorization
     private function ensureAdmin(): void
@@ -57,7 +67,7 @@ class ReturnOrderController extends Controller
         $this->ensureAdmin();
 
         $query = ReturnOrder::with([
-            'items.orderItem.productVariant.product',
+            'items.orderItem.variant.product',
             'items.replacementVariant.product',
             'user',
             'order.payment',
@@ -88,7 +98,7 @@ class ReturnOrderController extends Controller
         $returns = ReturnOrder::with([
             'order.items.variant.product',
             'order.payment',
-            'items.orderItem.productVariant.product',
+            'items.orderItem.variant.product',
             'items.replacementVariant.product',
             'user',
             'items.refund',
@@ -138,26 +148,26 @@ class ReturnOrderController extends Controller
                     'discount' => $couponDiscount,
                 ],
 
-                'refund' => $return->refund ? [
-                    'id' => $return->refund->id,
-                    'amount' => $return->refund->amount,
-                    'method' => $return->refund->method,
-                    'provider' => $return->refund->provider,
-                    'status' => $return->refund->status,
-                    'reference' => $return->refund->refund_reference,
-                    'processed_at' => $return->refund->processed_at,
-                ] : null,
+                // 'refund' => $return->refund ? [
+                //     'id' => $return->refund->id,
+                //     'amount' => $return->refund->amount,
+                //     'method' => $return->refund->method,
+                //     'provider' => $return->refund->provider,
+                //     'status' => $return->refund->status,
+                //     'reference' => $return->refund->refund_reference,
+                //     'processed_at' => $return->refund->processed_at,
+                // ] : null,
 
-                'exchange' => $return->exchange ? [
-                    'id' => $return->exchange->id,
-                    'status' => $return->exchange->status,
-                    'price_difference' => $return->exchange->price_difference,
-                    'tracking_number' => $return->exchange->tracking_number,
-                    'carrier' => $return->exchange->carrier,
-                    'processing_at' => $return->exchange->processing_at?->format('d-m-Y g:i:s A'),
-                    'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y g:i:s A'),
-                    'received_at' => $return->exchange->received_at?->format('d-m-Y g:i:s A'),
-                ] : null,
+                // 'exchange' => $return->exchange ? [
+                //     'id' => $return->exchange->id,
+                //     'status' => $return->exchange->status,
+                //     'price_difference' => $return->exchange->price_difference,
+                //     'tracking_number' => $return->exchange->tracking_number,
+                //     'carrier' => $return->exchange->carrier,
+                //     'processing_at' => $return->exchange->processing_at?->format('d-m-Y g:i:s A'),
+                //     'shipped_at' => $return->exchange->shipped_at?->format('d-m-Y g:i:s A'),
+                //     'received_at' => $return->exchange->received_at?->format('d-m-Y g:i:s A'),
+                // ] : null,
 
                 'created_at' => $return->created_at ? $return->created_at->format('d-m-Y h:i:s A') : null,
 
@@ -672,12 +682,6 @@ class ReturnOrderController extends Controller
                 'max:2048',
             ],
         ]);
-        /*
-        |--------------------------------------------------------------------------
-        | Find Order
-        |--------------------------------------------------------------------------
-        */
-
         $order = Order::where('id', $request->order_id)
             ->where('user_id', Auth::id())
             ->first();
@@ -687,37 +691,21 @@ class ReturnOrderController extends Controller
                 'message' => 'Order not found for this user.',
             ], 404);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Check Order Status
-        |--------------------------------------------------------------------------
-        */
-
+        // Check Order Status
         if ($order->status !== 'completed') {
             return response()->json([
                 'message' => 'Only completed orders can be returned.',
             ], 400);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Check Completed Date
-        |--------------------------------------------------------------------------
-        */
-
+        //  Check Completed Date
         if (!$order->completed_at) {
             return response()->json([
                 'message' => 'Order completion date not found.',
             ], 400);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Check Return Window
-        |--------------------------------------------------------------------------
-        */
-
+        // Check Return Window
         if (
             $order->completed_at
                 ->copy()
@@ -731,17 +719,9 @@ class ReturnOrderController extends Controller
                     ' days only).',
             ], 400);
         }
-
         try {
-
             $return = DB::transaction(function () use ($request, $order) {
-
-                /*
-                |--------------------------------------------------------------------------
-                | Get Order Items
-                |--------------------------------------------------------------------------
-                */
-
+                // Get Order Items
                 $orderItemIds = collect($request->items)
                     ->pluck('order_item_id')
                     ->unique()
@@ -753,24 +733,14 @@ class ReturnOrderController extends Controller
                     ->get()
                     ->keyBy('id');
 
-                /*
-                |--------------------------------------------------------------------------
-                | Generate Return Number
-                |--------------------------------------------------------------------------
-                */
-
+                // Generate Return Number
                 $returnNumber =
                     'RET-' .
                     date('Ymd') .
                     '-' .
                     strtoupper(Str::random(4));
 
-                /*
-                |--------------------------------------------------------------------------
-                | Create Return Order
-                |--------------------------------------------------------------------------
-                */
-
+                // Create Return Order
                 $return = ReturnOrder::create([
                     'user_id' => Auth::id(),
                     'order_id' => $order->id,
@@ -779,30 +749,18 @@ class ReturnOrderController extends Controller
                     'status' => ReturnOrder::STATUS_REQUESTED,
                 ]);
 
-                /*
-                |--------------------------------------------------------------------------
-                | Create Return Items
-                |--------------------------------------------------------------------------
-                */
-
+                // Create Return Items
                 foreach ($request->items as $line) {
 
                     $orderItem = $orderItems->get(
                         $line['order_item_id']
                     );
-
                     if (!$orderItem) {
                         throw new \RuntimeException(
                             "Order item #{$line['order_item_id']} does not belong to this order."
                         );
                     }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Check Already Returned Quantity
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // Check Already Returned Quantity
                     $alreadyReturned = ReturnItem::where(
                         'order_item_id',
                         $orderItem->id
@@ -814,7 +772,6 @@ class ReturnOrderController extends Controller
                             ]);
                         })
                         ->sum('quantity');
-
                     $remaining =
                         $orderItem->quantity -
                         $alreadyReturned;
@@ -825,12 +782,7 @@ class ReturnOrderController extends Controller
                         );
                     }
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Return Item Data
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // Return Item Data
                     $returnItemData = [
                         'return_order_id' => $return->id,
                         'order_item_id' => $orderItem->id,
@@ -844,12 +796,7 @@ class ReturnOrderController extends Controller
                         'exchange_price_difference' => null,
                     ];
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Exchange Information
-                    |--------------------------------------------------------------------------
-                    */
-
+                    //  Exchange Information
                     $replacement = null;
                     $exchangeQuantity = null;
                     $difference = 0;
@@ -858,24 +805,18 @@ class ReturnOrderController extends Controller
                         $line['return_type'] ===
                         ReturnItem::TYPE_EXCHANGE
                     ) {
-
                         if (empty($line['replacement_variant_id'])) {
                             throw new \RuntimeException(
                                 'Replacement variant is required for exchange.'
                             );
                         }
-
                         $exchangeQuantity =
                             $line['exchange_quantity']
                             ?? $line['quantity'];
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Lock Replacement Variant
-                        |--------------------------------------------------------------------------
-                        */
-
-                        $replacement = ProductVariant::lockForUpdate()
+                        // Lock Replacement Variant
+                        $replacement = ProductVariant::with('product')
+                            ->lockForUpdate()
                             ->find(
                                 $line['replacement_variant_id']
                             );
@@ -886,38 +827,19 @@ class ReturnOrderController extends Controller
                             );
                         }
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Check Replacement Stock
-                        |--------------------------------------------------------------------------
-                        */
-
+                        // Check Replacement Stock
                         if ($replacement->stock < $exchangeQuantity) {
                             throw new \RuntimeException(
                                 'Replacement product is out of stock.'
                             );
                         }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Calculate Price Difference
-                        |--------------------------------------------------------------------------
-                        */
-
-                        $originalAmount =
-                            (float) $orderItem->price *
-                            (int) $line['quantity'];
-
-                        $replacementAmount =
-                            (float) $replacement->price *
-                            (int) $exchangeQuantity;
-
-                        $difference =
-                            round(
-                                $replacementAmount -
-                                $originalAmount,
-                                2
-                            );
+                        // Calculate Price Difference (via ExchangeService)
+                        $difference = $this->ExchangeService->calculatePriceDifference(
+                            $orderItem,
+                            $replacement,
+                            (int) $line['quantity'],
+                            (int) $exchangeQuantity
+                        );
 
                         $returnItemData[
                             'replacement_variant_id'
@@ -931,32 +853,18 @@ class ReturnOrderController extends Controller
                             'exchange_price_difference'
                         ] = $difference;
                     }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Create Return Item
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // Create Return Item
                     $returnItem = ReturnItem::create(
                         $returnItemData
                     );
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CREATE REFUND
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // CREATE REFUND
                     if (
                         $returnItem->return_type ===
                         ReturnItem::TYPE_REFUND
                     ) {
-
                         $refundAmount =
                             (float) $orderItem->price *
                             (int) $returnItem->quantity;
-
                         Refund::create([
                             'order_id' => $order->id,
                             'return_order_id' => $return->id,
@@ -970,30 +878,21 @@ class ReturnOrderController extends Controller
                             'method' => 'khqr',
                             'provider' => 'bakong',
                             'status' => Refund::STATUS_PENDING,
-
                             'refund_reference' => null,
                             'processed_at' => null,
                             'failed_at' => null,
                             'failure_reason' => null,
-
                             'khqr_receiver_number' => null,
                             'khqr_account_name' => null,
                             'khqr_qr_code' => null,
                             'khqr_transaction_id' => null,
                         ]);
                     }
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | CREATE EXCHANGE
-                    |--------------------------------------------------------------------------
-                    */
-
+                    // CREATE EXCHANGE
                     if (
                         $returnItem->return_type ===
                         ReturnItem::TYPE_EXCHANGE
                     ) {
-
                         Exchange::create([
                             'return_order_id' => $return->id,
                             'return_item_id' => $returnItem->id,
@@ -1021,47 +920,38 @@ class ReturnOrderController extends Controller
                 'message' => $e->getMessage(),
             ], 400);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Upload Return Images
-        |--------------------------------------------------------------------------
-        */
-
+        $this->systemLogService->log(
+            action: 'return_requested',
+            module: 'return_order',
+            description: "Return request #{$return->return_number} submitted for order #{$order->order_number}.",
+            entity: $return,
+            newValues: $return->only(['id', 'order_id', 'return_number', 'status', 'note']),
+        );
+        // Upload Return Images to ImageKit
         if ($request->hasFile('images')) {
-
             try {
-
                 $imageKit = new ImageKit(
                     config('imagekit.public_key'),
                     config('imagekit.private_key'),
                     config('imagekit.url_endpoint')
                 );
-
                 foreach ($request->file('images') as $file) {
-
                     $upload = $imageKit->upload([
                         'file' => fopen(
                             $file->getRealPath(),
                             'r'
                         ),
-
                         'fileName' =>
                             $file->getClientOriginalName(),
-
                         'folder' => '/return-images',
                     ]);
-
                     if (isset($upload->error)) {
-
                         Log::error(
                             'Return image upload failed: ' .
                             $upload->error->message
                         );
-
                         continue;
                     }
-
                     ReturnImage::create([
                         'return_order_id' => $return->id,
                         'url' => $upload->result->url,
@@ -1074,7 +964,6 @@ class ReturnOrderController extends Controller
                         ]);
                     }
                 }
-
             } catch (\Exception $e) {
 
                 Log::error(
@@ -1083,13 +972,7 @@ class ReturnOrderController extends Controller
                 );
             }
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Load Relationships
-        |--------------------------------------------------------------------------
-        */
-
+        // Load Relationships
         $return->load([
             'user',
             'items.orderItem.productVariant',
@@ -1098,12 +981,7 @@ class ReturnOrderController extends Controller
             'items.exchange',
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Notification
-        |--------------------------------------------------------------------------
-        */
-
+        // Notification
         $this->initializeNotification(
             $return->user,
             'Return Requested',
@@ -1115,12 +993,7 @@ class ReturnOrderController extends Controller
             "/account/returns/{$return->id}"
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Send Emails
-        |--------------------------------------------------------------------------
-        */
-
+        // Send Emails
         try {
 
             $adminEmail = config('mail.admin_email');
@@ -1144,12 +1017,6 @@ class ReturnOrderController extends Controller
                 $e->getMessage()
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Response
-        |--------------------------------------------------------------------------
-        */
 
         return response()->json([
             'message' =>
@@ -1176,7 +1043,7 @@ class ReturnOrderController extends Controller
                 'message' => 'Only requested returns can be cancelled.'
             ], 400);
         }
-
+        $previousStatus = $return->status;
         DB::transaction(function () use ($return) {
 
             // Cancel related refunds
@@ -1201,7 +1068,14 @@ class ReturnOrderController extends Controller
                 'status' => ReturnOrder::STATUS_CANCELLED,
             ]);
         });
-
+        $this->systemLogService->log(
+            action: 'return_cancelled',
+            module: 'return_order',
+            description: "Return #{$return->return_number} was cancelled by customer.",
+            entity: $return,
+            oldValues: ['status' => $previousStatus],
+            newValues: ['status' => $return->status],
+        );
         return response()->json([
             'message' => 'Return request cancelled successfully.'
         ]);
@@ -1235,7 +1109,7 @@ class ReturnOrderController extends Controller
 
                 $hasRefund = $return->items->contains('return_type', ReturnItem::TYPE_REFUND);
                 $hasExchange = $return->items->contains('return_type', ReturnItem::TYPE_EXCHANGE);
-
+                $previousStatus = $return->status;
                 $return->update([
                     'status' => ReturnOrder::STATUS_APPROVED,
                     'approved_at' => now(),
@@ -1285,6 +1159,14 @@ class ReturnOrderController extends Controller
                     );
                 }
 
+                $this->systemLogService->log(
+                    action: 'return_approved',
+                    module: 'return_order',
+                    description: "Return #{$return->return_number} was approved.",
+                    entity: $return,
+                    oldValues: ['status' => $previousStatus],
+                    newValues: ['status' => $return->status, 'has_refund' => $hasRefund, 'has_exchange' => $hasExchange],
+                );
                 return $return;
             });
 
@@ -1298,7 +1180,13 @@ class ReturnOrderController extends Controller
             );
 
             try {
-                broadcast(new OrderStatusUpdated($return->order_id, 'return_approved', 'unpaid', true));
+                broadcast(new ReturnStatusUpdated(
+                    $return->id,
+                    ReturnOrder::STATUS_APPROVED,
+                    'Your return request for order #' .
+                    $return->order->order_number .
+                    ' has been approved. Please ship the item(s) back.'
+                ));
             } catch (\Exception $e) {
                 Log::error('Broadcast failed: ' . $e->getMessage());
             }
@@ -1335,14 +1223,25 @@ class ReturnOrderController extends Controller
         if ($return->status !== ReturnOrder::STATUS_APPROVED) {
             return response()->json(['message' => 'Only approved return requests can be marked as received.'], 400);
         }
-
+        $previousStatus = $return->status;
         $return->update([
             'status' => ReturnOrder::STATUS_RECEIVED,
             'received_at' => now(),
             'tracking_number' => $request->tracking_number ?? $return->tracking_number,
             'carrier' => $request->carrier ?? $return->carrier,
         ]);
-
+        $this->systemLogService->log(
+            action: 'return_received',
+            module: 'return_order',
+            description: "Return #{$return->return_number} marked as received at warehouse.",
+            entity: $return,
+            oldValues: ['status' => $previousStatus],
+            newValues: [
+                'status' => $return->status,
+                'tracking_number' => $return->tracking_number,
+                'carrier' => $return->carrier,
+            ],
+        );
         $this->initializeNotification(
             $return->user,
             'Package Received',
@@ -1351,7 +1250,11 @@ class ReturnOrderController extends Controller
             'shopping-bag',
             "/account/returns/{$return->id}"
         );
-
+        broadcast(new ReturnStatusUpdated(
+            $return->id,
+            ReturnOrder::STATUS_RECEIVED,
+            'Your returned package has been received.'
+        ));
         return response()->json([
             'message' => 'Return order marked as received successfully.',
             'data' => $return->fresh(),
@@ -1375,7 +1278,7 @@ class ReturnOrderController extends Controller
 
         try {
             $return = DB::transaction(function () use ($request, $id) {
-                $return = ReturnOrder::with(['items.orderItem.productVariant', 'user', 'order'])
+                $return = ReturnOrder::with(['items.orderItem.variant', 'user', 'order'])
                     ->lockForUpdate()
                     ->find($id);
 
@@ -1416,12 +1319,35 @@ class ReturnOrderController extends Controller
                         ]);
 
                     }
+                    // damage product
+                    if ($condition === 'damaged' && $item->orderItem && $item->orderItem->variant) {
+                        $product = $item->orderItem->variant->product;
+                        if ($product) {
+                            ProductDamage::create([
+                                'product_id' => $product->id,
+                                'user_id' => $return->user_id,
+                                'reason' => 'Product returned damaged',
+                                'quantity' => $item->quantity,
+                                'status' => 'pending',
+                            ]);
+                        }
+                    }
 
                 }
+                $previousStatus = $return->status;
                 $return->update([
                     'status' => ReturnOrder::STATUS_INSPECTED,
                     'inspected_at' => now(),
                 ]);
+                $this->systemLogService->log(
+                    action: 'return_inspected',
+                    module: 'return_order',
+                    description: "Return #{$return->return_number} was inspected.",
+                    entity: $return,
+                    oldValues: ['status' => $previousStatus],
+                    newValues: ['status' => $return->status, 'items' => $inspectionSummary],
+                );
+
                 return $return;
             });
 
@@ -1433,7 +1359,11 @@ class ReturnOrderController extends Controller
                 'shopping-bag',
                 "/account/returns/{$return->id}"
             );
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                ReturnOrder::STATUS_INSPECTED,
+                'Your returned item has been inspected.'
+            ));
             return response()->json([
                 'message' => 'Return inspected successfully.',
                 'data' => $return->fresh(['items', 'items.refund', 'items.exchange']),
@@ -1447,69 +1377,6 @@ class ReturnOrderController extends Controller
             ], 500);
         }
     }
-    // Admin Stage 4: Mark Complete (Finalize Refund & Exchange Execution)
-    // public function markCompleted(Request $request, $id)
-    // {
-    //     $this->ensureAdmin();
-
-    //     try {
-    //         $return = DB::transaction(function () use ($id) {
-    //             $return = ReturnOrder::with(['items.refund', 'items.exchange', 'user', 'order'])
-    //                 ->lockForUpdate()
-    //                 ->find($id);
-
-    //             if (!$return) {
-    //                 throw new \RuntimeException('Return order not found.');
-    //             }
-
-    //             if ($return->status !== ReturnOrder::STATUS_INSPECTED) {
-    //                 throw new \RuntimeException('Only inspected return requests can be completed.');
-    //             }
-
-    //             if ($return->refund && $return->refund->status === Refund::STATUS_PENDING) {
-    //                 $return->refund->update([
-    //                     'status' => Refund::STATUS_COMPLETED,
-    //                     'processed_at' => now(),
-    //                 ]);
-    //             }
-
-    //             if ($return->exchange && $return->exchange->status === Exchange::STATUS_PROCESSING) {
-    //                 $return->exchange->update([
-    //                     'status' => Exchange::STATUS_RECEIVED,
-    //                     'received_at' => now(),
-    //                 ]);
-    //             }
-
-    //             $return->update([
-    //                 'status' => ReturnOrder::STATUS_COMPLETED,
-    //                 'completed_at' => now(),
-    //             ]);
-
-    //             return $return;
-    //         });
-
-    //         $this->initializeNotification(
-    //             $return->user,
-    //             'Return Completed',
-    //             'Your return process for order #' . $return->order->order_number . ' has been completed.',
-    //             'return order',
-    //             'shopping-bag',
-    //             "/account/returns/{$return->id}"
-    //         );
-
-    //         return response()->json([
-    //             'message' => 'Return order marked as completed successfully.',
-    //             'data' => $return->fresh(['items.refund', 'items.exchange']),
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Complete return failed: ' . $e->getMessage());
-
-    //         return response()->json([
-    //             'message' => 'Error completing return order.',
-    //             'error' => $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
     // Admin Stage 4: Mark Complete (Close return order once every item is done)
     public function completeReturn($id)
     {
@@ -1576,11 +1443,19 @@ class ReturnOrderController extends Controller
                 if (!empty($pendingItems)) {
                     throw new \RuntimeException(implode(' ', $pendingItems));
                 }
-
+                $previousStatus = $return->status;
                 $return->update([
                     'status' => ReturnOrder::STATUS_COMPLETED,
                     'completed_at' => now(),
                 ]);
+                $this->systemLogService->log(
+                    action: 'return_completed',
+                    module: 'return_order',
+                    description: "Return #{$return->return_number} was completed.",
+                    entity: $return,
+                    oldValues: ['status' => $previousStatus],
+                    newValues: ['status' => $return->status],
+                );
 
                 return $return;
             });
@@ -1593,7 +1468,11 @@ class ReturnOrderController extends Controller
                 'shopping-bag',
                 "/account/returns/{$return->id}"
             );
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                ReturnOrder::STATUS_COMPLETED,
+                'Your return has been completed.'
+            ));
             return response()->json([
                 'message' => 'Return order marked as completed successfully.',
                 'data' => $return->fresh(['items.refund', 'items.exchange']),
@@ -1625,13 +1504,23 @@ class ReturnOrderController extends Controller
         if ($return->status !== ReturnOrder::STATUS_REQUESTED) {
             return response()->json(['message' => 'Only requested returns can be rejected.'], 400);
         }
-
+        $previousStatus = $return->status;
         $return->update([
             'status' => ReturnOrder::STATUS_REJECTED,
             'rejected_at' => now(),
             'admin_note' => $request->admin_note,
         ]);
-
+        $this->systemLogService->log(
+            action: 'return_rejected',
+            module: 'return_order',
+            description: "Return #{$return->return_number} was rejected by admin.",
+            entity: $return,
+            oldValues: ['status' => $previousStatus],
+            newValues: [
+                'status' => $return->status,
+                'admin_note' => $return->admin_note,
+            ],
+        );
         $this->initializeNotification(
             $return->user,
             'Return Rejected',
@@ -1640,7 +1529,11 @@ class ReturnOrderController extends Controller
             'shopping-bag',
             "/account/returns/{$return->id}"
         );
-
+        broadcast(new ReturnStatusUpdated(
+            $return->id,
+            ReturnOrder::STATUS_REJECTED,
+            'Your return has been rejected.'
+        ));
         return response()->json(['message' => 'Return rejected successfully.']);
     }
 }

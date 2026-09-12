@@ -1,116 +1,127 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>Invoice #{{ $order->order_number }}</title>
+
+    <title>
+        Order Invoice - {{ $order->order_number }}
+    </title>
+
     <style>
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
         body {
             font-family: DejaVu Sans, sans-serif;
             font-size: 12px;
-            color: #1a1a2e;
-            background: #f4f4f8;
-            padding: 32px;
+            color: #333;
+            margin: 0;
+            padding: 0;
         }
 
-        .inv-card {
-            background: #ffffff;
-            border: 1px solid #e4e4ec;
-            border-radius: 12px;
-            overflow: hidden;
-            max-width: 760px;
-            margin: 0 auto;
-        }
-
-        .inv-stripe-top {
-            height: 4px;
-            background: #1a1a2e;
-        }
-
-        .inv-stripe-bot {
-            height: 3px;
-            background: #1a1a2e;
-        }
-
-        .inv-body {
-            padding: 36px 40px;
-        }
-
-        /* ── HEADER ── */
-        .inv-head {
-            display: table;
+        .invoice {
             width: 100%;
-            margin-bottom: 28px;
+            padding: 30px;
         }
 
-        .col-brand {
-            display: table-cell;
-            width: 55%;
+        /* ================= HEADER ================= */
+
+        .header {
+            width: 100%;
+            margin-bottom: 25px;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .header-table td {
             vertical-align: top;
         }
 
-        .col-meta {
-            display: table-cell;
-            width: 45%;
-            vertical-align: top;
-            text-align: right;
-        }
-
-        .brand-name {
+        .store-name {
             font-size: 24px;
             font-weight: bold;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            color: #1a1a2e;
+            margin-bottom: 5px;
         }
 
-        .brand-sub {
-            font-size: 9px;
-            letter-spacing: 2.5px;
-            text-transform: uppercase;
+        .store-subtitle {
+            font-size: 10px;
             color: #888;
-            margin-top: 3px;
-            margin-bottom: 14px;
-        }
-
-        .brand-info {
-            font-size: 11px;
-            color: #666;
-            line-height: 1.9;
-        }
-
-        .inv-label {
-            font-size: 28px;
-            font-weight: bold;
-            letter-spacing: 6px;
             text-transform: uppercase;
-            color: #1a1a2e;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
         }
-        .inv-meta-rows {
-            margin-top: 10px;
-            font-size: 11px;
+
+        .store-info {
             color: #666;
-            line-height: 2.1;
+            line-height: 1.7;
         }
 
-        .inv-meta-rows strong {
-            color: #1a1a2e;
+        .invoice-title {
+            text-align: right;
+            font-size: 25px;
+            font-weight: bold;
+            letter-spacing: 2px;
         }
 
-        /* Status badge */
+        .invoice-number {
+            text-align: right;
+            margin-top: 8px;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .invoice-number strong {
+            color: #333;
+        }
+
+        .divider {
+            border-top: 2px solid #333;
+            margin: 20px 0;
+        }
+
+        /* ================= INFO ================= */
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+
+        .info-table td {
+            width: 50%;
+            vertical-align: top;
+            padding: 5px 0;
+        }
+
+        .info-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .label {
+            color: #777;
+            display: inline-block;
+            width: 115px;
+        }
+
+        .info-line {
+            line-height: 1.8;
+        }
+
+        /* ================= BADGES ================= */
+
         .badge {
             display: inline-block;
-            padding: 2px 9px;
+            padding: 3px 9px;
             border-radius: 3px;
             font-size: 9px;
             font-weight: bold;
-            letter-spacing: 1px;
             text-transform: uppercase;
         }
 
@@ -129,6 +140,11 @@
             color: #a02020;
         }
 
+        .badge-confirmed {
+            background: #f0f0ff;
+            color: #3c3489;
+        }
+
         .badge-shipping {
             background: #e8f0fe;
             color: #1549a8;
@@ -139,9 +155,9 @@
             color: #1a6b30;
         }
 
-        .badge-confirmed {
-            background: #f0f0ff;
-            color: #3c3489;
+        .badge-completed {
+            background: #e1f5ee;
+            color: #085041;
         }
 
         .badge-returned {
@@ -149,405 +165,424 @@
             color: #a04010;
         }
 
-        .badge-completed {
-            background: #e1f5ee;
-            color: #085041;
-        }
-
         .badge-default {
             background: #f0f0f5;
             color: #555;
         }
 
-        /* ── DIVIDER ── */
-        .inv-divider {
-            border: none;
-            border-top: 1px solid #eeeef4;
-            margin: 0 0 26px;
-        }
+        /* ================= ITEMS ================= */
 
-        /* ── BILLING ── */
-        .section-label {
-            font-size: 9px;
+        .section-title {
             font-weight: bold;
-            letter-spacing: 2.5px;
-            text-transform: uppercase;
-            color: #999;
+            font-size: 13px;
             margin-bottom: 10px;
         }
 
-        .billing-name {
-            font-size: 14px;
-            font-weight: bold;
-            color: #1a1a2e;
-            margin-bottom: 4px;
-        }
-
-        .billing-detail {
-            font-size: 11px;
-            color: #666;
-            line-height: 2;
-        }
-
-        /* ── ITEMS TABLE ── */
         .items-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 28px;
+            margin-top: 15px;
         }
 
-        .items-table thead tr {
-            background: #1a1a2e;
-        }
-
-        .items-table thead th {
-            color: #ffffff;
-            font-size: 9px;
-            font-weight: bold;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            padding: 11px 13px;
+        .items-table th {
+            background: #f2f2f2;
+            border: 1px solid #ddd;
+            padding: 9px;
             text-align: left;
+            font-size: 10px;
+            text-transform: uppercase;
         }
 
-        .items-table thead th.c {
-            text-align: center;
-        }
-
-        .items-table thead th.r {
-            text-align: right;
-        }
-
-        .items-table tbody tr {
-            border-bottom: 1px solid #eeeef4;
-        }
-
-        .items-table tbody tr.even {
-            background: #f9f9fc;
-        }
-
-        .items-table tbody td {
-            padding: 11px 13px;
-            color: #555;
+        .items-table td {
+            border: 1px solid #ddd;
+            padding: 9px;
             vertical-align: middle;
         }
 
-        .items-table tbody td.c {
+        .text-center {
             text-align: center;
         }
 
-        .items-table tbody td.r {
+        .text-right {
             text-align: right;
         }
 
         .product-name {
             font-weight: bold;
-            color: #1a1a2e;
-            font-size: 12.5px;
+            color: #333;
         }
 
-        .variant-tag {
-            display: inline-block;
-            background: #f0f0f5;
-            border: 1px solid #e4e4ec;
-            border-radius: 3px;
-            font-size: 10px;
-            padding: 1px 7px;
+        .variant {
             color: #666;
-        }
-
-        .row-num {
-            font-size: 10px;
-            color: #bbb;
-        }
-
-        /* ── BOTTOM ── */
-        .inv-bottom {
-            display: table;
-            width: 100%;
-        }
-
-        .col-notes {
-            display: table-cell;
-            width: 52%;
-            vertical-align: top;
-            padding-right: 24px;
-        }
-
-        .col-totals {
-            display: table-cell;
-            width: 48%;
-            vertical-align: top;
-        }
-
-        .notes-text {
             font-size: 11px;
-            color: #aaa;
-            line-height: 1.9;
-            margin-top: 8px;
+        }
+
+        /* ================= PAYMENT / NOTES ================= */
+
+        .bottom-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+        }
+
+        .bottom-table>tbody>tr>td {
+            vertical-align: top;
+            width: 50%;
+        }
+
+        .notes-box {
+            padding-right: 25px;
+        }
+
+        .notes {
+            color: #777;
+            line-height: 1.7;
         }
 
         .totals-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
         }
 
         .totals-table td {
-            padding: 9px 13px;
-            border-bottom: 1px solid #eeeef4;
-            color: #666;
+            padding: 7px;
         }
 
-        .totals-table td:last-child {
-            text-align: right;
-        }
-
-        .totals-table .grand td {
-            background: #1a1a2e;
-            color: #ffffff;
+        .totals-table .total {
+            border-top: 2px solid #333;
+            font-size: 15px;
             font-weight: bold;
-            font-size: 13px;
-            border-bottom: none;
         }
 
-        .totals-table .pmnt td {
-            background: #f9f9fc;
-            border-bottom: none;
-            font-size: 11px;
-        }
-
-        .discount-val {
+        .discount {
             color: #c0392b;
         }
 
-        /* ── FOOTER ── */
-        .inv-footer {
-            display: table;
-            width: 100%;
-            margin-top: 32px;
-            padding-top: 20px;
-            border-top: 1px solid #eeeef4;
+        /* ================= PAYMENT BOX ================= */
+
+        .payment-box {
+            margin-top: 25px;
+            padding: 15px;
+            border: 1px solid #ddd;
         }
 
-        .footer-left {
-            display: table-cell;
-            width: 60%;
-            vertical-align: middle;
-        }
-
-        .footer-right {
-            display: table-cell;
-            width: 40%;
-            vertical-align: middle;
-            text-align: right;
-        }
-
-        .footer-ty {
+        .payment-title {
             font-size: 13px;
             font-weight: bold;
-            color: #1a1a2e;
+            margin-bottom: 10px;
         }
 
-        .footer-gen {
+        .payment-line {
+            line-height: 1.8;
+        }
+
+        /* ================= FOOTER ================= */
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #777;
             font-size: 10px;
-            color: #bbb;
-            margin-top: 3px;
-        }
-
-        .footer-brand {
-            font-size: 16px;
-            font-weight: bold;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            color: #ddd;
+            line-height: 1.7;
         }
     </style>
 </head>
 
 <body>
 
-    <div class="inv-card">
-        <div class="inv-stripe-top"></div>
-        <div class="inv-body">
+    <div class="invoice">
 
-            {{-- ══ HEADER ══ --}}
-            <div class="inv-head">
-                <div class="col-brand">
-                    <div class="brand-name">Vendo</div>
-                    <div class="brand-sub">Premium Marketplace</div>
-                    <div class="brand-info">
-                        Phnom Penh, Cambodia<br>
-                        support@vendo.com &nbsp;·&nbsp; +855 XX XXX XXX
-                    </div>
-                </div>
-                <div class="col-meta">
-                    <div class="inv-label">Invoice</div>
-                    <div class="inv-meta-rows">
-                        Invoice # &nbsp;<strong>{{ $order->order_number }}</strong><br>
-                        Date &nbsp;<strong>{{ $order->created_at->format('d M Y') }}</strong><br>
-                        Status &nbsp;
-                        @php
-                            $cls = match ($order->status) {
-                                'paid' => 'badge-paid',
-                                'pending' => 'badge-pending',
-                                'cancelled' => 'badge-cancelled',
-                                'shipping' => 'badge-shipping',
-                                'delivered' => 'badge-delivered',
-                                'confirmed' => 'badge-confirmed',
-                                'returned' => 'badge-returned',
-                                'completed' => 'badge-completed',
-                                default => 'badge-default',
-                            };
-                        @endphp
-                        <span class="badge {{ $cls }}">{{ ucfirst($order->status) }}</span> <br/>
-                        
-                    </div>
+        {{-- ================= HEADER ================= --}}
+        <div class="header">
+            <table class="header-table">
+                <tr>
+                    {{-- STORE --}}
+                    <td>
+                        <div class="store-name">
+                            VENDO STORE
+                        </div>
+                        <div class="store-subtitle">
+                            Premium Marketplace
+                        </div>
+                        <div class="store-info">
+                            Phnom Penh, Cambodia<br>
+                            support@vendo.com<br>
+                            +855 XX XXX XXX
+                        </div>
+                    </td>
 
-                    <span class="badge ">{{ ucfirst($order->payment->payment_method) }}</span>
-                </div>
-            </div>
+                    {{-- INVOICE --}}
+                    <td>
+                        <div class="invoice-title">
+                            INVOICE
+                        </div>
+                        <div class="invoice-number">
+                            Invoice No:
+                            <strong>{{ $order->order_number }}</strong>
+                            <br>
 
-            <hr class="inv-divider">
+                            Date:
+                            <strong>{{ optional($order->created_at)->format('d M Y') }}</strong>
+                            <br>
 
-            {{-- ══ BILLING ══ --}}
-            <div style="margin-bottom:28px;">
-                <div class="section-label">Bill to</div>
-                <div class="billing-name">
-                    {{ $order->user->first_name }} {{ $order->user->last_name }}
-                </div>
-                <div class="billing-detail">
-                    {{ $order->user->email }}<br>
-                    @if($order->address)
-                        {{ $order->address->address_line }}<br>
-                        {{ $order->address->city }}, {{ $order->address->province }} {{ $order->address->postal_code }}<br>
-                        {{ $order->address->phone }}
-                    @else
-                        <span style="color:#ccc;">No address provided</span>
-                    @endif
-                </div>
-            </div>
-
-            {{-- ══ ITEMS ══ --}}
-            <div class="section-label" style="margin-bottom:12px;">Order items</div>
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th style="width:5%">#</th>
-                        <th style="width:40%">Product</th>
-                        <th class="c" style="width:14%">Variant</th>
-                        <th class="c" style="width:9%">Qty</th>
-                        <th class="r" style="width:16%">Unit price</th>
-                        <th class="r" style="width:16%">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($order->items as $index => $item)
-                        <tr class="{{ $index % 2 === 1 ? 'even' : '' }}">
-                            <td><span class="row-num">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</span></td>
-                            <td>
-                                <div class="product-name">{{ $item->product_name ?? 'N/A' }}</div>
-                            </td>
-                            <td class="c">
-                                @if(optional($item->variant)->size)
-                                    <span class="variant-tag">{{ $item->variant->size }}</span>
-                                @else
-                                    <span style="color:#ddd;">—</span>
-                                @endif
-                            </td>
-                            <td class="c">{{ $item->quantity }}</td>
-                            <td class="r">${{ number_format($item->order->original_price, 2) }}</td>
-                            <td class="r" style="font-weight:bold;color:#1a1a2e;">
-                                ${{ number_format($item->price * $item->quantity, 2) }}
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
+                            Status:
+                            @php
+                                $statusClass = match ($order->status) {
+                                    'paid' => 'badge-paid',
+                                    'pending' => 'badge-pending',
+                                    'cancelled' => 'badge-cancelled',
+                                    'confirmed' => 'badge-confirmed',
+                                    'shipping' => 'badge-shipping',
+                                    'delivered' => 'badge-delivered',
+                                    'completed' => 'badge-completed',
+                                    'returned' => 'badge-returned',
+                                    default => 'badge-default',
+                                };
+                            @endphp
+                            <span class="badge {{ $statusClass }}">
+                                {{ ucfirst($order->status ?? 'Pending') }}
+                            </span>
+                        </div>
+                    </td>
+                </tr>
             </table>
+        </div>
 
-            {{-- ══ NOTES + TOTALS ══ --}}
-            <div class="inv-bottom">
-                <div class="col-notes">
-                    <div class="section-label">Notes</div>
-                    <div class="notes-text">
+        <div class="divider"></div>
+
+        {{-- ================= CUSTOMER / ORDER INFORMATION ================= --}}
+        <table class="info-table">
+            <tr>
+                {{-- CUSTOMER --}}
+                <td>
+                    <div class="info-title">
+                        Customer Information
+                    </div>
+                    <div class="info-line">
+                        <strong>
+                            {{ $order->user->first_name ?? '' }}
+                            {{ $order->user->last_name ?? '' }}
+                        </strong>
+                        <br>
+                        <span class="label">Email:</span>
+                        {{ $order->user->email ?? 'N/A' }}
+                        <br>
+                        <span class="label">Contact:</span>
+                        {{ $order->contact ?? 'N/A' }}
+                    </div>
+                </td>
+
+                {{-- ORDER --}}
+                <td>
+                    <div class="info-title">
+                        Order Information
+                    </div>
+                    <div class="info-line">
+                        <span class="label">Order No:</span>
+                        {{ $order->order_number }}
+                        <br>
+                        <span class="label">Payment:</span>
+                        {{ ucfirst(optional($order->payment)->payment_method ?? 'N/A') }}
+                        <br>
+                        <span class="label">Payment Status:</span>
+                        {{ ucfirst(optional($order->payment)->status ?? 'Pending') }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        {{-- ================= SHIPPING ADDRESS ================= --}}
+        @if($order->address)
+            <div class="info-title">
+                Shipping Address
+            </div>
+            <div class="info-line" style="margin-bottom: 25px;">
+                {{ $order->address->address_line ?? '' }}<br>
+                {{ $order->address->city ?? '' }},
+                {{ $order->address->province ?? '' }}
+                @if($order->address->postal_code)
+                    {{ $order->address->postal_code }}
+                @endif
+                <br>
+                Phone: {{ $order->address->phone ?? 'N/A' }}
+            </div>
+        @endif
+
+        {{-- ================= ORDER ITEMS ================= --}}
+        <div class="section-title">
+            Order Items
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width: 6%;">#</th>
+                    <th style="width: 34%;">Product</th>
+                    <th style="width: 20%;">Variant</th>
+                    <th style="width: 10%;" class="text-center">Qty</th>
+                    <th style="width: 15%;" class="text-right">Unit Price</th>
+                    <th style="width: 15%;" class="text-right">Amount</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach($order->items as $index => $item)
+                    <tr>
+                        <td class="text-center">
+                            {{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}
+                        </td>
+
+                        {{-- PRODUCT --}}
+                        <td>
+                            <div class="product-name">
+                                {{ $item->product_name ?? 'N/A' }}
+                            </div>
+                        </td>
+
+                        {{-- VARIANT --}}
+                        <td>
+                            <div class="variant">
+                                @if($item->size || $item->color)
+                                    @if($item->size && $item->color) @endif
+                                    @if($item->color)
+                                        Color: {{ $item->color }}
+                                    @endif
+                                    /
+                                    @if($item->size)
+                                        Size: {{ $item->size }}
+                                    @endif
+
+                                @elseif($item->variant)
+                                    {{ $item->variant->name ?? $item->variant->variant_name ?? $item->variant->sku ?? 'N/A' }}
+                                @else
+                                    N/A
+                                @endif
+                            </div>
+                        </td>
+
+                        {{-- QUANTITY --}}
+                        <td class="text-center">
+                            {{ $item->quantity }}
+                        </td>
+
+                        {{-- UNIT PRICE --}}
+                        <td class="text-right">
+                            ${{ number_format($item->variant->product->price, 2) }}
+                        </td>
+
+                        {{-- TOTAL --}}
+                        <td class="text-right">
+                            <strong>
+                                ${{ number_format($item->variant->product->price * $item->quantity, 2) }}
+                            </strong>
+                        </td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        {{-- ================= NOTES + TOTALS ================= --}}
+        <table class="bottom-table">
+            <tr>
+                {{-- NOTES --}}
+                <td class="notes-box">
+                    <div class="info-title">
+                        Notes
+                    </div>
+                    <div class="notes">
                         @if($order->note)
                             {{ $order->note }}
                         @else
-                            Thank you for your purchase. For any questions regarding
-                            this invoice, please contact support@vendo.com with your order number.
+                            Thank you for your purchase. For any questions regarding this invoice, please contact
+                            support@vendo.com.
                         @endif
                     </div>
-                </div>
+                </td>
 
-                <div class="col-totals">
+                {{-- TOTALS --}}
+                <td>
                     <table class="totals-table">
-
-                        {{-- Subtotal (before any deductions) --}}
+                        {{-- SUBTOTAL --}}
                         <tr>
                             <td>Subtotal</td>
-                            <td>${{ number_format($order->sub_total_price, 2) }}</td>
+                            <td class="text-right">
+                                ${{ number_format($order->original_price ?? 0, 2) }}
+                            </td>
                         </tr>
 
-                        {{-- Discount amount (e.g. sale / manual discount) --}}
+                        {{-- DISCOUNT --}}
                         @if(($order->discount_amount ?? 0) > 0)
                             <tr>
                                 <td>Discount</td>
-                                <td class="discount-val">−${{ number_format($order->discount_amount, 2) }}</td>
+                                <td class="text-right discount">
+                                    −${{ number_format($order->discount_amount, 2) }}
+                                </td>
                             </tr>
                         @endif
 
-                        {{-- Coupon discount (separate from general discount) --}}
+                        {{-- COUPON --}}
                         @if(($order->coupon_discount ?? 0) > 0)
                             <tr>
                                 <td>
                                     Coupon
                                     @if($order->coupon_code)
-                                        <span style="font-size:10px;color:#bbb;">({{ $order->coupon_code }})</span>
+                                        <span style="font-size:10px;color:#999;">({{ $order->coupon_code }})</span>
                                     @endif
                                 </td>
-                                <td class="discount-val">−${{ number_format($order->coupon_discount, 2) }}</td>
+                                <td class="text-right discount">
+                                    −${{ number_format($order->coupon_discount, 2) }}
+                                </td>
                             </tr>
                         @endif
 
-                        {{-- Shipping --}}
+                        {{-- SHIPPING --}}
                         <tr>
                             <td>Shipping</td>
-                            <td>${{ number_format($order->shipping_fee, 2) }}</td>
-                        </tr>
-
-                        {{-- Grand total = total_price, already computed in checkout
-                             (subtotal − coupon discount + shipping). Do NOT
-                             recalculate here — keep a single source of truth. --}}
-                        <tr class="grand">
-                            <td>Grand total</td>
-                            <td>${{ number_format($order->total_price, 2) }}</td>
-                        </tr>
-
-                        {{-- Payment status --}}
-                        <tr class="pmnt">
-                            <td>Payment</td>
-                            <td style="font-weight:bold;color:#1a6b30;">
-                                {{ ucfirst(optional($order->payment)->status ?? 'Pending') }}
+                            <td class="text-right">
+                                ${{ number_format($order->shipping_fee ?? 0, 2) }}
                             </td>
                         </tr>
 
+                        {{-- GRAND TOTAL --}}
+                        <tr class="total">
+                            <td>GRAND TOTAL</td>
+                            <td class="text-right">
+                                ${{ number_format($order->total_price, 2) }}
+                            </td>
+                        </tr>
                     </table>
-                </div>
-            </div>
+                </td>
+            </tr>
+        </table>
 
-            {{-- ══ FOOTER ══ --}}
-            <div class="inv-footer">
-                <div class="footer-left">
-                    <div class="footer-ty">Thank you for shopping with Vendo.</div>
-                    <div class="footer-gen">Generated on {{ now()->format('d M Y · h:i A') }}</div>
-                </div>
-                <div class="footer-right">
-                    <div class="footer-brand">Vendo</div>
-                </div>
+        {{-- ================= PAYMENT INFORMATION ================= --}}
+        <div class="payment-box">
+            <div class="payment-title">
+                Payment Information
             </div>
+            <div class="payment-line">
+                <span class="label">Payment Method:</span>
+                {{ ucfirst(optional($order->payment)->payment_method ?? 'N/A') }}
+                <br>
+                <span class="label">Payment Status:</span>
+                {{ ucfirst(optional($order->payment)->status ?? 'Pending') }}
+
+                @if($order->payment_transaction_id)
+                    <br>
+                    <span class="label">Transaction ID:</span>
+                    {{ $order->payment_transaction_id }}
+                @endif
+            </div>
+        </div>
+
+        {{-- ================= FOOTER ================= --}}
+        <div class="footer">
+            <strong>Thank you for shopping with VENDO STORE.</strong>
 
         </div>
-        <div class="inv-stripe-bot"></div>
+
     </div>
 
 </body>

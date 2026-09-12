@@ -61,6 +61,9 @@ class PosController extends Controller
                 'status' => $order->status,
                 'payment_status' => optional($order->payment)->status,
                 'payment_method' => optional($order->payment)->payment_method,
+                'discount_amount' => $order->discount_amount ?? 0,
+                'coupon_amount' => $order->coupon_discount ?? 0,
+                'coupon_code' => $order->coupon_code ?? null,
                 'shipping_fee' => $order->shipping_fee,
                 'customer' => [
                     'first_name' => $order->user->first_name,

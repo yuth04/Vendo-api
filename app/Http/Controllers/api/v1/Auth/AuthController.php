@@ -10,6 +10,7 @@ use App\Mail\SendCode;
 use App\Mail\WelcomeUserMail;
 use App\Models\LoginHistory;
 use App\Models\Notification;
+use App\Services\SystemLogService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use App\Http\Controllers\Controller;
@@ -26,6 +27,10 @@ use Str;
 
 class AuthController extends Controller
 {
+    public function __construct(protected SystemLogService $systemLogService)
+    {
+
+    }
     use NotifiesUsers;
     private function verifyTurnstile(Request $request): bool
     {
@@ -80,6 +85,7 @@ class AuthController extends Controller
 
             // send email
             Mail::to($validated['email'])->send(new SendCode($verification_code));
+
             return response()->json([
                 'message' => 'Verification code sent to email.'
             ], 201);
@@ -148,6 +154,14 @@ class AuthController extends Controller
             $user->update([
                 'last_login_at' => now()
             ]);
+            $this->systemLogService->log(
+                action: 'login',
+                module: 'Auth',
+                description: "User {$user->email} logged in successfully.",
+                entity: $user,
+                oldValues: null,
+                newValues: ['ip' => $request->ip(), 'user_agent' => $request->userAgent()]
+            );
             return response()->json([
                 'message' => 'Login successful',
                 'user' => [
@@ -259,19 +273,58 @@ class AuthController extends Controller
     }
     public function logout(Request $request)
     {
-        if ($request->user()) {
-            // revoke only current token
-            $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
 
+        if (!$user) {
             return response()->json([
-                'message' => 'Logged out successfully'
-            ]);
+                'message' => 'No authenticated user found'
+            ], 401);
+        }
+
+        // System log before revoking the token
+        $this->systemLogService->log(
+            action: 'logout',
+            module: 'Authentication',
+            description: "User {$user->email} logged out.",
+            entity: $user,
+            oldValues: null,
+            newValues: [
+                'logged_out_at' => now()->toDateTimeString(),
+            ]
+        );
+
+        // Revoke only the current Sanctum token
+        $token = $user->currentAccessToken();
+
+        if ($token) {
+            $token->delete();
         }
 
         return response()->json([
-            'message' => 'No authenticated user found'
-        ], 401);
+            'message' => 'Logged out successfully'
+        ]);
     }
+    // public function logout(Request $request)
+    // {
+    //     if ($user = $request->user()) {
+    //         $this->systemLogService->log(
+    //             action: 'logout',
+    //             module: 'Auth',
+    //             description: "User {$user->email} logged out.",
+    //             entity: $user
+    //         );
+    //         // revoke only current token
+    //         $request->user()->currentAccessToken()->delete();
+
+    //         return response()->json([
+    //             'message' => 'Logged out successfully'
+    //         ]);
+    //     }
+
+    //     return response()->json([
+    //         'message' => 'No authenticated user found'
+    //     ], 401);
+    // }
     public function me(Request $request)
     {
         return response()->json($request->user());
@@ -299,6 +352,13 @@ class AuthController extends Controller
         }
         $user->password = Hash::make($request->new_password);
         $user->save();
+        // Audit Log: Change Password
+        $this->systemLogService->log(
+            action: 'change_password',
+            module: 'Auth',
+            description: "User {$user->email} changed their password.",
+            entity: $user
+        );
         $this->initializeNotification(
             $user,
             'Password Changed',
@@ -371,7 +431,15 @@ class AuthController extends Controller
             ]);
 
             Cache::forget('register_' . $request->email);
-
+            // Audit Log: User Registration & Verification
+            $this->systemLogService->log(
+                action: 'register_verified',
+                module: 'Auth',
+                description: "New user registered and verified email: {$user->email}",
+                entity: $user,
+                oldValues: null,
+                newValues: $user->toArray()
+            );
             $this->initializeNotification(
                 $user,
                 'Welcome, ' . $user->first_name . ' to Vendo Store!',
@@ -420,7 +488,8 @@ class AuthController extends Controller
         ]);
     }
     // Verify otp
-    public function verifycode(Request $request){
+    public function verifycode(Request $request)
+    {
         $request->validate([
             'email' => 'required|email',
             'code' => 'required|digits:6',
@@ -449,7 +518,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Code verified successfully',
-            'reset_token' => $resetToken, 
+            'reset_token' => $resetToken,
         ]);
     }
     // reset password
@@ -480,105 +549,15 @@ class AuthController extends Controller
         $user->reset_token_expire = null;
 
         $user->save();
-
+        // Audit Log: Password Reset
+        $this->systemLogService->log(
+            action: 'reset_password',
+            module: 'Auth',
+            description: "User {$user->email} reset their password.",
+            entity: $user
+        );
         Mail::to($user->email)->send(new PasswordResetSuccess($user));
 
         return response()->json(['message' => 'Password reset successfully']);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // public function forgotPassword(Request $request)
-    // {
-    //     $request->validate([
-    //         'email' => 'required|email|exists:users,email'
-    //     ]);
-    //     $user = User::where('email', $request->email)->first();
-    //     $otp = rand(100000, 999999);
-    //     $expired = 5;
-    //     $user->verification_code = $otp;
-    //     $user->verification_code_expire = now()->addMinutes($expired);
-    //     $user->save();
-    //     Mail::to($user->email)->send(new ForgotPasswordMail($otp, $expired));
-    //     return response()->json([
-    //         'message' => 'Verification code sent to your email'
-    //     ]);
-    // }
-    // // Verify otp
-    // public function verifycode(Request $request)
-    // {
-    //     $request->validate([
-    //         'email' => 'required|email',
-    //         'code' => 'required|digits:6',
-    //     ]);
-
-    //     $user = User::where('email', $request->email)->first();
-
-    //     if (!$user || !$user->verification_code || !$user->verification_code_expire) {
-    //         return response()->json(['message' => 'Invalid verification code'], 400);
-    //     }
-
-    //     if (now()->gt($user->verification_code_expire)) {
-    //         return response()->json(['message' => 'Verification code expired'], 400);
-    //     }
-
-    //     if ($request->code !== $user->verification_code) {
-    //         return response()->json(['message' => 'Invalid verification code'], 400);
-    //     }
-    //     $resetToken = Str::random(64);
-
-    //     $user->verification_code = null;
-    //     $user->verification_code_expire = null;
-    //     $user->reset_token = Hash::make($resetToken);
-    //     $user->reset_token_expire = now()->addMinutes(10);
-    //     $user->save();
-
-    //     return response()->json([
-    //         'message' => 'Code verified successfully',
-    //         'reset_token' => $resetToken, // client stores this and sends it back to resetPassword
-    //     ]);
-    // }
-    // // reset password
-    // public function resetPassword(Request $request)
-    // {
-    //     $request->validate([
-    //         'email' => 'required|email',
-    //         'reset_token' => 'required',
-    //         'password' => 'required|min:8|confirmed',
-    //     ]);
-
-    //     $user = User::where('email', $request->email)->first();
-
-    //     if (!$user || !$user->reset_token || !$user->reset_token_expire) {
-    //         return response()->json(['message' => 'Invalid or expired reset request'], 400);
-    //     }
-
-    //     if (now()->gt($user->reset_token_expire)) {
-    //         return response()->json(['message' => 'Invalid or expired reset request'], 400);
-    //     }
-
-    //     if (!Hash::check($request->reset_token, $user->reset_token)) {
-    //         return response()->json(['message' => 'Invalid or expired reset request'], 400);
-    //     }
-
-    //     $user->password = Hash::make($request->password);
-    //     $user->reset_token = null;
-    //     $user->reset_token_expire = null;
-
-    //     $user->save();
-
-    //     Mail::to($user->email)->send(new PasswordResetSuccess($user));
-
-    //     return response()->json(['message' => 'Password reset successfully']);
-    // }
 }

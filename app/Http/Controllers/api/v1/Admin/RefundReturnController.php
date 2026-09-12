@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api\v1\Admin;
 
+use App\Events\ReturnStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\ReturnCompletedMail;
 use App\Models\Refund;
@@ -175,7 +176,7 @@ class RefundReturnController extends Controller
         ]);
 
         $request->validate([
-            'refund_method' => ['required', Rule::in(self::REFUND_METHODS)],
+            'refund_method' => ['nullable', Rule::in(self::REFUND_METHODS)],
         ]);
 
         try {
@@ -272,7 +273,13 @@ class RefundReturnController extends Controller
                     "/account/returns/{$return->id}"
                 );
             }
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                Refund::STATUS_PROCESSING,
+                'Your refund for order #' .
+                ($return->order->order_number ?? $return->order_id) .
+                ' is being processed.'
+            ));
             return response()->json([
                 'message' => 'Refund processed successfully.',
                 'data' => $return->fresh(['refund', 'items', 'order']),
@@ -338,86 +345,6 @@ class RefundReturnController extends Controller
     }
 
     /**
-     * ADMIN: Mark refund as completed.
-     */
-    public function markRefundCompleted($id)
-    {
-        $this->ensureAdmin();
-
-        try {
-            $return = DB::transaction(function () use ($id) {
-                $return = ReturnOrder::with(['user', 'order', 'refund', 'items'])
-                    ->lockForUpdate()
-                    ->find($id);
-
-                if (!$return) {
-                    throw new \RuntimeException('Return order not found.');
-                }
-
-                $hasRefundItem = $return->items->contains('return_type', ReturnItem::TYPE_REFUND);
-                if (!$hasRefundItem) {
-                    throw new \RuntimeException('This return request does not contain any refund items.');
-                }
-
-                if (!in_array($return->status, [ReturnOrder::STATUS_RECEIVED, ReturnOrder::STATUS_INSPECTED], true)) {
-                    throw new \RuntimeException('Return must be received or inspected first.');
-                }
-
-                if (!$return->refund) {
-                    throw new \RuntimeException('Refund record not found.');
-                }
-
-                if ($return->refund->status === Refund::STATUS_COMPLETED) {
-                    throw new \RuntimeException('Refund is already completed.');
-                }
-
-                $return->refund->update([
-                    'status' => Refund::STATUS_COMPLETED,
-                    'processed_at' => now(),
-                ]);
-
-                $return->update([
-                    'status' => ReturnOrder::STATUS_COMPLETED,
-                    'completed_at' => now(),
-                ]);
-
-                return $return;
-            });
-
-            $this->initializeNotification(
-                $return->user,
-                'Refund Completed',
-                'Your refund for order #' . ($return->order->order_number ?? $return->order_id) . ' has been completed.',
-                'return order',
-                'shopping-bag',
-                "/account/returns/{$return->id}"
-            );
-
-            try {
-                if ($return->user?->email) {
-                    Mail::to($return->user->email)->send(
-                        new ReturnCompletedMail($return->fresh(['refund', 'items']))
-                    );
-                }
-            } catch (\Exception $e) {
-                Log::error('Refund completion email failed: ' . $e->getMessage());
-            }
-
-            return response()->json([
-                'message' => 'Refund completed successfully.',
-                'data' => $return->fresh(['refund', 'items', 'order']),
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('Complete refund failed: ' . $e->getMessage());
-
-            return response()->json([
-                'message' => 'Failed to complete refund.',
-                'error' => $e->getMessage(),
-            ], 400);
-        }
-    }
-
-    /**
      * ADMIN: Complete a refund return (close it out after refund is completed).
      */
     public function completeRefund($id)
@@ -464,7 +391,13 @@ class RefundReturnController extends Controller
             } catch (\Exception $e) {
                 Log::error('Return completion email failed: ' . $e->getMessage());
             }
-
+            broadcast(new ReturnStatusUpdated(
+                $return->id,
+                Refund::STATUS_COMPLETED,
+                'Your refund for order #' .
+                ($return->order->order_number ?? $return->order_id) .
+                ' has been completed.'
+            ));
             return response()->json([
                 'message' => 'Refund completed successfully.',
                 'data' => $return->fresh(['items.refund', 'items']),

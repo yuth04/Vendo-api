@@ -33,6 +33,8 @@ class ReturnItem extends Model
 
     protected $hidden = [
         'reason',
+        // 'exchange',
+        // 'refund'
     ];
 
     public function returnOrder()
@@ -72,6 +74,13 @@ class ReturnItem extends Model
         return $this->hasOne(
             Exchange::class,
             'return_item_id'
+        );
+    }
+    public function returnItems()
+    {
+        return $this->hasMany(
+            ReturnItem::class,
+            'order_item_id'
         );
     }
 }

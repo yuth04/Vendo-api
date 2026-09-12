@@ -4,12 +4,20 @@ namespace App\Http\Controllers\api\v1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Services\SettingService;
+use App\Services\SystemLogService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use ImageKit\ImageKit;
 
 class SettingController extends Controller
 {
+    // Setting Service
+    public function __construct(protected SettingService $setting, protected SystemLogService $systemLogService)
+    {
+
+    }
     // Change Name
     public function changeName(Request $request)
     {
@@ -24,10 +32,22 @@ class SettingController extends Controller
 
         ]);
         $user = auth()->user();
+        $oldValues = $user->only(['first_name', 'last_name']);
         $user->update([
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
         ]);
+        $newValues = $user->only(['first_name', 'last_name']);
+
+        // System Log Audit
+        $this->systemLogService->log(
+            action: 'CHANGE_NAME',
+            module: 'Profile Settings',
+            description: "Changed name from '{$oldValues['first_name']} {$oldValues['last_name']}' to '{$request->first_name} {$request->last_name}'",
+            entity: $user,
+            oldValues: $oldValues,
+            newValues: $newValues
+        );
         return response()->json([
             'message' => 'Name changed successfully',
             'user' => $user,
@@ -46,6 +66,7 @@ class SettingController extends Controller
             'new_password' => 'required|string|min:8|confirmed',
         ]);
         $user = auth()->user();
+
         if (!Hash::check($request->current_password, $user->password)) {
             return response()->json([
                 'message' => 'Current password is incorrect',
@@ -54,6 +75,15 @@ class SettingController extends Controller
         $user->update([
             'password' => Hash::make($request->new_password),
         ]);
+        // System Log Audit
+        $this->systemLogService->log(
+            action: 'CHANGE_PASSWORD',
+            module: 'Profile Settings',
+            description: "User {$user->email} updated their account password.",
+            entity: $user,
+            oldValues: null,
+            newValues: null
+        );
         return response()->json([
             'message' => 'Password changed successfully',
         ], 200);
@@ -71,7 +101,7 @@ class SettingController extends Controller
         ]);
 
         $user = $request->user();
-
+        $oldImage = $user->image;
         $imageKit = new ImageKit(
             config('imagekit.public_key'),
             config('imagekit.private_key'),
@@ -105,7 +135,15 @@ class SettingController extends Controller
                 'image' => $upload->result->url,
                 'image_file_id' => $upload->result->fileId,
             ]);
-
+            // System Log Audit
+            $this->systemLogService->log(
+                action: 'UPDATE_AVATAR',
+                module: 'Profile Settings',
+                description: "User {$user->email} updated their profile image.",
+                entity: $user,
+                oldValues: ['image' => $oldImage],
+                newValues: ['image' => $user->image]
+            );
             return response()->json([
                 'message' => 'Avatar updated successfully',
                 'image' => $user->image,
@@ -118,11 +156,7 @@ class SettingController extends Controller
     }
 
 
-    // Setting Service
-    public function __construct(protected SettingService $setting)
-    {
 
-    }
     public function index()
     {
         return response()->json([
@@ -138,8 +172,12 @@ class SettingController extends Controller
             'currency' => $this->setting->get('currency'),
         ]);
     }
-    public function update(Request $request)
+    public function update(Request $request): JsonResponse
     {
+        if (!in_array(Auth::user()->role, ['super-admin', 'admin'])) {
+            return response()->json(['message' => 'Unauthorized action.'], 403);
+        }
+
         $validated = $request->validate([
             'store_name' => 'required|string|max:255',
             'store_description' => 'nullable|string',
@@ -153,7 +191,7 @@ class SettingController extends Controller
             'favicon' => 'nullable|image|max:1024',
         ]);
 
-        foreach ([
+        $fields = [
             'store_name',
             'store_description',
             'support_email',
@@ -161,23 +199,42 @@ class SettingController extends Controller
             'address',
             'timezone',
             'language',
-            'currency'
-        ] as $field) {
+            'currency',
+        ];
+
+        $oldSettings = [];
+        $newSettings = [];
+
+        foreach ($fields as $field) {
+            $oldSettings[$field] = $this->setting->get($field);
             $this->setting->set($field, $validated[$field]);
+            $newSettings[$field] = $validated[$field];
         }
 
         if ($request->hasFile('store_logo')) {
             $path = $request->file('store_logo')->store('settings', 'public');
             $this->setting->set('store_logo', $path);
+            $newSettings['store_logo'] = $path;
         }
 
         if ($request->hasFile('favicon')) {
             $path = $request->file('favicon')->store('settings', 'public');
             $this->setting->set('favicon', $path);
+            $newSettings['favicon'] = $path;
         }
 
+        // System Log Audit
+        $this->systemLogService->log(
+            action: 'UPDATE_SETTINGS',
+            module: 'Settings',
+            description: 'Updated store configuration by ' . Auth::user()->email,
+            entity: null,
+            oldValues: $oldSettings,
+            newValues: $newSettings
+        );
+
         return response()->json([
-            'message' => 'Settings updated successfully.'
+            'message' => 'Settings updated successfully.',
         ]);
     }
 }

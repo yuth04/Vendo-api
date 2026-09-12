@@ -40,5 +40,12 @@ class OrderItem extends Model
     {
         return $this->belongsTo(ProductVariant::class);
     }
-    
+    public function returnItems()
+    {
+        return $this->hasMany(
+            ReturnItem::class,
+            'order_item_id'
+        );
+    }
+
 }

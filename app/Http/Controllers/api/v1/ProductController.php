@@ -11,6 +11,7 @@ use App\Models\ProductImage;
 use App\Models\ProductVariant;
 use App\Models\User;
 use App\Notifications\NewProductNotification;
+use App\Services\SystemLogService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -23,6 +24,10 @@ use App\Traits\NotifiesUsers;
 class ProductController extends Controller
 {
     use NotifiesUsers;
+    public function __construct(
+        protected SystemLogService $systemLogService
+    ) {
+    }
     private const SIMILARITY_THRESHOLD = 0.25;
     public function index(Request $request)
     {
@@ -158,6 +163,22 @@ class ProductController extends Controller
             'created_by' => $auditInfo,
             'updated_by' => $auditInfo
         ]);
+        // system log
+        $this->systemLogService->log(
+            action: 'product_created',
+            module: 'product',
+            description: "Product \"{$product->productName}\" was created.",
+            entity: $product,
+            newValues: $product->only([
+                'id',
+                'productName',
+                'slug',
+                'price',
+                'category_id',
+                'brand_id',
+                'status',
+            ]),
+        );
         // NOTIFICATION
         $this->notifyAllUsers(
             'New Product Available!',
@@ -187,7 +208,16 @@ class ProductController extends Controller
             ], 403);
         }
         $product = Product::findOrFail($id);
-
+        $originalValues = $product->only([
+            'productName',
+            'slug',
+            'description',
+            'price',
+            'category_id',
+            'brand_id',
+            'image',
+            'status',
+        ]);
         // ✅ Validate
         $validated = $request->validate([
             'productName' => 'required|string|max:255',
@@ -295,6 +325,23 @@ class ProductController extends Controller
                 $product->update(['discount_price' => 0]);
             }
         }
+        $this->systemLogService->log(
+            action: 'product_updated',
+            module: 'product',
+            description: "Product \"{$product->productName}\" was updated.",
+            entity: $product,
+            oldValues: $originalValues,
+            newValues: $product->only([
+                'productName',
+                'slug',
+                'description',
+                'price',
+                'category_id',
+                'brand_id',
+                'image',
+                'status',
+            ]),
+        );
         $this->refreshAllIndex();
         return response()->json([
             'message' => 'Updated product successfully',
@@ -334,7 +381,22 @@ class ProductController extends Controller
                     }
                 }
             }
+            $deletedSnapshot = $product->only([
+                'id',
+                'productName',
+                'slug',
+                'price',
+                'category_id',
+                'brand_id',
+                'status',
+            ]);
             $product->delete();
+            $this->systemLogService->log(
+                action: 'product_deleted',
+                module: 'product',
+                description: "Product \"{$deletedSnapshot['productName']}\" (#{$deletedSnapshot['id']}) was deleted.",
+                oldValues: $deletedSnapshot,
+            );
             $this->refreshAllIndex();
             DB::statement("SELECT setval(pg_get_serial_sequence('products', 'id'), coalesce(max(id), 0) + 1, false) FROM products;");
             return response()->json([
@@ -342,6 +404,7 @@ class ProductController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+
             return response()->json([
                 'message' => 'failed to delete product image',
                 'error' => $e->getMessage()
@@ -378,9 +441,19 @@ class ProductController extends Controller
                 ], 400);
             }
 
+            $oldImage = $product->image;
             // Save new image URL
             $product->image = $upload->result->url;
+
             $product->save();
+            $this->systemLogService->log(
+                action: 'product_image_updated',
+                module: 'product',
+                description: "Image updated for product \"{$product->productName}\".",
+                entity: $product,
+                oldValues: ['image' => $oldImage],
+                newValues: ['image' => $product->image],
+            );
         }
 
         return response()->json([

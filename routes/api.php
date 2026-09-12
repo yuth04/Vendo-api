@@ -8,6 +8,7 @@ use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Admin\RefundReturnController;
+use App\Http\Controllers\api\v1\Admin\SystemLogController;
 use App\Http\Controllers\api\v1\Auth\FacebookAuthController;
 use App\Http\Controllers\api\v1\Customer\AddressController;
 use App\Http\Controllers\api\v1\Admin\DashboardController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\api\v1\Payment\PaymentController;
 use App\Http\Controllers\api\v1\ProductController;
 use App\Http\Controllers\api\v1\ProductVariantController;
 use App\Http\Controllers\api\v1\Customer\ProfileController;
+use App\Http\Controllers\api\v1\Reports\ReportController;
 use App\Http\Controllers\api\v1\ReviewController;
 use App\Http\Controllers\api\v1\Admin\UpdateStatusController;
 use App\Http\Controllers\api\v1\Customer\UserController;
@@ -60,6 +62,10 @@ Route::prefix('v1')->group(function () {
     Route::get(
         '/orders/{orderId}/invoice',
         [ExportController::class, 'downloadInvoice']
+    );
+    Route::get(
+        '/returns/invoice/{id}',
+        [ExportController::class, 'exportReturnInvoice']
     );
     // uptimerobot for no-sleep
     Route::get('/health', function () {
@@ -144,7 +150,7 @@ Route::prefix('v1')->group(function () {
 
     // ------------------- PROTECTED -------------------
     Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
-        Route::get('/orders/returnable-items/{orderId}',[ExchangeReturnController::class, 'getReturnableItem']);
+        Route::get('/orders/returnable-items/{orderId}', [ExchangeReturnController::class, 'getReturnableItem']);
         // Notifications
         Route::prefix('notifications')->group(function () {
             Route::get('/', [NotifyController::class, 'getAll']);
@@ -158,7 +164,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/user', function (Request $request) {
             return $request->user();
         });
-        
+
         // Return Order
         Route::post('/return-orders', [ReturnOrderController::class, 'store']);
         Route::get('/return-orders', [ReturnOrderController::class, 'index']);
@@ -183,8 +189,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/orders/cancel/{order}', [OrderController::class, 'cancel']);
         Route::delete('/orders/{orderId}', [OrderController::class, 'destroy']);
         // Bakong Payment
-        // Route::post('/payments/khqr/generate', [PaymentController::class, 'generate']);
-        Route::post('/payments/khqr/regenerate', [OrderController::class, 'regenerateKhqr']);
+        // Route::post('/payments/khqr/regenerate', [OrderController::class, 'regenerateKhqr']);
         Route::get('/payments/khqr/status', [PaymentController::class, 'checkStatus']);
         // Route::post('/payments/bakong/callback', [PaymentController::class, 'handle']);
 
@@ -327,8 +332,8 @@ Route::prefix('v1')->group(function () {
             Route::delete('/reviews-reply/{id}', [ReviewController::class, 'delete']);
 
             // Reports
-            Route::get('/sale-reports', [DashboardController::class, 'salesReport']);
-            Route::get('/product-reports', [DashboardController::class, 'productsReport']);
+            Route::get('/sale-reports', [ReportController::class, 'salesReport']);
+            Route::get('/product-reports', [ReportController::class, 'productsReport']);
 
             // Dashboard
             Route::prefix('dashboard')->group(function () {
@@ -362,6 +367,14 @@ Route::prefix('v1')->group(function () {
             // SUPER ADMIN ONLY — danger zone
             Route::middleware(['role:super-admin'])->group(function () {
                 Route::put('/users/role/{id}', [UserController::class, 'updateRoleUser']);
+            });
+            // System Log Routes
+            Route::prefix('system-logs')->group(function () {
+                Route::get('/', [SystemLogController::class, 'index']);             
+                Route::get('/stats', [SystemLogController::class, 'statistics']);  
+                Route::get('/{id}', [SystemLogController::class, 'show']);          
+                Route::delete('/clear', [SystemLogController::class, 'clear']);      
+                Route::delete('/{id}', [SystemLogController::class, 'destroy']);     
             });
         });
     });
