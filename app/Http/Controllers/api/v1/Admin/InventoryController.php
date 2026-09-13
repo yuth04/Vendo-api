@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\api\v1\Admin;
 
+use App\Events\InventoryAgingAlertEvent;
 use App\Http\Controllers\Controller;
 use App\Models\InventoryBatch;
 use App\Models\Product;
+use App\Models\User;
+use App\Notifications\InventoryAgingAlertNotification;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
@@ -83,7 +86,6 @@ class InventoryController extends Controller
                 'stock_age_status' => $batch->stock_age_status,
                 'reference_type' => $batch->reference_type,
                 'reference_id' => $batch->reference_id,
-
                 'product_variant' => $batch->productVariant,
 
             ];
@@ -96,7 +98,6 @@ class InventoryController extends Controller
             'data' => $data,
         ]);
     }
-
     /**
      * Get a single inventory batch.
      */
@@ -146,13 +147,11 @@ class InventoryController extends Controller
         // Low stock: 1 - 5
         $lowStockProducts = Product::with([
             'variants' => function ($query) {
-                $query->where('stock', '>', 0)
-                    ->where('stock', '<=', 5);
+                $query->where('stock', '>', 0)->where('stock', '<=', 5);
             }
         ])
             ->whereHas('variants', function ($query) {
-                $query->where('stock', '>', 0)
-                    ->where('stock', '<=', 5);
+                $query->where('stock', '>', 0)->where('stock', '<=', 5);
             })
             ->get();
 
@@ -167,86 +166,203 @@ class InventoryController extends Controller
             })
             ->get();
 
-        // Aging: 6 - 8 months
-        $agingStock = InventoryBatch::with([
-            'productVariant.product'
-        ])
-            ->where('remaining_quantity', '>', 0)
-            ->where('stock_in_date', '<=', now()->subMonths(6))
-            ->where('stock_in_date', '>', now()->subMonths(9))
-            ->orderBy('stock_in_date', 'asc')
-            ->get()
-            ->map(function ($batch) {
-                return [
-                    'id' => $batch->id,
-                    'product_variant_id' => $batch->product_variant_id,
-                    'quantity' => $batch->quantity,
-                    'remaining_quantity' => $batch->remaining_quantity,
-                    'unit_cost' => $batch->unit_cost,
-                    'stock_in_date' => $batch->stock_in_date,
-                    'age_in_months' => $batch->age_in_months,
-                    'stock_age_status' => $batch->stock_age_status,
-                    'product_variant' => $batch->productVariant,
-                ];
-            });
+        // Aging: 6 - 8 months (slow_moving)
+        $agingStock = $this->getBatchesByAgeRange(6, 9);
 
         // Old stock: 9 - 11 months
-        $oldStock = InventoryBatch::with([
-            'productVariant.product'
-        ])
-            ->where('remaining_quantity', '>', 0)
-            ->where('stock_in_date', '<=', now()->subMonths(9))
-            ->where('stock_in_date', '>', now()->subMonths(12))
-            ->orderBy('stock_in_date', 'asc')
-            ->get()
-            ->map(function ($batch) {
-                return [
-                    'id' => $batch->id,
-                    'product_variant_id' => $batch->product_variant_id,
-                    'quantity' => $batch->quantity,
-                    'remaining_quantity' => $batch->remaining_quantity,
-                    'unit_cost' => $batch->unit_cost,
-                    'stock_in_date' => $batch->stock_in_date,
-                    'age_in_months' => $batch->age_in_months,
-                    'stock_age_status' => $batch->stock_age_status,
-                    'product_variant' => $batch->productVariant,
-                ];
-            });
+        $oldStock = $this->getBatchesByAgeRange(9, 12);
 
         // Dead stock: 12+ months
-        $deadStock = InventoryBatch::with([
-            'productVariant.product'
-        ])
-            ->where('remaining_quantity', '>', 0)
-            ->where('stock_in_date', '<=', now()->subMonths(12))
-            ->orderBy('stock_in_date', 'asc')
-            ->get()
-            ->map(function ($batch) {
-                return [
-                    'id' => $batch->id,
-                    'product_variant_id' => $batch->product_variant_id,
-                    'quantity' => $batch->quantity,
-                    'remaining_quantity' => $batch->remaining_quantity,
-                    'unit_cost' => $batch->unit_cost,
-                    'stock_in_date' => $batch->stock_in_date,
-                    'age_in_months' => $batch->age_in_months,
-                    'stock_age_status' => $batch->stock_age_status,
-                    'product_variant' => $batch->productVariant,
-                ];
-            });
+        $deadStock = $this->getBatchesByAgeRange(12);
+
+        // Trigger notifications for admins when aging/old/dead stock items are present
+        $this->notifyAdminsForAgingStock($agingStock, 'slow_moving');
+        $this->notifyAdminsForAgingStock($oldStock, 'old_stock');
+        $this->notifyAdminsForAgingStock($deadStock, 'dead_stock');
 
         return response()->json([
             'message' => 'Stock alerts retrieved successfully.',
-
             'data' => [
                 'low_stock' => $lowStockProducts,
                 'out_of_stock' => $outOfStockProducts,
-
                 'aging_stock' => $agingStock,
                 'old_stock' => $oldStock,
                 'dead_stock' => $deadStock,
             ],
         ]);
     }
+    private function getBatchesByAgeRange(int $minMonths, ?int $maxMonths = null)
+    {
+        $query = InventoryBatch::with(['productVariant.product'])
+            ->where('remaining_quantity', '>', 0)
+            ->where('stock_in_date', '<=', now()->subMonths($minMonths));
+
+        if ($maxMonths) {
+            $query->where('stock_in_date', '>', now()->subMonths($maxMonths));
+        }
+
+        return $query->orderBy('stock_in_date', 'asc')
+            ->get()
+            ->map(function ($batch) {
+                return [
+                    'id' => $batch->id,
+                    'product_variant_id' => $batch->product_variant_id,
+                    'quantity' => $batch->quantity,
+                    'remaining_quantity' => $batch->remaining_quantity,
+                    'unit_cost' => $batch->unit_cost,
+                    'stock_in_date' => $batch->stock_in_date,
+                    'age_in_months' => $batch->age_in_months,
+                    'stock_age_status' => $batch->stock_age_status,
+                    'product_variant' => $batch->productVariant,
+                ];
+            });
+    }
+    private function notifyAdminsForAgingStock($batches, string $alertType): void
+    {
+        if ($batches->isEmpty()) {
+            return;
+        }
+
+        // Get admin users
+        $admins = User::where('role', 'admin')->get();
+
+        foreach ($batches as $batch) {
+            $variant = $batch['product_variant'] ?? null;
+            $product = $variant->product ?? null;
+
+            if (!$product)
+                continue;
+
+            $payload = [
+                'product_id' => $product->id,
+                'product_name' => $product->name ?? 'Product',
+                'size' => $variant->size ?? '—',
+                'color' => $variant->color ?? '—',
+                'stock' => $batch['remaining_quantity'],
+                'alert_type' => $alertType,
+                'age_in_months' => $batch['age_in_months'] ?? 0,
+                'remaining_quantity' => $batch['remaining_quantity'],
+            ];
+
+            foreach ($admins as $admin) {
+                // Check if an unread notification already exists for this batch alert
+                $alreadyNotified = $admin->unreadNotifications()
+                    ->where('data->product_id', $product->id)
+                    ->where('data->alert_type', $alertType)
+                    ->exists();
+
+                if (!$alreadyNotified) {
+                    $admin->notify(new InventoryAgingAlertNotification($payload));
+                }
+            }
+        }
+    }
+    // public function stockAlerts()
+    // {
+    //     // Low stock: 1 - 5
+    //     $lowStockProducts = Product::with([
+    //         'variants' => function ($query) {
+    //             $query->where('stock', '>', 0)
+    //                 ->where('stock', '<=', 5);
+    //         }
+    //     ])
+    //         ->whereHas('variants', function ($query) {
+    //             $query->where('stock', '>', 0)
+    //                 ->where('stock', '<=', 5);
+    //         })
+    //         ->get();
+
+    //     // Out of stock: 0
+    //     $outOfStockProducts = Product::with([
+    //         'variants' => function ($query) {
+    //             $query->where('stock', 0);
+    //         }
+    //     ])
+    //         ->whereHas('variants', function ($query) {
+    //             $query->where('stock', 0);
+    //         })
+    //         ->get();
+
+    //     // Aging: 6 - 8 months
+    //     $agingStock = InventoryBatch::with([
+    //         'productVariant.product'
+    //     ])
+    //         ->where('remaining_quantity', '>', 0)
+    //         ->where('stock_in_date', '<=', now()->subMonths(6))
+    //         ->where('stock_in_date', '>', now()->subMonths(9))
+    //         ->orderBy('stock_in_date', 'asc')
+    //         ->get()
+    //         ->map(function ($batch) {
+    //             return [
+    //                 'id' => $batch->id,
+    //                 'product_variant_id' => $batch->product_variant_id,
+    //                 'quantity' => $batch->quantity,
+    //                 'remaining_quantity' => $batch->remaining_quantity,
+    //                 'unit_cost' => $batch->unit_cost,
+    //                 'stock_in_date' => $batch->stock_in_date,
+    //                 'age_in_months' => $batch->age_in_months,
+    //                 'stock_age_status' => $batch->stock_age_status,
+    //                 'product_variant' => $batch->productVariant,
+    //             ];
+    //         });
+
+    //     // Old stock: 9 - 11 months
+    //     $oldStock = InventoryBatch::with([
+    //         'productVariant.product'
+    //     ])
+    //         ->where('remaining_quantity', '>', 0)
+    //         ->where('stock_in_date', '<=', now()->subMonths(9))
+    //         ->where('stock_in_date', '>', now()->subMonths(12))
+    //         ->orderBy('stock_in_date', 'asc')
+    //         ->get()
+    //         ->map(function ($batch) {
+    //             return [
+    //                 'id' => $batch->id,
+    //                 'product_variant_id' => $batch->product_variant_id,
+    //                 'quantity' => $batch->quantity,
+    //                 'remaining_quantity' => $batch->remaining_quantity,
+    //                 'unit_cost' => $batch->unit_cost,
+    //                 'stock_in_date' => $batch->stock_in_date,
+    //                 'age_in_months' => $batch->age_in_months,
+    //                 'stock_age_status' => $batch->stock_age_status,
+    //                 'product_variant' => $batch->productVariant,
+    //             ];
+    //         });
+
+    //     // Dead stock: 12+ months
+    //     $deadStock = InventoryBatch::with([
+    //         'productVariant.product'
+    //     ])
+    //         ->where('remaining_quantity', '>', 0)
+    //         ->where('stock_in_date', '<=', now()->subMonths(12))
+    //         ->orderBy('stock_in_date', 'asc')
+    //         ->get()
+    //         ->map(function ($batch) {
+    //             return [
+    //                 'id' => $batch->id,
+    //                 'product_variant_id' => $batch->product_variant_id,
+    //                 'quantity' => $batch->quantity,
+    //                 'remaining_quantity' => $batch->remaining_quantity,
+    //                 'unit_cost' => $batch->unit_cost,
+    //                 'stock_in_date' => $batch->stock_in_date,
+    //                 'age_in_months' => $batch->age_in_months,
+    //                 'stock_age_status' => $batch->stock_age_status,
+    //                 'product_variant' => $batch->productVariant,
+    //             ];
+    //         });
+
+    //     return response()->json([
+    //         'message' => 'Stock alerts retrieved successfully.',
+
+    //         'data' => [
+    //             'low_stock' => $lowStockProducts,
+    //             'out_of_stock' => $outOfStockProducts,
+
+    //             'aging_stock' => $agingStock,
+    //             'old_stock' => $oldStock,
+    //             'dead_stock' => $deadStock,
+    //         ],
+    //     ]);
+    // }
 
 }

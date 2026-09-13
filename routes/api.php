@@ -5,7 +5,6 @@
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\ExchangeReturnController;
 use App\Http\Controllers\api\v1\Admin\InventoryController;
-use App\Http\Controllers\api\v1\Admin\NotificationController;
 use App\Http\Controllers\api\v1\Admin\ProductDamageController;
 use App\Http\Controllers\api\v1\Admin\ProductPermissionController;
 use App\Http\Controllers\api\v1\Admin\RefundReturnController;
@@ -22,6 +21,7 @@ use App\Http\Controllers\api\v1\Marketing\CarouselController;
 use App\Http\Controllers\api\v1\CategoryController;
 use App\Http\Controllers\api\v1\Auth\GoogleAuthController;
 use App\Http\Controllers\api\v1\Marketing\DiscountController;
+use App\Http\Controllers\api\v1\Notification\NotificationController;
 use App\Http\Controllers\api\v1\NotifyController;
 use App\Http\Controllers\api\v1\Orders\OrderController;
 use App\Http\Controllers\api\v1\Orders\ReturnOrderController;

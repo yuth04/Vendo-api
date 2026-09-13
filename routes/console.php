@@ -10,3 +10,4 @@ Schedule::command('discounts:check-expired')
     ->everyMinute();
 Schedule::command('payments:expire-khqr')
     ->everyMinute();
+Schedule::command('inventory:check-aging')->dailyAt('08:00');

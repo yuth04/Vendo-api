@@ -28,7 +28,21 @@ class DashboardController extends Controller
         // 2. Base Queries
         $ordersQuery = Order::whereBetween('created_at', [$start, $end]);
         $returnQuery = ReturnOrder::whereBetween('created_at', [$start, $end]);
+        $activeOrders = (clone $ordersQuery)
+            ->whereNotIn('status', ['cancelled', 'returned'])
+            ->count();
+        //  Resolve Dynamic Comparison Time Range Label
+        $filter = $request->get('filter', 'today');
+        $timeRangeLabel = $this->getTimeRangeLabel($filter);
+        // Sum total revenue from completed/valid orders
+        $totalRevenue = (clone $ordersQuery)
+            ->whereNotIn('status', ['cancelled', 'returned'])
+            ->sum('total_price');
 
+        // 3. Calculate Average Order Value (AOV)
+        $avgOrderValue = $activeOrders > 0
+            ? round($totalRevenue / $activeOrders, 2)
+            : 0;
         // 3. Core Metrics Calculations
         $totalOrders = (clone $ordersQuery)->count();
         $previousOrders = Order::whereBetween('created_at', [$previousStart, $previousEnd])->count();
@@ -62,7 +76,7 @@ class DashboardController extends Controller
         // 6. Return Structured JSON Response
         return response()->json([
             'message' => 'Welcome to the Dashboard API',
-            'filter' => $request->get('filter', 'today'),
+            'filter' => $filter,
             'date_range' => [
                 'start' => $start->toDateTimeString(),
                 'end' => $end->toDateTimeString(),
@@ -73,12 +87,14 @@ class DashboardController extends Controller
                 'profit_margin' => $profitMargin . '% Margin',
                 'active_orders' => (clone $ordersQuery)->where('status', '!=', 'completed')->count(),
                 'orders_percentage_change' => $ordersPercentageChange,
+                "avg_order_value" => $avgOrderValue,
                 'total_customers' => $totalCustomers,
                 'customers_percentage_change' => $customersPercentageChange,
                 'new_customers_count' => '+' . $currentNewCustomers . ' new this period',
                 'total_products' => Product::count(),
                 'total_brands_label' => $totalBrands . ' Brands',
                 'total_brands' => $totalBrands,
+                'time_range_label' => $timeRangeLabel,
                 'order_statistics' => [
                     'total_orders' => $totalOrders,
                     'pending' => (clone $ordersQuery)->where('status', 'pending')->count(),
@@ -119,7 +135,23 @@ class DashboardController extends Controller
             ],
         ]);
     }
-
+    function getTimeRangeLabel(?string $filter): string
+    {
+        switch (strtolower($filter ?? '')) {
+            case 'today':
+                return 'from yesterday';
+            case 'yesterday':
+                return 'from day before';
+            case 'week':
+                return 'from last week';
+            case 'month':
+                return 'from last month';
+            case 'year':
+                return 'from last year';
+            default:
+                return 'from previous period';
+        }
+    }
     // Inventory Alerts
     private function formatLowStockAlert($variant): array
     {
@@ -132,6 +164,7 @@ class DashboardController extends Controller
             'color' => $variant->color,
             'stock' => $variant->stock,
             'alert_type' => 'low_stock',
+            'product_image' => $variant->product->image
         ];
     }
     // 
@@ -146,13 +179,12 @@ class DashboardController extends Controller
             'color' => $variant->color,
             'stock' => 0,
             'alert_type' => 'out_of_stock',
+            'product_image' => $variant->product->image
         ];
     }
     // 
-    private function formatInventoryBatchAlert(
-        InventoryBatch $batch,
-        string $alertType
-    ): array {
+    private function formatInventoryBatchAlert(InventoryBatch $batch, string $alertType): array
+    {
         $variant = $batch->productVariant;
 
         return [
@@ -175,8 +207,8 @@ class DashboardController extends Controller
             'age_in_months' => $batch->age_in_months,
 
             'stock_age_status' => $alertType,
-
             'alert_type' => $alertType,
+            'product_image' => $variant->product->image
         ];
     }
     private function getInventoryAlerts()
@@ -414,20 +446,6 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
     }
-    // Add this helper function at the bottom of your controller
-    private function getActiveBrandsCount(Carbon $start, Carbon $end): int
-    {
-        return DB::table('order_items')
-            ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
-            ->join('products', 'product_variants.product_id', '=', 'products.id')
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->join('payments', 'orders.id', '=', 'payments.order_id')
-            ->where('payments.status', 'paid')
-            ->whereBetween('orders.created_at', [$start, $end])
-            ->whereNotNull('products.brand_id')
-            ->distinct('products.brand_id')
-            ->count('products.brand_id');
-    }
     public function orderStat()
     {
         return response()->json([
@@ -542,24 +560,6 @@ class DashboardController extends Controller
             'data' => $data
         ]);
     }
-    // stock alert 
-    // public function stockAlert()
-    // {
-    //     $products = Product::whereHas('variants', function ($query) {
-    //         $query->where('stock', '<=', 5);
-    //     })->get();
-    //     $admins = User::where('role', 'admin')->get();
-
-    //     foreach ($products as $product) {
-    //         Notification::send($admins, new LowStockNotification($product));
-    //     }
-    //     return response()->json([
-    //         'message' => 'Low Stock Alert',
-    //         'data' => $products
-    //     ]);
-    // }
-
-
     public function stockAlerts()
     {
         // Low stock: 1 - 5
@@ -667,7 +667,37 @@ class DashboardController extends Controller
             ],
         ]);
     }
+    // stock alert 
+    // public function stockAlert()
+    // {
+    //     $products = Product::whereHas('variants', function ($query) {
+    //         $query->where('stock', '<=', 5);
+    //     })->get();
+    //     $admins = User::where('role', 'admin')->get();
 
+    //     foreach ($products as $product) {
+    //         Notification::send($admins, new LowStockNotification($product));
+    //     }
+    //     return response()->json([
+    //         'message' => 'Low Stock Alert',
+    //         'data' => $products
+    //     ]);
+    // }
+
+    // Add this helper function at the bottom of your controller
+    // private function getActiveBrandsCount(Carbon $start, Carbon $end): int
+    // {
+    //     return DB::table('order_items')
+    //         ->join('product_variants', 'order_items.product_variant_id', '=', 'product_variants.id')
+    //         ->join('products', 'product_variants.product_id', '=', 'products.id')
+    //         ->join('orders', 'order_items.order_id', '=', 'orders.id')
+    //         ->join('payments', 'orders.id', '=', 'payments.order_id')
+    //         ->where('payments.status', 'paid')
+    //         ->whereBetween('orders.created_at', [$start, $end])
+    //         ->whereNotNull('products.brand_id')
+    //         ->distinct('products.brand_id')
+    //         ->count('products.brand_id');
+    // }
 
 
 

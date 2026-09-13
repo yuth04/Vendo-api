@@ -12,3 +12,6 @@ Broadcast::channel('notifications.{userId}', function ($user, $userId) {
 Broadcast::channel('user.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
+Broadcast::channel('admin-notifications.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});

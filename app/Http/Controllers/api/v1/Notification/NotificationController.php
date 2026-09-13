@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\api\v1\Admin;
+namespace App\Http\Controllers\api\v1\Notification;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
