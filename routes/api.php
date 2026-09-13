@@ -2,6 +2,7 @@
 
 
 
+use App\Http\Controllers\api\v1\Notification\AdminNotifyController;
 use App\Http\Controllers\api\v1\Admin\CouponController;
 use App\Http\Controllers\api\v1\Admin\ExchangeReturnController;
 use App\Http\Controllers\api\v1\Admin\InventoryController;
@@ -323,6 +324,13 @@ Route::prefix('v1')->group(function () {
             Route::get('/notifications', [NotificationController::class, 'notifications']);
             Route::get('/notifications/{id}', [NotificationController::class, 'getById']);
             Route::post('/notifications/{id}', [NotificationController::class, 'markAsSeen']);
+            // Route::get('/notifications', [AdminNotifyController::class, 'getAll']);
+            // Route::get('/notifications/unread-count', [AdminNotifyController::class, 'unreadCount']);
+            // Route::post('/notifications/{id}/read', [AdminNotifyController::class, 'markAsRead']);
+            // Route::post('/notifications/{id}/redirect', [AdminNotifyController::class, 'redirect']);
+            // Route::post('/notifications/read-all', [AdminNotifyController::class, 'markAllAsRead']);
+            // Route::delete('/notifications/{id}', [AdminNotifyController::class, 'delete']);
+            // Route::delete('/notifications/clear-all', [AdminNotifyController::class, 'clearAll']);
 
             // Reviews — moderation
             Route::get('/reviews-reply', [ReviewController::class, 'getAll']);

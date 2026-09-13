@@ -96,7 +96,7 @@ class CheckInventoryAging extends Command
                             'title' => $cat['title'],
                             'message' => $message,
                             'type' => $cat['type'],
-                            'url' => '/admin/inventory/alerts',
+                            'url' => '/admin/stock',
                             'is_read' => false,
                             'icon' => 'alert-triangle',
                         ]);
