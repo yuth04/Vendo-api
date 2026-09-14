@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\api\v1\Notification;
 
 use App\Http\Controllers\Controller;
-use App\Models\Notification;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    private function timeAgoShort($time)
+    function timeAgoShort($time)
     {
         $time = Carbon::parse($time);
         $now = Carbon::now();
@@ -34,121 +33,122 @@ class NotificationController extends Controller
 
         return "last {$diffInDays}d";
     }
-
-    /**
-     * Get recent unseen order notifications formatted for redirection.
-     */
+    // Get the latest 10 unseen orders with their details
     public function notifications()
     {
-        $orders = Order::with('user')
+        $orders = Order::with(['items.product', 'user'])
             ->where('is_seen', false)
             ->latest()
             ->take(10)
             ->get()
             ->map(function ($order) {
-                $customerName = trim(($order->user->first_name ?? '') . ' ' . ($order->user->last_name ?? ''));
-
                 return [
                     'id' => $order->id,
-                    'title' => 'New Order Received',
-                    'message' => 'Order #' . $order->id . ' placed by ' . ($customerName ?: 'Customer'),
+                    'message' => 'Order ID ' . $order->id,
+                    'first_name' => $order->user->first_name,
+                    'last_name' => $order->user->last_name,
+                    'image' => $order->user->image,
                     'total' => $order->total_price,
-                    'url' => '/admin/orders/' . $order->id,
-                    'is_seen' => (bool) $order->is_seen,
-                    'time_ago' => $this->timeAgoShort($order->created_at),
-                    'created_at' => $order->created_at ? $order->created_at->toIso8601String() : null,
+                    'time' => $order->time_ago,
+                    'products' => $order->items->map(function ($item) {
+                        return [
+                            'name' => $item->product_name ?? ($item->product->name ?? 'Unknown'),
+                            'qty' => $item->quantity,
+                            'size' => $item->size,
+                            'color' => $item->color,
+                        ];
+                    })
                 ];
             });
 
         return response()->json([
-            'orders' => $orders,
-            'unseen_count' => $orders->count(),
+            'orders' => $orders
         ]);
     }
-
-    /**
-     * Mark an order as seen when clicked by the admin.
-     */
+    // Mark a specific order as seen
     public function markAsSeen($id)
     {
-        $order = Order::findOrFail($id);
-        $order->update(['is_seen' => true]);
+        Order::where('id', $id)->update([
+            'is_seen' => true
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+    // Get a specific order by ID
+    public function getById($id)
+    {
+        $order = Order::with(['items.product', 'user'])
+            ->where('is_seen', false)
+            ->find($id);
+
+        if (!$order) {
+            return response()->json([
+                'message' => 'Order not found'
+            ], 404);
+        }
 
         return response()->json([
-            'success' => true,
-            'message' => 'Order marked as seen.',
-            'redirect_url' => '/admin/orders/' . $id
+            'order' => [
+                'id' => $order->id,
+                'message' => 'Order ID ' . $order->id,
+                'first_name' => $order->user->first_name,
+                'last_name' => $order->user->last_name,
+                'email' => $order->user->email,
+                'image' => $order->user->image,
+                'total' => $order->total_price,
+                'time' => $order->time_ago,
+                'products' => $order->items->map(function ($item) {
+                    return [
+                        'name' => $item->product_name ?? ($item->product->name ?? 'Unknown'),
+                        'qty' => $item->quantity,
+                        'size' => $item->size,
+                        'color' => $item->color,
+                        'image' => $item->product_image
+                    ];
+                })
+            ]
         ]);
     }
-
-    /**
-     * Get system notifications using your custom Notification model.
-     */
-    public function index(Request $request)
+    public function index()
     {
-        $userId = $request->user()->id;
-
-        $notifications = Notification::where('user_id', $userId)
+        $notifications = auth()->user()
+            ->notifications()
             ->latest()
             ->get()
             ->map(function ($notification) {
                 return [
                     'id' => $notification->id,
-                    'title' => $notification->title,
-                    'message' => $notification->message,
-                    'type' => $notification->type,
-                    'url' => $notification->url,
-                    'icon' => $notification->icon,
-                    'is_read' => (bool) $notification->is_read,
-                    'time_ago' => $this->timeAgoShort($notification->created_at),
-                    'created_at' => Carbon::parse($notification->created_at)->format('d-m-Y g:i:s A'),
+                    'data' => $notification->data,
+                    'read' => !is_null($notification->read_at),
+                    'created_at' => \Carbon\Carbon::parse($notification->created_at)
+                        ->format('d-m-Y g:i:s A'),
                 ];
             });
 
-        $unreadCount = Notification::where('user_id', $userId)
-            ->where('is_read', false)
-            ->count();
-
         return response()->json([
             'message' => 'Notifications retrieved successfully',
-            'unread_count' => $unreadCount,
             'notifications' => $notifications,
+            'unread_count' => auth()->user()->unreadNotifications()->count(),
         ]);
     }
-
-    /**
-     * Mark a specific notification as read.
-     */
-    public function markAsRead(Request $request, $id)
+    // Mark a specific notification as read
+    public function markAsRead($id)
     {
-        $notification = Notification::where('user_id', $request->user()->id)->findOrFail($id);
-        $notification->update(['is_read' => true]);
+        auth()->user()->notifications()->findOrFail($id)->markAsRead();
 
-        return response()->json([
-            'message' => 'Notification marked as read',
-            'redirect_url' => $notification->url
-        ]);
+        return response()->json(['message' => 'Notification marked as read']);
     }
-
-    /**
-     * Mark all notifications as read.
-     */
-    public function markAllAsRead(Request $request)
+    // Mark all notifications as read
+    public function markAllAsRead()
     {
-        Notification::where('user_id', $request->user()->id)
-            ->where('is_read', false)
-            ->update(['is_read' => true]);
+        auth()->user()->unreadNotifications->markAsRead();
 
         return response()->json(['message' => 'All notifications marked as read']);
     }
-
-    /**
-     * Delete a specific notification.
-     */
-    public function destroy(Request $request, $id)
+    // Delete a specific notification
+    public function destroy($id)
     {
-        $notification = Notification::where('user_id', $request->user()->id)->findOrFail($id);
-        $notification->delete();
+        auth()->user()->notifications()->findOrFail($id)->delete();
 
         return response()->json(['message' => 'Notification deleted']);
     }
